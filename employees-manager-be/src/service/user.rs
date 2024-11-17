@@ -10,19 +10,24 @@ use crate::{
 };
 
 use super::db::{get_database_service, DatabaseDocument};
-use base64ct::{Base64, Encoding};
 
 pub async fn login(username: &str, password: &str) -> Result<db_entities::User, AppError> {
     let db = &get_database_service().await.db;
     let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
-    let hashed_password = hash_password(password);
     let filter = doc! {
         "username": username,
-        "password_hash": hashed_password
     };
     let query_result = collection.find_one(filter).await?;
     if let Some(user_document) = query_result {
-        Ok(user_document)
+        if bcrypt::verify(password, &user_document.password_hash).map_err(|e| {
+            AppError::InternalServerError(anyhow!(format!(
+                "Error in password hash verification. Got {e}"
+            )))
+        })? {
+            Ok(user_document)
+        } else {
+            Err(AuthError::WrongCredentials)?
+        }
     } else {
         Err(AuthError::WrongCredentials)?
     }
@@ -79,7 +84,7 @@ pub async fn create_user(
     let user_model = db_entities::User {
         id: None,
         username,
-        password_hash: hash_password(&password),
+        password_hash: hash_password(&password)?,
         api_key: None,
         email,
         name,
@@ -129,7 +134,7 @@ pub async fn update_user(
         update.insert("email", email_str);
     }
     if let Some(password_str) = password {
-        update.insert("password_hash", hash_password(&password_str));
+        update.insert("password_hash", hash_password(&password_str)?);
     }
     if let Some(name_str) = name {
         update.insert("name", name_str);
@@ -150,8 +155,10 @@ pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
         .await
 }
 
-fn hash_password(password: &str) -> String {
-    Base64::encode_string(password.as_bytes())
+fn hash_password(password: &str) -> Result<String, AppError> {
+    bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|e| {
+        AppError::InternalServerError(anyhow!(format!("Error in hashing password. Got {e}")))
+    })
 }
 
 #[cfg(test)]
@@ -294,7 +301,7 @@ mod tests {
         let user_id_result = db_entities::User {
             id: None,
             username: username.into(),
-            password_hash: hash_password(password),
+            password_hash: hash_password(password).unwrap(),
             api_key: None,
             name,
             email,

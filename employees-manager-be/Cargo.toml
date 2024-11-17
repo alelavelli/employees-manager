@@ -52,6 +52,8 @@ base64ct = { version = "1.6.0", features = ["alloc"] }
 # queue rabbitmq
 amqprs = "1.5.4"
 uuid = { version = "1.8.0", features = ["v4"] }
+# password hashing
+bcrypt = "0.15.1"
 
 [dev-dependencies]
 mockall = "0.12.1"

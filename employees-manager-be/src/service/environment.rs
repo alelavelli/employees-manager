@@ -23,11 +23,18 @@ impl EnvironmentVariables {
     fn new() -> Self {
         // during testing use hardcoded custom env variables
 
-        let local = std::env::var("LOCAL")
-            .map(|value| value.to_lowercase().cmp(&"true".to_string()).is_eq())
-            .unwrap_or(false);
-        let deploy_environment =
-            std::env::var("DEPLOY_ENVIRONMENT").expect("DEPLOY_ENVIRONMENT must be set");
+        let local = if cfg!(test) {
+            true
+        } else {
+            std::env::var("LOCAL")
+                .map(|value| value.to_lowercase().cmp(&"true".to_string()).is_eq())
+                .unwrap_or(false)
+        };
+        let deploy_environment = if cfg!(test) {
+            "test".to_string()
+        } else {
+            std::env::var("DEPLOY_ENVIRONMENT").expect("DEPLOY_ENVIRONMENT must be set")
+        };
         EnvironmentVariables {
             logging: Self::build_logging(&local, &deploy_environment),
             authentication: Self::build_authentication(&local, &deploy_environment),
