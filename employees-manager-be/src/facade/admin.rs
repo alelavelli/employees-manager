@@ -1,5 +1,3 @@
-use tracing::debug;
-
 use crate::{
     auth::AuthInfo,
     dtos::{web_app_request, web_app_response},
@@ -13,10 +11,6 @@ pub async fn get_user(
     user_id: DocumentId,
 ) -> Result<web_app_response::User, AppError> {
     // access control over auth info
-    debug!(
-        "Making access control for auth_info with user {}",
-        auth_info.user_id()
-    );
     AccessControl::new(auth_info).is_platform_admin().await?;
     let user_model = user::get_user(&user_id).await?;
     Ok(web_app_response::User {
@@ -32,10 +26,6 @@ pub async fn create_user(
     payload: web_app_request::CreateUser,
 ) -> Result<String, AppError> {
     // access control over auth info
-    debug!(
-        "Making access control for auth_info with user {}",
-        auth_info.user_id()
-    );
     AccessControl::new(auth_info).is_platform_admin().await?;
     user::create_user(
         payload.username,
@@ -45,4 +35,9 @@ pub async fn create_user(
         payload.surname,
     )
     .await
+}
+
+pub async fn delete_user(auth_info: impl AuthInfo, user_id: DocumentId) -> Result<(), AppError> {
+    AccessControl::new(auth_info).is_platform_admin().await?;
+    user::delete_user(&user_id).await
 }

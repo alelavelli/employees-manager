@@ -6,8 +6,8 @@ The structure is the following:
 
 - a User registered into the portal can belong to one or more companies in which plays different roles, it could be the admin of a Company or a simple User
 - a Company has a list of User that are part of it
-- the Role identifies what operations a User can do for the Company but it differs from what the User is inside the it. For instance, an Employee can be Company Admin because he manages the portal but is not the CEO. Hence, the Role is considered only from the RBAC point of view
-- Job Title represents the job the Employee has on the Company. A Company administrator defines the list of Job Title available for the Company
+- the Role identifies what operations a User can do for the Company but it differs from the job title the User has with it. For instance, an Employee can be Company Admin because he manages the portal but is not the CEO. Hence, the Role is considered only from the RBAC point of view
+- Job Title represents the job the Employee has in the Company. A Company administrator defines the list of Job Title available for the Company
 - when a registered User creates a Company it is the Owner and can add other existing User to the Company inviting them and assigning Admin or User role and a Job Title
 - the Management team is a group of User inside the Company that are responsible to accept or deny requests from the Employees in the Company
 - a Admin can add or remove User to Management team

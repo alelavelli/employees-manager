@@ -6,7 +6,7 @@ use crate::{
 
 use axum::{
     extract::Path,
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use once_cell::sync::Lazy;
@@ -18,6 +18,7 @@ pub static ADMIN_ROUTER: Lazy<Router> = Lazy::new(|| {
     Router::new()
         .route("/user/:id", get(get_user))
         .route("/user", post(create_user))
+        .route("/user/:id", delete(delete_user))
 });
 
 /// Returns the user if it exists with all the information
@@ -38,4 +39,9 @@ async fn create_user(
 ) -> Result<AppJson<String>, AppError> {
     let user = facade::create_user(jwt_claim, payload).await?;
     Ok(AppJson(user))
+}
+
+/// Delete user from the application
+async fn delete_user(jwt_claim: JWTAuthClaim, Path(id): Path<DocumentId>) -> Result<(), AppError> {
+    facade::delete_user(jwt_claim, id).await
 }

@@ -6,8 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum CompanyRole {
     /// Basic user
+    ///
+    /// A User is a standard employee that uses the application functionalities
     User,
     /// Admin user
+    ///
+    /// A user that has administration privileges, he can assign Users to the Company
     Admin,
     /// Owner user, it is like the Admin but it cannot be removed
     Owner,
