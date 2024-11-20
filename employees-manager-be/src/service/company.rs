@@ -19,7 +19,11 @@ pub async fn create_company(
     name: String,
     job_title: String,
 ) -> Result<String, AppError> {
-    let company_model = db_entities::Company { id: None, name };
+    let company_model = db_entities::Company {
+        id: None,
+        name,
+        active: true,
+    };
     let company_id = company_model.save().await?;
     let company_id_object_id = ObjectId::from_str(&company_id);
     if company_id_object_id.is_err() {
@@ -209,6 +213,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
 
@@ -225,6 +230,7 @@ mod tests {
         let company = db_entities::Company {
             id: None,
             name: "My Company".into(),
+            active: true,
         };
         let company_id = ObjectId::from_str(&company.save().await.unwrap()).unwrap();
         let first_user = db_entities::User {
@@ -236,6 +242,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let first_user_id = ObjectId::from_str(&first_user.save().await.unwrap()).unwrap();
         let first_assignment = db_entities::UserCompanyAssignment {
@@ -255,6 +262,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let second_user_id = ObjectId::from_str(&second_user.save().await.unwrap()).unwrap();
         let second_assignment = db_entities::UserCompanyAssignment {
@@ -284,6 +292,7 @@ mod tests {
         let company = db_entities::Company {
             id: None,
             name: "My Company".into(),
+            active: true,
         };
         let company_id = ObjectId::from_str(&company.save().await.unwrap()).unwrap();
         let first_user = db_entities::User {
@@ -295,6 +304,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let first_user_id = ObjectId::from_str(&first_user.save().await.unwrap()).unwrap();
 
@@ -323,6 +333,7 @@ mod tests {
         let company = db_entities::Company {
             id: None,
             name: "My Company".into(),
+            active: true,
         };
         let company_id = ObjectId::from_str(&company.save().await.unwrap()).unwrap();
         let first_user = db_entities::User {
@@ -334,6 +345,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let first_user_id = ObjectId::from_str(&first_user.save().await.unwrap()).unwrap();
         let first_assignment = db_entities::UserCompanyAssignment {
@@ -368,6 +380,7 @@ mod tests {
         let company = db_entities::Company {
             id: None,
             name: "My Company".into(),
+            active: true,
         };
         let company_id = ObjectId::from_str(&company.save().await.unwrap()).unwrap();
         let first_user = db_entities::User {
@@ -379,6 +392,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let first_user_id = ObjectId::from_str(&first_user.save().await.unwrap()).unwrap();
         let first_assignment = db_entities::UserCompanyAssignment {

@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
 /// Enumeration with roles assigned to Users for a Company
@@ -28,6 +29,16 @@ impl Display for CompanyRole {
                 CompanyRole::User => "User",
             }
         )
+    }
+}
+
+impl Into<Bson> for CompanyRole {
+    fn into(self) -> Bson {
+        match self {
+            CompanyRole::User => Bson::String("User".to_string()),
+            CompanyRole::Admin => Bson::String("Admin".to_string()),
+            CompanyRole::Owner => Bson::String("Owner".to_string()),
+        }
     }
 }
 

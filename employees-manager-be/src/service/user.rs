@@ -1,9 +1,13 @@
 use anyhow::anyhow;
 use futures::TryStreamExt;
-use mongodb::{bson::doc, options::FindOptions};
+use mongodb::{
+    bson::{doc, oid::ObjectId},
+    options::FindOptions,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    enums::CompanyRole,
     error::{AppError, AuthError},
     model::db_entities,
     DocumentId,
@@ -91,8 +95,49 @@ pub async fn create_user(
         surname,
         // by default users are always not platform admin
         platform_admin: false,
+        active: true,
     };
     user_model.save().await
+}
+
+/// Deactivate user
+/// Instead of deleting permanently from the application, a deactivated user cannot perform any operation
+/// but he still exist in the database.
+/// Deactivating a user determine the deactivation of all companies for which he is owner
+pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
+    let db_service = get_database_service().await;
+
+    // Find the companies for which the user is owner
+    let assignment = db_service
+        .db
+        .collection::<db_entities::UserCompanyAssignment>(
+            db_entities::UserCompanyAssignment::collection_name(),
+        );
+    let filter = doc! { "user_id": user_id, "role": CompanyRole::Owner};
+    let companies: Vec<db_entities::UserCompanyAssignment> =
+        assignment.find(filter).await?.try_collect().await?;
+
+    // Transaction start
+    let session = db_service.create_transaction_session().await?;
+
+    let update = doc! {"$set": {"active": false}};
+    session
+        .update_document::<db_entities::User>(user_id, update)
+        .await?;
+
+    let update = doc! { "$set": { "active": false }};
+    session
+        .update_documents::<db_entities::Company>(
+            &companies
+                .iter()
+                .map(|company| company.id.expect("company document should have object id"))
+                .collect::<Vec<ObjectId>>(),
+            update,
+        )
+        .await?;
+
+    // Transaction end
+    session.commit_transaction().await
 }
 
 /// Delete the user and all his the company assignments
@@ -209,6 +254,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
 
@@ -245,6 +291,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
         let deleted_user_result = delete_user(&user_id).await;
@@ -271,6 +318,7 @@ mod tests {
             surname: "Smith".into(),
             api_key: None,
             platform_admin: false,
+            active: true,
         };
         let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
 
@@ -307,6 +355,7 @@ mod tests {
             email,
             surname,
             platform_admin: false,
+            active: true,
         }
         .save()
         .await;

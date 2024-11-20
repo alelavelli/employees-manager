@@ -4,7 +4,7 @@ use axum::async_trait;
 use mongodb::{
     bson::{doc, Document},
     options::ClientOptions,
-    Client, Database,
+    Client, ClientSession, Database,
 };
 use uuid::Uuid;
 
@@ -66,7 +66,9 @@ pub async fn get_database_service() -> Arc<DatabaseService> {
 /// Database service struct that contain access to the database
 #[derive(Debug)]
 pub struct DatabaseService {
+    client: Client,
     pub db: Database,
+    session: Option<ClientSession>,
 }
 
 impl DatabaseService {
@@ -80,14 +82,49 @@ impl DatabaseService {
             let client = Client::with_options(client_options)?;
 
             let db = client.database(&db_name);
-            Ok(DatabaseService { db })
+            Ok(DatabaseService {
+                client,
+                db,
+                session: None,
+            })
         } else {
             let client_options =
                 ClientOptions::parse(&ENVIRONMENT.database.connection_string).await?;
             let client = Client::with_options(client_options)?;
 
             let db = client.database(&ENVIRONMENT.database.db_name);
-            Ok(DatabaseService { db })
+            Ok(DatabaseService {
+                client,
+                db,
+                session: None,
+            })
+        }
+    }
+
+    /// Returns a new instance of DatabaseService created from a transaction
+    ///
+    /// Note that any operation will not do anything until commit_transaction method
+    /// is called.
+    pub async fn create_transaction_session(&self) -> Result<DatabaseService, AppError> {
+        let mut session = self.client.start_session().await?;
+        session.start_transaction().await?;
+
+        Ok(DatabaseService {
+            client: session.client(),
+            db: session.client().database(&ENVIRONMENT.database.db_name),
+            session: Some(session),
+        })
+    }
+
+    /// Consumes the actual database service and commits the transaction
+    pub async fn commit_transaction(self) -> Result<(), AppError> {
+        if let Some(mut session) = self.session {
+            session.commit_transaction().await?;
+            Ok(())
+        } else {
+            Err(AppError::InternalServerError(anyhow!(
+                "Requested to commit a transaction when it does not exist"
+            )))
         }
     }
 
@@ -125,6 +162,26 @@ impl DatabaseService {
             Err(AppError::InternalServerError(anyhow!(format!(
                 "Something went wrong when updating document with id {} for collection {}",
                 document_id,
+                T::collection_name()
+            ))))
+        }
+    }
+
+    /// Update a set of documents from the database
+    pub async fn update_documents<T: DatabaseDocument + Send + Sync>(
+        &self,
+        document_ids: &Vec<DocumentId>,
+        update: Document,
+    ) -> Result<(), AppError> {
+        let collection = self.db.collection::<T>(T::collection_name());
+        let query = doc! { "_id": {"$in": document_ids}};
+        let result = collection.update_many(query, update).await?;
+        if result.matched_count == result.modified_count {
+            Ok(())
+        } else {
+            Err(AppError::InternalServerError(anyhow!(format!(
+                "Something went wrong when updating documents with ids {:?} for collection {}",
+                document_ids,
                 T::collection_name()
             ))))
         }

@@ -22,6 +22,8 @@ pub struct User {
     pub api_key: Option<String>,
     /// if the user is global platform administrator
     pub platform_admin: bool,
+    /// if the user is active and can operate on application
+    pub active: bool,
 }
 
 /// Assignment of a user to a company
@@ -53,6 +55,9 @@ pub struct Company {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<DocumentId>,
     pub name: String,
+    /// If the company is active, it is automatically deactivated when the
+    /// owner is deactivated
+    pub active: bool,
 }
 
 /// Employee request in a company
