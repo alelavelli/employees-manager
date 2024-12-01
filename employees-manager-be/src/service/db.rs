@@ -1,6 +1,7 @@
 use std::{borrow::Borrow, str::FromStr, sync::Arc};
 
 use axum::async_trait;
+use futures::{StreamExt, TryStreamExt};
 use mongodb::{
     bson::{doc, Document},
     options::ClientOptions,
@@ -17,7 +18,7 @@ use crate::{
 use anyhow::anyhow;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::serde_helpers::serialize_object_id_as_hex_string;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 
 use tokio::sync::OnceCell;
 
@@ -370,6 +371,26 @@ pub trait DatabaseDocument: Sized + Sync + Serialize {
                 Self::collection_name()
             ))))
         }
+    }
+
+    async fn find_one<T>(query: Document) -> Result<Option<T>, AppError>
+    where
+        T: DatabaseDocument + Send + DeserializeOwned,
+    {
+        let db_service = get_database_service().await;
+        let collection = db_service.db.collection::<T>(T::collection_name());
+        let result = collection.find_one(query).await?;
+        Ok(result)
+    }
+
+    async fn find_many<T>(query: Document) -> Result<Vec<T>, AppError>
+    where
+        T: DatabaseDocument + Send + DeserializeOwned,
+    {
+        let db_service = get_database_service().await;
+        let collection = db_service.db.collection::<T>(T::collection_name());
+        let result: Vec<T> = collection.find(query).await?.try_collect().await?;
+        Ok(result)
     }
 
     async fn update_one(
