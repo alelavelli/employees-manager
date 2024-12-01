@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use axum::{
     extract::rejection::JsonRejection,
     http::StatusCode,
@@ -87,6 +88,16 @@ impl From<mongodb::error::Error> for AppError {
     }
 }
 
+impl From<DatabaseError> for AppError {
+    fn from(value: DatabaseError) -> Self {
+        match value {
+            DatabaseError::TransactionNotStarted => {
+                AppError::InternalServerError(anyhow!("Transaction not started"))
+            }
+        }
+    }
+}
+
 /// AuthError is an internal error used by authentication modules to explain why
 /// authentication is failed.
 /// They are translated to `AppError` when exposed to the client
@@ -118,4 +129,10 @@ impl AuthError {
         };
         (status, message)
     }
+}
+
+#[derive(Debug)]
+pub enum DatabaseError {
+    /// When an operation over a transaction is executed but the transaction is not started yet
+    TransactionNotStarted,
 }

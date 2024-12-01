@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc};
+use std::{borrow::Borrow, str::FromStr, sync::Arc};
 
 use axum::async_trait;
 use mongodb::{
@@ -8,7 +8,11 @@ use mongodb::{
 };
 use uuid::Uuid;
 
-use crate::{error::AppError, service::environment::ENVIRONMENT, DocumentId};
+use crate::{
+    error::{AppError, DatabaseError},
+    service::environment::ENVIRONMENT,
+    DocumentId,
+};
 
 use anyhow::anyhow;
 use mongodb::bson::oid::ObjectId;
@@ -63,12 +67,13 @@ pub async fn get_database_service() -> Arc<DatabaseService> {
     }
 }
 
-/// Database service struct that contain access to the database
+/// Database service struct
+///
+/// It connects to the database and creates session objects to perform transactions
 #[derive(Debug)]
 pub struct DatabaseService {
     client: Client,
     pub db: Database,
-    session: Option<ClientSession>,
 }
 
 impl DatabaseService {
@@ -82,135 +87,283 @@ impl DatabaseService {
             let client = Client::with_options(client_options)?;
 
             let db = client.database(&db_name);
-            Ok(DatabaseService {
-                client,
-                db,
-                session: None,
-            })
+            Ok(DatabaseService { client, db })
         } else {
             let client_options =
                 ClientOptions::parse(&ENVIRONMENT.database.connection_string).await?;
             let client = Client::with_options(client_options)?;
 
             let db = client.database(&ENVIRONMENT.database.db_name);
-            Ok(DatabaseService {
-                client,
-                db,
-                session: None,
-            })
+            Ok(DatabaseService { client, db })
         }
     }
 
-    /// Returns a new instance of DatabaseService created from a transaction
-    ///
-    /// Note that any operation will not do anything until commit_transaction method
-    /// is called.
-    pub async fn create_transaction_session(&self) -> Result<DatabaseService, AppError> {
-        let mut session = self.client.start_session().await?;
-        session.start_transaction().await?;
+    /// Create new session from the client to start a new transaction and returns DatabaseTransaction instance
+    pub async fn new_transaction(&self) -> Result<DatabaseTransaction, AppError> {
+        Ok(DatabaseTransaction::new(self.client.start_session().await?))
+    }
+}
 
-        Ok(DatabaseService {
-            client: session.client(),
-            db: session.client().database(&ENVIRONMENT.database.db_name),
-            session: Some(session),
-        })
+/// Wraps database operations inside the transaction allowing to commit or abort everything.
+///
+/// When the object is created the transaction is not started yet and any operation will fail if
+/// the user service does not start the transaction
+pub struct DatabaseTransaction {
+    session: ClientSession,
+    transaction_started: bool,
+}
+
+impl DatabaseTransaction {
+    fn new(session: ClientSession) -> DatabaseTransaction {
+        DatabaseTransaction {
+            session,
+            transaction_started: false,
+        }
     }
 
-    /// Consumes the actual database service and commits the transaction
-    pub async fn commit_transaction(self) -> Result<(), AppError> {
-        if let Some(mut session) = self.session {
-            session.commit_transaction().await?;
+    async fn start_transaction(&mut self) -> Result<(), AppError> {
+        self.session.start_transaction().await?;
+        self.transaction_started = true;
+        Ok(())
+    }
+
+    async fn abort_transaction(mut self) -> Result<(), AppError> {
+        if self.transaction_started {
+            self.session.abort_transaction().await?;
+        }
+        Ok(())
+    }
+
+    async fn commit_transaction(mut self) -> Result<(), AppError> {
+        if self.transaction_started {
+            self.session.commit_transaction().await?;
+        }
+        Ok(())
+    }
+
+    pub async fn insert_one<T>(&mut self, document: &T) -> Result<String, AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            let outcome = collection
+                .insert_one(document)
+                .session(&mut self.session)
+                .await?;
+            let id = outcome.inserted_id.as_object_id().unwrap().to_hex();
+            Ok(id)
+        } else {
+            Err(DatabaseError::TransactionNotStarted.into())
+        }
+    }
+
+    pub async fn insert_many<T>(&mut self, documents: Vec<&T>) -> Result<(), AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            collection
+                .insert_many(documents)
+                .session(&mut self.session)
+                .await?;
             Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Requested to commit a transaction when it does not exist"
-            )))
+            Err(DatabaseError::TransactionNotStarted.into())
         }
     }
 
-    /// Delete the document from the database
-    pub async fn delete_document<T: DatabaseDocument + Send + Sync>(
-        &self,
-        document_id: &DocumentId,
-    ) -> Result<(), AppError> {
-        let collection = self.db.collection::<T>(T::collection_name());
-        let filter = doc! { "_id": document_id};
-        let result = collection.delete_one(filter).await?;
-        if result.deleted_count >= 1 {
+    pub async fn update_one<T>(&mut self, query: Document, update: Document) -> Result<(), AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            collection
+                .update_one(query, update)
+                .session(&mut self.session)
+                .await?;
             Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(format!(
-                "Something went wrong when deleting document with id {} for collection {}",
-                document_id,
-                T::collection_name()
-            ))))
+            Err(DatabaseError::TransactionNotStarted.into())
         }
     }
 
-    /// Update the document from the database
-    pub async fn update_document<T: DatabaseDocument + Send + Sync>(
-        &self,
-        document_id: &DocumentId,
+    pub async fn update_many<T>(
+        &mut self,
+        query: Document,
         update: Document,
-    ) -> Result<(), AppError> {
-        let collection = self.db.collection::<T>(T::collection_name());
-        let query = doc! { "_id": document_id};
-        let result = collection.update_one(query, update).await?;
-        if result.matched_count == result.modified_count {
+    ) -> Result<(), AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            collection
+                .update_many(query, update)
+                .session(&mut self.session)
+                .await?;
             Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(format!(
-                "Something went wrong when updating document with id {} for collection {}",
-                document_id,
-                T::collection_name()
-            ))))
+            Err(DatabaseError::TransactionNotStarted.into())
         }
     }
 
-    /// Update a set of documents from the database
-    pub async fn update_documents<T: DatabaseDocument + Send + Sync>(
-        &self,
-        document_ids: &Vec<DocumentId>,
-        update: Document,
-    ) -> Result<(), AppError> {
-        let collection = self.db.collection::<T>(T::collection_name());
-        let query = doc! { "_id": {"$in": document_ids}};
-        let result = collection.update_many(query, update).await?;
-        if result.matched_count == result.modified_count {
+    pub async fn replace_one<T>(&mut self, query: Document, replacement: &T) -> Result<(), AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize + Borrow<T>,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            collection
+                .replace_one(query, replacement)
+                .session(&mut self.session)
+                .await?;
             Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(format!(
-                "Something went wrong when updating documents with ids {:?} for collection {}",
-                document_ids,
-                T::collection_name()
-            ))))
+            Err(DatabaseError::TransactionNotStarted.into())
+        }
+    }
+
+    pub async fn delete_one<T>(&mut self, filter: Document) -> Result<(), AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            collection
+                .delete_one(filter)
+                .session(&mut self.session)
+                .await?;
+            Ok(())
+        } else {
+            Err(DatabaseError::TransactionNotStarted.into())
+        }
+    }
+
+    pub async fn delete_many<T>(&mut self, filter: Document) -> Result<(), AppError>
+    where
+        T: DatabaseDocument + Send + Sync + Serialize,
+    {
+        if self.transaction_started {
+            let db = self
+                .session
+                .client()
+                .database(&ENVIRONMENT.database.db_name);
+            let collection = db.collection::<T>(T::collection_name());
+            collection
+                .delete_many(filter)
+                .session(&mut self.session)
+                .await?;
+            Ok(())
+        } else {
+            Err(DatabaseError::TransactionNotStarted.into())
         }
     }
 }
 
+/// Trait that defines the behavior for each collection in database.
+///
+/// Operations divide in methods and functions.
+/// Methods are save and delete and refers only to the current instance.
+///
+/// Functions are general and operate outside the instance
 #[async_trait]
-pub trait DatabaseDocument {
-    fn get_id(&self) -> Result<&DocumentId, AppError>;
+pub trait DatabaseDocument: Sized + Sync + Serialize {
+    fn get_id(&self) -> Option<&DocumentId>;
+    fn set_id(&mut self, document_id: &str);
     fn collection_name() -> &'static str;
 
-    async fn save(&self) -> Result<String, AppError>
+    /// Save the document on the database
+    ///
+    /// It insert the new document or update it if it already exists.
+    /// If the transaction parameter is present then the operation is added to the transaction
+    async fn save(
+        &mut self,
+        transaction: Option<&mut DatabaseTransaction>,
+    ) -> Result<String, AppError>
     where
-        Self: Sized + Serialize + Send,
+        Self: Sized + Serialize + Send + Clone,
     {
-        let db = &get_database_service().await.db;
-        let collection = db.collection::<Self>(Self::collection_name());
-        let outcome = collection.insert_one(self).await?;
-        let id = outcome.inserted_id.as_object_id().unwrap().to_hex();
-        Ok(id)
+        // TODO: improve the save operation by computing the diff with the document in the database and call the update method
+        let document_id = if let Some(document_id) = self.get_id() {
+            let query = doc! {"_id": document_id};
+            // the document already exists, hence we call replace_one method
+            if let Some(transaction) = transaction {
+                transaction.replace_one(query, self).await?;
+                document_id.to_hex()
+            } else {
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                collection.replace_one(query, self.clone()).await?;
+                document_id.to_hex()
+            }
+        } else {
+            // the document does not exist in the database, hence we call insert_one method
+            if let Some(transaction) = transaction {
+                transaction.insert_one(self).await?
+            } else {
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                let outcome = collection.insert_one(&mut *self).await?;
+                let id = outcome.inserted_id.as_object_id().unwrap().to_hex();
+                id
+            }
+        };
+        self.set_id(&document_id);
+        Ok(document_id)
     }
 
-    async fn delete(&self) -> Result<(), AppError>
+    /// Delete the current document from the database
+    ///
+    /// Returns Err if the document does not exist
+    async fn delete(&self, transaction: Option<&mut DatabaseTransaction>) -> Result<(), AppError>
     where
         Self: Sized + Serialize + Send,
     {
-        let db_service = get_database_service().await;
-        if let Ok(document_id) = self.get_id() {
-            db_service.delete_document::<Self>(document_id).await
+        if let Some(document_id) = self.get_id() {
+            let query = doc! {"_id": document_id};
+            if let Some(transaction) = transaction {
+                transaction.delete_one::<Self>(query).await
+            } else {
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                let result = collection.delete_one(query).await?;
+                if result.deleted_count >= 1 {
+                    Ok(())
+                } else {
+                    Err(AppError::InternalServerError(anyhow!(format!(
+                        "Something went wrong when deleting document with id {} for collection {}",
+                        document_id,
+                        Self::collection_name()
+                    ))))
+                }
+            }
         } else {
             Err(AppError::InternalServerError(anyhow!(format!(
                 "Something went wrong when deleting collection {} because there is not ObjectId",
@@ -219,20 +372,71 @@ pub trait DatabaseDocument {
         }
     }
 
-    async fn update(&self, update: Document) -> Result<(), AppError>
-    where
-        Self: Sized + Serialize + Send,
-    {
-        let db_service = get_database_service().await;
-        if let Ok(document_id) = self.get_id() {
-            db_service
-                .update_document::<Self>(document_id, update)
-                .await
+    async fn update_one(
+        query: Document,
+        update: Document,
+        transaction: Option<&mut DatabaseTransaction>,
+    ) -> Result<(), AppError> {
+        if let Some(transaction) = transaction {
+            transaction.update_one::<Self>(query, update).await
         } else {
-            Err(AppError::InternalServerError(anyhow!(format!(
-                "Something went wrong when deleting collection {} because there is not ObjectId",
-                Self::collection_name()
-            ))))
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
+            let result = collection.update_one(query.clone(), update).await?;
+            if result.matched_count == result.modified_count {
+                Ok(())
+            } else {
+                Err(AppError::InternalServerError(anyhow!(format!(
+                    "Something went wrong when updating document with filter {} for collection {}",
+                    query,
+                    Self::collection_name()
+                ))))
+            }
+        }
+    }
+
+    async fn update_many(
+        query: Document,
+        update: Document,
+        transaction: Option<&mut DatabaseTransaction>,
+    ) -> Result<(), AppError> {
+        if let Some(transaction) = transaction {
+            transaction.update_many::<Self>(query, update).await
+        } else {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
+            let result = collection.update_many(query.clone(), update).await?;
+            if result.matched_count == result.modified_count {
+                Ok(())
+            } else {
+                Err(AppError::InternalServerError(anyhow!(format!(
+                    "Something went wrong when updating documents with filter {} for collection {}",
+                    query,
+                    Self::collection_name()
+                ))))
+            }
+        }
+    }
+
+    async fn delete_many(
+        query: Document,
+        transaction: Option<&mut DatabaseTransaction>,
+    ) -> Result<(), AppError> {
+        if let Some(transaction) = transaction {
+            transaction.delete_many::<Self>(query).await
+        } else {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
+            let result = collection.delete_many(query.clone()).await?;
+            if result.deleted_count >= 1 {
+                Ok(())
+            } else {
+                Err(AppError::InternalServerError(anyhow!(format!(
+                    "Something went wrong when deleting documents with query {} for collection {}",
+                    query,
+                    Self::collection_name()
+                ))))
+            }
         }
     }
 }
