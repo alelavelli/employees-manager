@@ -1,16 +1,18 @@
-use anyhow::anyhow;
+use std::str::FromStr;
+
 use axum::async_trait;
+use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     enums::{CompanyRole, EmployeeRequest},
-    error::AppError,
+    error::DatabaseError,
     service::db::DatabaseDocument,
     DocumentId,
 };
 
 /// Struct representing user model
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<DocumentId>,
@@ -29,7 +31,7 @@ pub struct User {
 /// Assignment of a user to a company
 ///
 /// A User has a CompanyRole in the Company and a Job Title
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserCompanyAssignment {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<DocumentId>,
@@ -41,7 +43,7 @@ pub struct UserCompanyAssignment {
 
 /// Management Team is a list of Company Employees that
 /// has special permissions
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CompanyManagementTeam {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<DocumentId>,
@@ -50,7 +52,7 @@ pub struct CompanyManagementTeam {
 }
 
 /// Struct representing a company that has some employees
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Company {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<DocumentId>,
@@ -61,7 +63,7 @@ pub struct Company {
 }
 
 /// Employee request in a company
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CompanyEmployeeRequest {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<DocumentId>,
@@ -78,13 +80,18 @@ impl DatabaseDocument for User {
         "User"
     }
 
-    fn get_id(&self) -> Result<&DocumentId, AppError> {
+    fn get_id(&self) -> Option<&DocumentId> {
+        self.id.as_ref()
+    }
+
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
         if self.id.is_some() {
-            Ok(self.id.as_ref().unwrap())
+            Err(DatabaseError::DocumentHasAlreadyAnId)
+        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+            self.id = Some(parsed_id);
+            Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Requested ObjectId for Document but it is None"
-            )))
+            Err(DatabaseError::InvalidObjectId)
         }
     }
 }
@@ -95,13 +102,18 @@ impl DatabaseDocument for UserCompanyAssignment {
         "UserCompanyAssignment"
     }
 
-    fn get_id(&self) -> Result<&DocumentId, AppError> {
+    fn get_id(&self) -> Option<&DocumentId> {
+        self.id.as_ref()
+    }
+
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
         if self.id.is_some() {
-            Ok(self.id.as_ref().unwrap())
+            Err(DatabaseError::DocumentHasAlreadyAnId)
+        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+            self.id = Some(parsed_id);
+            Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Requested ObjectId for Document but it is None"
-            )))
+            Err(DatabaseError::InvalidObjectId)
         }
     }
 }
@@ -112,13 +124,18 @@ impl DatabaseDocument for CompanyManagementTeam {
         "CompanyManagementTeam"
     }
 
-    fn get_id(&self) -> Result<&DocumentId, AppError> {
+    fn get_id(&self) -> Option<&DocumentId> {
+        self.id.as_ref()
+    }
+
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
         if self.id.is_some() {
-            Ok(self.id.as_ref().unwrap())
+            Err(DatabaseError::DocumentHasAlreadyAnId)
+        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+            self.id = Some(parsed_id);
+            Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Requested ObjectId for Document but it is None"
-            )))
+            Err(DatabaseError::InvalidObjectId)
         }
     }
 }
@@ -129,13 +146,18 @@ impl DatabaseDocument for Company {
         "Company"
     }
 
-    fn get_id(&self) -> Result<&DocumentId, AppError> {
+    fn get_id(&self) -> Option<&DocumentId> {
+        self.id.as_ref()
+    }
+
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
         if self.id.is_some() {
-            Ok(self.id.as_ref().unwrap())
+            Err(DatabaseError::DocumentHasAlreadyAnId)
+        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+            self.id = Some(parsed_id);
+            Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Requested ObjectId for Document but it is None"
-            )))
+            Err(DatabaseError::InvalidObjectId)
         }
     }
 }
@@ -146,13 +168,18 @@ impl DatabaseDocument for CompanyEmployeeRequest {
         "CompanyEmployeeRequest"
     }
 
-    fn get_id(&self) -> Result<&DocumentId, AppError> {
+    fn get_id(&self) -> Option<&DocumentId> {
+        self.id.as_ref()
+    }
+
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
         if self.id.is_some() {
-            Ok(self.id.as_ref().unwrap())
+            Err(DatabaseError::DocumentHasAlreadyAnId)
+        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+            self.id = Some(parsed_id);
+            Ok(())
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Requested ObjectId for Document but it is None"
-            )))
+            Err(DatabaseError::InvalidObjectId)
         }
     }
 }

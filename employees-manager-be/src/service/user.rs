@@ -1,9 +1,5 @@
 use anyhow::anyhow;
-use futures::TryStreamExt;
-use mongodb::{
-    bson::{doc, oid::ObjectId},
-    options::FindOptions,
-};
+use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -16,12 +12,8 @@ use crate::{
 use super::db::{get_database_service, DatabaseDocument};
 
 pub async fn login(username: &str, password: &str) -> Result<db_entities::User, AppError> {
-    let db = &get_database_service().await.db;
-    let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
-    let filter = doc! {
-        "username": username,
-    };
-    let query_result = collection.find_one(filter).await?;
+    let query_result: Option<db_entities::User> =
+        db_entities::User::find_one(doc! {"username": username}).await?;
     if let Some(user_document) = query_result {
         if bcrypt::verify(password, &user_document.password_hash).map_err(|e| {
             AppError::InternalServerError(anyhow!(format!(
@@ -38,10 +30,8 @@ pub async fn login(username: &str, password: &str) -> Result<db_entities::User, 
 }
 
 pub async fn get_user(user_id: &DocumentId) -> Result<db_entities::User, AppError> {
-    let db = &get_database_service().await.db;
-    let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
-    let filter = doc! { "_id": user_id };
-    let query_result = collection.find_one(filter).await?;
+    let query_result: Option<db_entities::User> =
+        db_entities::User::find_one(doc! {"_id": user_id}).await?;
     if let Some(user_document) = query_result {
         Ok(user_document)
     } else {
@@ -60,24 +50,17 @@ pub async fn create_user(
     name: String,
     surname: String,
 ) -> Result<String, AppError> {
-    // before to create the user we check if the username is unique or already present in the database
-    // we create a temporary struct to get retrieve only user names from database
-    let db = &get_database_service().await.db;
-    let user_collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
-    let options = FindOptions::builder()
-        .projection(doc! {"username": 1})
-        .build();
     #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         username: String,
     }
-    let usernames: Vec<QueryResult> = user_collection
-        .clone_with_type::<QueryResult>()
-        .find(doc! {})
-        .with_options(options)
-        .await?
-        .try_collect()
-        .await?;
+
+    let usernames = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
+        doc! {},
+        doc! {"username": 1},
+    )
+    .await?;
+
     for document in usernames {
         if username.to_lowercase() == document.username.to_lowercase() {
             return Err(AppError::ManagedError(
@@ -85,7 +68,7 @@ pub async fn create_user(
             ));
         }
     }
-    let user_model = db_entities::User {
+    let mut user_model = db_entities::User {
         id: None,
         username,
         password_hash: hash_password(&password)?,
@@ -97,73 +80,268 @@ pub async fn create_user(
         platform_admin: false,
         active: true,
     };
-    user_model.save().await
+    user_model.save(None).await
 }
 
 /// Deactivate user
 /// Instead of deleting permanently from the application, a deactivated user cannot perform any operation
-/// but he still exist in the database.
-/// Deactivating a user determine the deactivation of all companies for which he is owner
+/// but he still exist in the database and can be activated by admins.
+/// Deactivating a user determine the deactivation of all companies for which he is owner.
+/// It returns an error if the user is already not active
 pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
-    let db_service = get_database_service().await;
-
-    // Find the companies for which the user is owner
-    let assignment = db_service
-        .db
-        .collection::<db_entities::UserCompanyAssignment>(
-            db_entities::UserCompanyAssignment::collection_name(),
-        );
-    let filter = doc! { "user_id": user_id, "role": CompanyRole::Owner};
-    let companies: Vec<db_entities::UserCompanyAssignment> =
-        assignment.find(filter).await?.try_collect().await?;
-
-    // Transaction start
-    let session = db_service.create_transaction_session().await?;
-
-    let update = doc! {"$set": {"active": false}};
-    session
-        .update_document::<db_entities::User>(user_id, update)
-        .await?;
-
-    let update = doc! { "$set": { "active": false }};
-    session
-        .update_documents::<db_entities::Company>(
-            &companies
+    #[derive(Serialize, Deserialize, Debug)]
+    struct UserQueryResult {
+        active: bool,
+    }
+    let user = db_entities::User::find_one_projection::<db_entities::User, UserQueryResult>(
+        doc! {"_id": user_id},
+        doc! { "active": 1 },
+    )
+    .await?;
+    if let Some(user) = user {
+        if user.active {
+            #[derive(Serialize, Deserialize, Debug)]
+            struct QueryResult {
+                company_id: ObjectId,
+            }
+            let companies: Vec<ObjectId> =
+                db_entities::UserCompanyAssignment::find_many_projection::<
+                    db_entities::UserCompanyAssignment,
+                    QueryResult,
+                >(
+                    doc! {"user_id": user_id, "role": CompanyRole::Owner},
+                    doc! {"company_id": 1},
+                )
+                .await?
                 .iter()
-                .map(|company| company.id.expect("company document should have object id"))
-                .collect::<Vec<ObjectId>>(),
-            update,
-        )
-        .await?;
+                .map(|doc| doc.company_id)
+                .collect::<Vec<ObjectId>>();
 
-    // Transaction end
-    session.commit_transaction().await
+            if !companies.is_empty() {
+                let db_service = get_database_service().await;
+                let mut transaction = db_service.new_transaction().await?;
+                transaction.start_transaction().await?;
+                let result = db_entities::User::update_one(
+                    doc! {"_id": user_id},
+                    doc! { "$set": {"active": false} },
+                    Some(&mut transaction),
+                )
+                .await;
+                if result.is_err() {
+                    transaction.abort_transaction().await?;
+                    return Err(AppError::InternalServerError(anyhow!(
+                        "Got an error during User update"
+                    )));
+                }
+                let result = db_entities::Company::update_many(
+                    doc! { "_id": {"$in": companies}},
+                    doc! {"$set": {"active": false}},
+                    Some(&mut transaction),
+                )
+                .await;
+                if result.is_err() {
+                    transaction.abort_transaction().await?;
+                    return Err(AppError::InternalServerError(anyhow!(
+                        "Got an error during Company update"
+                    )));
+                }
+                transaction.commit_transaction().await?;
+            } else {
+                // Since the user does not have companies with Owner role we do not create a transaction
+                // and we just update it
+                db_entities::User::update_one(
+                    doc! {"_id": user_id},
+                    doc! { "$set": {"active": false} },
+                    None,
+                )
+                .await?;
+            }
+            Ok(())
+        } else {
+            Err(AppError::ManagedError(
+                "The user with id {user_id} not active.".to_string(),
+            ))
+        }
+    } else {
+        Err(AppError::DoesNotExist(anyhow!(
+            "User with id {user_id} does not exist"
+        )))
+    }
 }
 
-/// Delete the user and all his the company assignments
-pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
-    let db_service = get_database_service().await;
-    db_service
-        .delete_document::<db_entities::User>(user_id)
-        .await?;
-    let assignments_collection = db_service
-        .db
-        .collection::<db_entities::UserCompanyAssignment>(
-            db_entities::UserCompanyAssignment::collection_name(),
-        );
-
-    let filter = doc! { "user_id": user_id};
-    let query_result: Vec<db_entities::UserCompanyAssignment> = assignments_collection
-        .find(filter)
-        .await?
-        .try_collect()
-        .await?;
-    for assignment_doc in query_result {
-        db_service
-            .delete_document::<db_entities::UserCompanyAssignment>(&assignment_doc.id.unwrap())
-            .await?;
+/// Activate user
+///
+/// Activate a deactivated User. It returns a ManagedError if the user is not active
+pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct UserQueryResult {
+        active: bool,
     }
-    Ok(())
+    let user = db_entities::User::find_one_projection::<db_entities::User, UserQueryResult>(
+        doc! {"_id": user_id},
+        doc! { "active": 1 },
+    )
+    .await?;
+    if let Some(user) = user {
+        if !user.active {
+            #[derive(Serialize, Deserialize, Debug)]
+            struct QueryResult {
+                company_id: ObjectId,
+            }
+            let companies: Vec<ObjectId> =
+                db_entities::UserCompanyAssignment::find_many_projection::<
+                    db_entities::UserCompanyAssignment,
+                    QueryResult,
+                >(
+                    doc! {"user_id": user_id, "role": CompanyRole::Owner},
+                    doc! {"company_id": 1},
+                )
+                .await?
+                .iter()
+                .map(|doc| doc.company_id)
+                .collect::<Vec<ObjectId>>();
+
+            if !companies.is_empty() {
+                let db_service = get_database_service().await;
+                let mut transaction = db_service.new_transaction().await?;
+                transaction.start_transaction().await?;
+                let result = db_entities::User::update_one(
+                    doc! {"_id": user_id},
+                    doc! { "$set": {"active": true} },
+                    Some(&mut transaction),
+                )
+                .await;
+                if result.is_err() {
+                    transaction.abort_transaction().await?;
+                    return Err(AppError::InternalServerError(anyhow!(
+                        "Got an error during User update"
+                    )));
+                }
+                let result = db_entities::Company::update_many(
+                    doc! { "_id": {"$in": companies}},
+                    doc! {"$set": {"active": true}},
+                    Some(&mut transaction),
+                )
+                .await;
+                if result.is_err() {
+                    transaction.abort_transaction().await?;
+                    return Err(AppError::InternalServerError(anyhow!(
+                        "Got an error during Company update"
+                    )));
+                }
+                transaction.commit_transaction().await?;
+            } else {
+                // Since the user does not have companies with Owner role we do not create a transaction
+                // and we just update it
+                db_entities::User::update_one(
+                    doc! {"_id": user_id},
+                    doc! { "$set": {"active": false} },
+                    None,
+                )
+                .await?;
+            }
+            Ok(())
+        } else {
+            Err(AppError::ManagedError(
+                "The user with id {user_id} active.".to_string(),
+            ))
+        }
+    } else {
+        Err(AppError::DoesNotExist(anyhow!(
+            "User with id {user_id} does not exist"
+        )))
+    }
+}
+
+/// Delete user from the database.
+///
+/// Each Company the User is owner is deleted as well.
+///
+/// This operation is not reversible.
+pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
+    let user = db_entities::User::find_one::<db_entities::User>(doc! {"_id": user_id}).await?;
+    if let Some(user) = user {
+        #[derive(Serialize, Deserialize, Debug)]
+        struct QueryResult {
+            company_id: ObjectId,
+        }
+        let companies: Vec<ObjectId> = db_entities::UserCompanyAssignment::find_many_projection::<
+            db_entities::UserCompanyAssignment,
+            QueryResult,
+        >(
+            doc! {"user_id": user_id, "role": CompanyRole::Owner},
+            doc! {"company_id": 1},
+        )
+        .await?
+        .iter()
+        .map(|doc| doc.company_id)
+        .collect::<Vec<ObjectId>>();
+
+        if !companies.is_empty() {
+            let db_service = get_database_service().await;
+            let mut transaction = db_service.new_transaction().await?;
+            transaction.start_transaction().await?;
+            let result = user.delete(Some(&mut transaction)).await;
+            if result.is_err() {
+                transaction.abort_transaction().await?;
+                return Err(AppError::InternalServerError(anyhow!(
+                    "Got an error during User delete"
+                )));
+            }
+
+            let result = db_entities::Company::delete_many(
+                doc! { "_id": {"$in": &companies}},
+                Some(&mut transaction),
+            )
+            .await;
+            if result.is_err() {
+                transaction.abort_transaction().await?;
+                return Err(AppError::InternalServerError(anyhow!(
+                    "Got an error during Company delete"
+                )));
+            }
+
+            // We delete any UserCompanyAssignment for the deleted companies
+            #[derive(Serialize, Deserialize, Debug)]
+            struct QueryResult {
+                user_id: ObjectId,
+            }
+            let other_assignments: Vec<ObjectId> =
+                db_entities::UserCompanyAssignment::find_many_projection::<
+                    db_entities::UserCompanyAssignment,
+                    QueryResult,
+                >(
+                    doc! {"company_id": {"$in": &companies}},
+                    doc! {"company_id": 1},
+                )
+                .await?
+                .iter()
+                .map(|doc| doc.user_id)
+                .collect::<Vec<ObjectId>>();
+            let result = db_entities::User::delete_many(
+                doc! {"_id": {"$in": &other_assignments}},
+                Some(&mut transaction),
+            )
+            .await;
+            if result.is_err() {
+                transaction.abort_transaction().await?;
+                return Err(AppError::InternalServerError(anyhow!(
+                    "Got an error during Company assignments delete"
+                )));
+            }
+
+            transaction.commit_transaction().await?;
+        } else {
+            // Since the user does not have companies with Owner role we do not create a transaction
+            // and we just delete it
+            user.delete(None).await?;
+        }
+        Ok(())
+    } else {
+        Err(AppError::DoesNotExist(anyhow!(
+            "User with id {user_id} does not exist"
+        )))
+    }
 }
 
 pub async fn update_user(
@@ -173,7 +351,6 @@ pub async fn update_user(
     name: Option<String>,
     surname: Option<String>,
 ) -> Result<(), AppError> {
-    let db_service = get_database_service().await;
     let mut update = doc! {};
     if let Some(email_str) = email {
         update.insert("email", email_str);
@@ -188,16 +365,16 @@ pub async fn update_user(
         update.insert("surname", surname_str);
     }
     let update = doc! {"$set": update};
-    db_service
-        .update_document::<db_entities::User>(user_id, update)
-        .await
+    db_entities::User::update_one(doc! {"_id": user_id}, update, None).await
 }
 
 pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
-    let db_service = get_database_service().await;
-    db_service
-        .update_document::<db_entities::User>(user_id, doc! {"$set": {"platform_admin": true}})
-        .await
+    db_entities::User::update_one(
+        doc! {"_id": user_id},
+        doc! {"$set": doc! { "platform_admin": true }},
+        None,
+    )
+    .await
 }
 
 fn hash_password(password: &str) -> Result<String, AppError> {
@@ -208,9 +385,8 @@ fn hash_password(password: &str) -> Result<String, AppError> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
-    use mongodb::bson::{doc, oid::ObjectId};
+    use mongodb::bson::doc;
 
     use crate::{
         model::db_entities,
@@ -245,7 +421,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_user_test() {
-        let user = db_entities::User {
+        let mut user = db_entities::User {
             username: "johnsmith".into(),
             password_hash: "fdsg39av2".into(),
             id: None,
@@ -256,7 +432,8 @@ mod tests {
             platform_admin: false,
             active: true,
         };
-        let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
 
         let new_name: String = "Alfredo".into();
         let new_surname: String = "Mini".into();
@@ -282,7 +459,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_user_test() {
-        let user = db_entities::User {
+        let mut user = db_entities::User {
             username: "johnsmith".into(),
             password_hash: "fdsg39av2".into(),
             id: None,
@@ -293,7 +470,8 @@ mod tests {
             platform_admin: false,
             active: true,
         };
-        let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
         let deleted_user_result = delete_user(&user_id).await;
         assert!(deleted_user_result.is_ok());
 
@@ -309,7 +487,7 @@ mod tests {
     #[tokio::test]
     async fn set_platform_admin_test() {
         // prepare the test by creating a User who is not admin
-        let user = db_entities::User {
+        let mut user = db_entities::User {
             username: "johnsmith".into(),
             password_hash: "fdsg39av2".into(),
             id: None,
@@ -320,7 +498,8 @@ mod tests {
             platform_admin: false,
             active: true,
         };
-        let user_id = ObjectId::from_str(&user.save().await.unwrap()).unwrap();
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
 
         set_platform_admin(&user_id).await.unwrap();
 
@@ -346,7 +525,7 @@ mod tests {
         assert!(result.is_err());
 
         // Add users and retrieve them
-        let user_id_result = db_entities::User {
+        let mut user = db_entities::User {
             id: None,
             username: username.into(),
             password_hash: hash_password(password).unwrap(),
@@ -356,10 +535,8 @@ mod tests {
             surname,
             platform_admin: false,
             active: true,
-        }
-        .save()
-        .await;
-        assert!(user_id_result.is_ok());
+        };
+        user.save(None).await.unwrap();
 
         // Remake the query
         let result = login(username, password).await;

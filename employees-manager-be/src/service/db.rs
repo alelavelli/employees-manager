@@ -1,15 +1,17 @@
 use std::{borrow::Borrow, str::FromStr, sync::Arc};
 
 use axum::async_trait;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 use mongodb::{
     bson::{doc, Document},
-    options::ClientOptions,
+    options::{ClientOptions, FindOneOptions, FindOptions},
     Client, ClientSession, Database,
 };
+use tracing::{error_span, info};
 use uuid::Uuid;
 
 use crate::{
+    enums::EmployeeRequestOutcome,
     error::{AppError, DatabaseError},
     service::environment::ENVIRONMENT,
     DocumentId,
@@ -19,7 +21,6 @@ use anyhow::anyhow;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::serde_helpers::serialize_object_id_as_hex_string;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
-
 use tokio::sync::OnceCell;
 
 /*
@@ -83,7 +84,10 @@ impl DatabaseService {
             let id = Uuid::new_v4().to_string();
             let mut db_name = String::from("app-test-db-");
             db_name.push_str(&id);
-            let connection_string = format!("mongodb://localhost:27017/{}", db_name);
+            let connection_string = format!(
+                "mongodb://localhost:27117/{}?replicaSet=rs0&directConnection=true",
+                db_name
+            );
             let client_options = ClientOptions::parse(connection_string).await?;
             let client = Client::with_options(client_options)?;
 
@@ -122,20 +126,20 @@ impl DatabaseTransaction {
         }
     }
 
-    async fn start_transaction(&mut self) -> Result<(), AppError> {
+    pub async fn start_transaction(&mut self) -> Result<(), AppError> {
         self.session.start_transaction().await?;
         self.transaction_started = true;
         Ok(())
     }
 
-    async fn abort_transaction(mut self) -> Result<(), AppError> {
+    pub async fn abort_transaction(mut self) -> Result<(), AppError> {
         if self.transaction_started {
             self.session.abort_transaction().await?;
         }
         Ok(())
     }
 
-    async fn commit_transaction(mut self) -> Result<(), AppError> {
+    pub async fn commit_transaction(mut self) -> Result<(), AppError> {
         if self.transaction_started {
             self.session.commit_transaction().await?;
         }
@@ -297,7 +301,7 @@ impl DatabaseTransaction {
 #[async_trait]
 pub trait DatabaseDocument: Sized + Sync + Serialize {
     fn get_id(&self) -> Option<&DocumentId>;
-    fn set_id(&mut self, document_id: &str);
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError>;
     fn collection_name() -> &'static str;
 
     /// Save the document on the database
@@ -332,11 +336,10 @@ pub trait DatabaseDocument: Sized + Sync + Serialize {
                 let db_service = get_database_service().await;
                 let collection = db_service.db.collection::<Self>(Self::collection_name());
                 let outcome = collection.insert_one(&mut *self).await?;
-                let id = outcome.inserted_id.as_object_id().unwrap().to_hex();
-                id
+                outcome.inserted_id.as_object_id().unwrap().to_hex()
             }
         };
-        self.set_id(&document_id);
+        self.set_id(&document_id)?;
         Ok(document_id)
     }
 
@@ -390,6 +393,46 @@ pub trait DatabaseDocument: Sized + Sync + Serialize {
         let db_service = get_database_service().await;
         let collection = db_service.db.collection::<T>(T::collection_name());
         let result: Vec<T> = collection.find(query).await?.try_collect().await?;
+        Ok(result)
+    }
+
+    async fn find_one_projection<T, P>(
+        query: Document,
+        projection: Document,
+    ) -> Result<Option<P>, AppError>
+    where
+        T: DatabaseDocument + Send + DeserializeOwned,
+        P: Send + Sync + Serialize + DeserializeOwned,
+    {
+        let db_service = get_database_service().await;
+        let collection = db_service.db.collection::<T>(T::collection_name());
+        let query_options = FindOneOptions::builder().projection(projection).build();
+        let result: Option<P> = collection
+            .clone_with_type::<P>()
+            .find_one(query)
+            .with_options(query_options)
+            .await?;
+        Ok(result)
+    }
+
+    async fn find_many_projection<T, P>(
+        query: Document,
+        projection: Document,
+    ) -> Result<Vec<P>, AppError>
+    where
+        T: DatabaseDocument + Send + DeserializeOwned,
+        P: Send + Sync + Serialize + DeserializeOwned,
+    {
+        let db_service = get_database_service().await;
+        let collection = db_service.db.collection::<T>(T::collection_name());
+        let query_options = FindOptions::builder().projection(projection).build();
+        let result: Vec<P> = collection
+            .clone_with_type::<P>()
+            .find(query)
+            .with_options(query_options)
+            .await?
+            .try_collect()
+            .await?;
         Ok(result)
     }
 

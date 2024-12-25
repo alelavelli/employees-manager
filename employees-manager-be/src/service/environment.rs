@@ -77,7 +77,13 @@ impl EnvironmentVariables {
     fn build_database(local: &bool, deploy_environment: &str) -> DatabaseVariables {
         let (connection_string, db_name) = if *local {
             let db_name = format!("application-database-{}", deploy_environment);
-            (format!("mongodb://localhost:27017/{}", db_name), db_name)
+            (
+                format!(
+                    "mongodb://localhost:27117/{}?replicaSet=rs0&directConnection=true",
+                    db_name
+                ),
+                db_name,
+            )
         } else {
             (
                 std::env::var("MONGODB_CONNECTION_STRING")

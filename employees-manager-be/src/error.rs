@@ -94,6 +94,15 @@ impl From<DatabaseError> for AppError {
             DatabaseError::TransactionNotStarted => {
                 AppError::InternalServerError(anyhow!("Transaction not started"))
             }
+            DatabaseError::DocumentDoesNotExist => {
+                AppError::InternalServerError(anyhow!("Document not found"))
+            }
+            DatabaseError::DocumentHasAlreadyAnId => AppError::InternalServerError(anyhow!(
+                "Document cannot be inserted in database because it has already an id"
+            )),
+            DatabaseError::InvalidObjectId => {
+                AppError::InternalServerError(anyhow!("Invalid object id"))
+            }
         }
     }
 }
@@ -135,4 +144,7 @@ impl AuthError {
 pub enum DatabaseError {
     /// When an operation over a transaction is executed but the transaction is not started yet
     TransactionNotStarted,
+    DocumentDoesNotExist,
+    DocumentHasAlreadyAnId,
+    InvalidObjectId,
 }

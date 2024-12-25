@@ -32,9 +32,9 @@ impl Display for CompanyRole {
     }
 }
 
-impl Into<Bson> for CompanyRole {
-    fn into(self) -> Bson {
-        match self {
+impl From<CompanyRole> for Bson {
+    fn from(value: CompanyRole) -> Self {
+        match value {
             CompanyRole::User => Bson::String("User".to_string()),
             CompanyRole::Admin => Bson::String("Admin".to_string()),
             CompanyRole::Owner => Bson::String("Owner".to_string()),
