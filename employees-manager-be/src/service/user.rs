@@ -381,6 +381,15 @@ pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
     .await
 }
 
+pub async fn unset_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
+    db_entities::User::update_one(
+        doc! {"_id": user_id},
+        doc! {"$set": doc! { "platform_admin": false }},
+        None,
+    )
+    .await
+}
+
 fn hash_password(password: &str) -> Result<String, AppError> {
     bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|e| {
         AppError::InternalServerError(anyhow!(format!("Error in hashing password. Got {e}")))
@@ -398,7 +407,7 @@ mod tests {
             db::{get_database_service, DatabaseDocument},
             user::{
                 activate_user, create_user, delete_user, hash_password, set_platform_admin,
-                update_user,
+                unset_platform_admin, update_user,
             },
         },
     };
@@ -673,6 +682,33 @@ mod tests {
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap().unwrap();
         assert!(loaded_user.platform_admin);
+        let drop_result = db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn unset_platform_admin_test() {
+        // prepare the test by creating a User who is not admin
+        let mut user = db_entities::User {
+            username: "johnsmith".into(),
+            password_hash: "fdsg39av2".into(),
+            id: None,
+            email: "john.smith@mail.com".into(),
+            name: "John".into(),
+            surname: "Smith".into(),
+            api_key: None,
+            platform_admin: true,
+            active: true,
+        };
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
+
+        unset_platform_admin(&user_id).await.unwrap();
+
+        let db = &get_database_service().await.db;
+        user.reload().await.unwrap();
+
+        assert!(!user.platform_admin);
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }

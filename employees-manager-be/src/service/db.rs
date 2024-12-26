@@ -297,10 +297,36 @@ impl DatabaseTransaction {
 ///
 /// Functions are general and operate outside the instance
 #[async_trait]
-pub trait DatabaseDocument: Sized + Sync + Serialize {
+pub trait DatabaseDocument: Sized + Sync + Serialize + DeserializeOwned {
     fn get_id(&self) -> Option<&DocumentId>;
     fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError>;
     fn collection_name() -> &'static str;
+
+    /// Reload the document from the database
+    async fn reload(&mut self) -> Result<(), AppError> {
+        if let Some(document_id) = self.get_id() {
+            let query = doc! {"_id": document_id};
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
+            let result = collection.find_one(query).await?;
+            match result {
+                Some(document) => {
+                    *self = document;
+                    Ok(())
+                }
+                None => Err(AppError::DoesNotExist(anyhow!(format!(
+                    "Document with id {} not found in collection {}",
+                    document_id,
+                    Self::collection_name()
+                )))),
+            }
+        } else {
+            Err(AppError::DoesNotExist(anyhow!(format!(
+                "Something went wrong when reloading collection {} because there is not ObjectId",
+                Self::collection_name()
+            ))))
+        }
+    }
 
     /// Save the document on the database
     ///
