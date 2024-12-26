@@ -1,10 +1,13 @@
 use jsonwebtoken::Header;
+use mongodb::bson::doc;
 
 use crate::{
     auth::{AuthInfo, JWTAuthClaim},
     dtos::{web_app_request, web_app_response},
+    enums::CompanyRole,
     error::AppError,
-    service::{company, user},
+    model::db_entities,
+    service::{access_control::AccessControl, company, db::DatabaseDocument, user},
     DocumentId,
 };
 
@@ -62,15 +65,56 @@ pub async fn get_company(
 
 pub async fn add_company_user(
     auth_info: impl AuthInfo,
-    payload: web_app_request::AddCompanyUser,
+    user_id: DocumentId,
+    company_id: DocumentId,
+    role: CompanyRole,
+    job_title: String,
 ) -> Result<(), AppError> {
     // only company owner and admin can add users to the company
-    todo!()
+    AccessControl::new(auth_info)
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    let company =
+        db_entities::Company::find_one::<db_entities::Company>(doc! {"_id": company_id}).await?;
+    if let Some(company) = company {
+        let mut company_assignment = db_entities::UserCompanyAssignment {
+            id: None,
+            company_id: *company.get_id().expect("Company id should exist"),
+            user_id,
+            role,
+            job_title,
+        };
+        company_assignment.save(None).await?;
+        Ok(())
+    } else {
+        Err(AppError::ManagedError(format!(
+            "Company with id {} does not exist",
+            company_id
+        )))
+    }
 }
 
 pub async fn remove_company_user(
     auth_info: impl AuthInfo,
-    username: String,
+    user_id: DocumentId,
+    company_id: DocumentId,
 ) -> Result<(), AppError> {
-    todo!()
+    AccessControl::new(auth_info)
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    let company_assignment = db_entities::UserCompanyAssignment::find_one::<
+        db_entities::UserCompanyAssignment,
+    >(doc! {"company_id": company_id, "user_id": user_id})
+    .await?;
+    if let Some(company_assignment) = company_assignment {
+        company_assignment.delete(None).await?;
+        Ok(())
+    } else {
+        Err(AppError::ManagedError(format!(
+            "User with id {} is not assigned to company with id {}",
+            user_id, company_id
+        )))
+    }
 }

@@ -20,7 +20,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/company", post(create_company))
         .route("/company/:id", get(get_company))
         .route("/company/user", post(add_company_user))
-        .route("/company/user/:username", delete(remove_company_user))
+        .route("/company/user", delete(remove_company_user))
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -58,7 +58,14 @@ async fn add_company_user(
     jwt_claim: JWTAuthClaim,
     Json(payload): Json<web_app_request::AddCompanyUser>,
 ) -> Result<AppJson<()>, AppError> {
-    facade::add_company_user(jwt_claim, payload).await?;
+    facade::add_company_user(
+        jwt_claim,
+        payload.user_id,
+        payload.company_id,
+        payload.role,
+        payload.job_title,
+    )
+    .await?;
     Ok(AppJson(()))
 }
 
@@ -66,8 +73,8 @@ async fn add_company_user(
 /// DELETE /company/user/:id
 async fn remove_company_user(
     jwt_claim: JWTAuthClaim,
-    Path(username): Path<String>,
+    Json(payload): Json<web_app_request::RemoveCompanyUser>,
 ) -> Result<AppJson<()>, AppError> {
-    facade::remove_company_user(jwt_claim, username).await?;
+    facade::remove_company_user(jwt_claim, payload.user_id, payload.company_id).await?;
     Ok(AppJson(()))
 }

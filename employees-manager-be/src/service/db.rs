@@ -152,7 +152,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             let outcome = collection
                 .insert_one(document)
@@ -173,7 +173,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .insert_many(documents)
@@ -193,7 +193,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .update_one(query, update)
@@ -217,7 +217,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .update_many(query, update)
@@ -237,7 +237,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .replace_one(query, replacement)
@@ -257,7 +257,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .delete_one(filter)
@@ -277,7 +277,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&get_database_service().await.db.name());
+                .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .delete_many(filter)

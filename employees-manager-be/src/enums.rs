@@ -42,6 +42,35 @@ impl From<CompanyRole> for Bson {
     }
 }
 
+impl Eq for CompanyRole {}
+
+impl PartialOrd<CompanyRole> for CompanyRole {
+    fn partial_cmp(&self, other: &CompanyRole) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CompanyRole {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self == other {
+            std::cmp::Ordering::Equal
+        } else if *self == CompanyRole::User {
+            match other {
+                CompanyRole::Admin | CompanyRole::Owner => std::cmp::Ordering::Less,
+                _ => std::cmp::Ordering::Equal,
+            }
+        } else if *self == CompanyRole::Admin {
+            match other {
+                CompanyRole::Owner => std::cmp::Ordering::Less,
+                _ => std::cmp::Ordering::Greater,
+            }
+        } else {
+            // self == CompanyRole::Owner
+            std::cmp::Ordering::Greater
+        }
+    }
+}
+
 /// Enumeration with employee request for permission or other
 /// it has an outcome which is another enumeration that defines
 /// how the request is

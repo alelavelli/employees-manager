@@ -193,6 +193,24 @@ pub async fn update_user_in_company(
     }
 }
 
+/// Returns the user company role assignment
+pub async fn get_user_company_role(
+    user_id: &DocumentId,
+    company_id: &DocumentId,
+) -> Result<db_entities::UserCompanyAssignment, AppError> {
+    let query = doc! { "user_id": user_id, "company_id": company_id};
+    let query_result =
+        db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
+            .await?;
+    if let Some(assignment) = query_result {
+        Ok(assignment)
+    } else {
+        Err(AppError::DoesNotExist(anyhow!(
+            "User with id {user_id} does not have a role in Company with id {company_id}.",
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
