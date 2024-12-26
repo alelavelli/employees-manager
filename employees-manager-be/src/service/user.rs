@@ -395,7 +395,6 @@ mod tests {
     use crate::{
         model::db_entities,
         service::{
-            company,
             db::{get_database_service, DatabaseDocument},
             user::{
                 activate_user, create_user, delete_user, hash_password, set_platform_admin,
@@ -594,6 +593,58 @@ mod tests {
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap();
         assert!(loaded_user.is_some_and(|user| user.active));
+        let drop_result = db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn activate_user_with_company_test() {
+        let mut user = db_entities::User {
+            username: "johnsmith".into(),
+            password_hash: "fdsg39av2".into(),
+            id: None,
+            email: "john.smith@mail.com".into(),
+            name: "John".into(),
+            surname: "Smith".into(),
+            api_key: None,
+            platform_admin: false,
+            active: false,
+        };
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
+
+        let mut company = db_entities::Company {
+            id: None,
+            name: "Company".into(),
+            active: false,
+        };
+        company.save(None).await.unwrap();
+        let company_id = company.get_id().unwrap();
+
+        let mut user_company_assignment = db_entities::UserCompanyAssignment {
+            id: None,
+            user_id: user_id.clone(),
+            company_id: company_id.clone(),
+            role: crate::enums::CompanyRole::Owner,
+            job_title: "CEO".into(),
+        };
+        user_company_assignment.save(None).await.unwrap();
+
+        let deleted_user_result = activate_user(&user_id).await;
+        assert!(deleted_user_result.is_ok());
+
+        let db = &get_database_service().await.db;
+        let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
+        let filter = doc! {"_id": user_id};
+        let loaded_user = collection.find_one(filter).await.unwrap();
+        assert!(loaded_user.is_some_and(|user| user.active));
+
+        let collection =
+            db.collection::<db_entities::Company>(db_entities::Company::collection_name());
+        let filter = doc! {"_id": company_id};
+        let loaded_company = collection.find_one(filter).await.unwrap();
+        assert!(loaded_company.is_some_and(|company| company.active));
+
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }

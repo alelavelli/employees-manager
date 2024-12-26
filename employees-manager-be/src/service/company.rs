@@ -334,16 +334,14 @@ mod tests {
         let result =
             add_user_to_company(first_user_id, company_id, CompanyRole::User, "CTO".into()).await;
         assert!(result.is_ok());
-        let assignment = get_database_service()
-            .await
-            .db
-            .collection::<db_entities::UserCompanyAssignment>(
-                db_entities::UserCompanyAssignment::collection_name(),
-            )
-            .find_one(doc! {})
-            .await
-            .unwrap()
-            .unwrap();
+
+        let assignment = db_entities::UserCompanyAssignment::find_one::<
+            db_entities::UserCompanyAssignment,
+        >(doc! {})
+        .await
+        .unwrap()
+        .unwrap();
+
         assert_eq!(assignment.company_id, company_id);
         assert_eq!(assignment.user_id, first_user_id);
 
@@ -383,16 +381,14 @@ mod tests {
         let result = remove_user_from_company(&first_user_id, &company_id).await;
         assert!(result.is_ok());
 
-        assert!(get_database_service()
-            .await
-            .db
-            .collection::<db_entities::UserCompanyAssignment>(
-                db_entities::UserCompanyAssignment::collection_name(),
+        assert!(
+            db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(
+                doc! {}
             )
-            .find_one(doc! {})
             .await
             .unwrap()
-            .is_none());
+            .is_none()
+        );
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
@@ -437,16 +433,13 @@ mod tests {
         .await;
         assert!(result.is_ok());
 
-        let assignment = get_database_service()
-            .await
-            .db
-            .collection::<db_entities::UserCompanyAssignment>(
-                db_entities::UserCompanyAssignment::collection_name(),
-            )
-            .find_one(doc! {})
-            .await
-            .unwrap()
-            .unwrap();
+        let assignment = db_entities::UserCompanyAssignment::find_one::<
+            db_entities::UserCompanyAssignment,
+        >(doc! {})
+        .await
+        .unwrap()
+        .unwrap();
+
         assert_eq!(assignment.company_id, company_id);
         assert_eq!(assignment.user_id, first_user_id);
         assert_eq!(assignment.job_title, new_job_title);
