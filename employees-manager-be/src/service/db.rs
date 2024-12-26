@@ -7,11 +7,9 @@ use mongodb::{
     options::{ClientOptions, FindOneOptions, FindOptions},
     Client, ClientSession, Database,
 };
-use tracing::{error_span, info};
 use uuid::Uuid;
 
 use crate::{
-    enums::EmployeeRequestOutcome,
     error::{AppError, DatabaseError},
     service::environment::ENVIRONMENT,
     DocumentId,
@@ -154,7 +152,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             let outcome = collection
                 .insert_one(document)
@@ -175,7 +173,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .insert_many(documents)
@@ -195,7 +193,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .update_one(query, update)
@@ -219,7 +217,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .update_many(query, update)
@@ -239,7 +237,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .replace_one(query, replacement)
@@ -259,7 +257,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .delete_one(filter)
@@ -279,7 +277,7 @@ impl DatabaseTransaction {
             let db = self
                 .session
                 .client()
-                .database(&ENVIRONMENT.database.db_name);
+                .database(&get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
             collection
                 .delete_many(filter)

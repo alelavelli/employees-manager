@@ -54,6 +54,7 @@ pub async fn create_company(
             "Unexpected failed conversion of ObjectId"
         )))
     } else {
+        transaction.commit_transaction().await?;
         Ok(company_id)
     }
 }
@@ -228,8 +229,21 @@ mod tests {
 
         let job_title = "CEO".to_string();
         let name = "My Company".to_string();
-        let result = create_company(&user_id, name, job_title).await;
+        let result = create_company(&user_id, name.clone(), job_title).await;
         assert!(result.is_ok());
+
+        let assignment = db_entities::UserCompanyAssignment::find_one::<
+            db_entities::UserCompanyAssignment,
+        >(doc! {"user_id": user_id})
+        .await
+        .unwrap();
+        assert!(assignment.is_some());
+
+        let companies = db_entities::Company::find_many::<db_entities::Company>(doc! {})
+            .await
+            .unwrap();
+        assert!(companies.get(0).unwrap().name == name);
+
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
     }

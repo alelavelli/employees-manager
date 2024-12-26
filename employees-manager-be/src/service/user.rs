@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 use crate::{
     enums::CompanyRole,
@@ -140,7 +141,10 @@ pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
                 )
                 .await;
                 if result.is_err() {
-                    transaction.abort_transaction().await?;
+                    info!("Aborting transaction due to an error in Company update");
+                    let result = transaction.abort_transaction().await;
+                    println!("{:?}", result);
+                    info!("Transaction aborted");
                     return Err(AppError::InternalServerError(anyhow!(
                         "Got an error during Company update"
                     )));
@@ -235,7 +239,7 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
                 // and we just update it
                 db_entities::User::update_one(
                     doc! {"_id": user_id},
-                    doc! { "$set": {"active": false} },
+                    doc! { "$set": {"active": true} },
                     None,
                 )
                 .await?;
@@ -391,12 +395,16 @@ mod tests {
     use crate::{
         model::db_entities,
         service::{
+            company,
             db::{get_database_service, DatabaseDocument},
-            user::{create_user, delete_user, hash_password, set_platform_admin, update_user},
+            user::{
+                activate_user, create_user, delete_user, hash_password, set_platform_admin,
+                update_user,
+            },
         },
     };
 
-    use super::login;
+    use super::{deactivate_user, login};
 
     #[tokio::test]
     async fn create_user_test() {
@@ -480,6 +488,112 @@ mod tests {
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap();
         assert!(loaded_user.is_none());
+        let drop_result = db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn deactivate_user_test() {
+        let mut user = db_entities::User {
+            username: "johnsmith".into(),
+            password_hash: "fdsg39av2".into(),
+            id: None,
+            email: "john.smith@mail.com".into(),
+            name: "John".into(),
+            surname: "Smith".into(),
+            api_key: None,
+            platform_admin: false,
+            active: true,
+        };
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
+        let deleted_user_result = deactivate_user(&user_id).await;
+        assert!(deleted_user_result.is_ok());
+
+        let db = &get_database_service().await.db;
+        let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
+        let filter = doc! {"_id": user_id};
+        let loaded_user = collection.find_one(filter).await.unwrap();
+        assert!(loaded_user.is_some_and(|user| !user.active));
+        let drop_result = db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn deactivate_user_with_company_test() {
+        let mut user = db_entities::User {
+            username: "johnsmith".into(),
+            password_hash: "fdsg39av2".into(),
+            id: None,
+            email: "john.smith@mail.com".into(),
+            name: "John".into(),
+            surname: "Smith".into(),
+            api_key: None,
+            platform_admin: false,
+            active: true,
+        };
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
+
+        let mut company = db_entities::Company {
+            id: None,
+            name: "Company".into(),
+            active: true,
+        };
+        company.save(None).await.unwrap();
+        let company_id = company.get_id().unwrap();
+
+        let mut user_company_assignment = db_entities::UserCompanyAssignment {
+            id: None,
+            user_id: user_id.clone(),
+            company_id: company_id.clone(),
+            role: crate::enums::CompanyRole::Owner,
+            job_title: "CEO".into(),
+        };
+        user_company_assignment.save(None).await.unwrap();
+
+        let deleted_user_result = deactivate_user(&user_id).await;
+        assert!(deleted_user_result.is_ok());
+
+        let db = &get_database_service().await.db;
+        let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
+        let filter = doc! {"_id": user_id};
+        let loaded_user = collection.find_one(filter).await.unwrap();
+        assert!(loaded_user.is_some_and(|user| !user.active));
+
+        let collection =
+            db.collection::<db_entities::Company>(db_entities::Company::collection_name());
+        let filter = doc! {"_id": company_id};
+        let loaded_company = collection.find_one(filter).await.unwrap();
+        assert!(loaded_company.is_some_and(|company| !company.active));
+
+        let drop_result = db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn activate_user_test() {
+        let mut user = db_entities::User {
+            username: "johnsmith".into(),
+            password_hash: "fdsg39av2".into(),
+            id: None,
+            email: "john.smith@mail.com".into(),
+            name: "John".into(),
+            surname: "Smith".into(),
+            api_key: None,
+            platform_admin: false,
+            active: false,
+        };
+        user.save(None).await.unwrap();
+        let user_id = user.get_id().unwrap();
+        let deleted_user_result = activate_user(&user_id).await;
+        assert!(deleted_user_result.is_ok());
+
+        let db = &get_database_service().await.db;
+        let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
+        let filter = doc! {"_id": user_id};
+        let loaded_user = collection.find_one(filter).await.unwrap();
+        assert!(loaded_user.is_some_and(|user| user.active));
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }
