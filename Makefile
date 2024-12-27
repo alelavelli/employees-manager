@@ -110,7 +110,7 @@ docker:
 	@[ -z "$(DEPLOY_ENVIRONMENT)" ] && echo DEPLOY_ENVIRONMENT is empty && exit 1 || echo "deploying $(DEPLOY_ENVIRONMENT)"
 
 	@# build tags
-	$(eval IMAGE_NAME=$(ECR_REPOSITORY)/ml3-platform-web-api-be-$(DEPLOY_ENVIRONMENT))
+	$(eval IMAGE_NAME=employees-manager-be-$(DEPLOY_ENVIRONMENT))
 	$(eval MAJOR_TAG=$(IMAGE_NAME):$(MAJOR))
 	$(eval MINOR_TAG=$(IMAGE_NAME):$(MAJOR).$(MINOR).$(PATCH))
 	$(eval LATEST_TAG=$(IMAGE_NAME):latest)
