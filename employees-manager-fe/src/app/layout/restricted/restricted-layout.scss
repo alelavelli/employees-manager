@@ -1,0 +1,19 @@
+@import "variables";
+@import "colors";
+
+.restricted-layout-container {
+  min-height: 100vh;
+}
+
+restricted-header {
+  position: fixed;
+  width: 100%;
+  z-index: 10;
+}
+.page-content {
+  padding-top: calc($mainLayoutHeaderHeight);
+
+  .page-with-padding {
+    padding: 1rem;
+  }
+}

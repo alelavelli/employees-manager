@@ -1,0 +1,23 @@
+<div class="user-widget-container">
+  <mat-icon
+    class="user-icon"
+    [matMenuTriggerFor]="userWidgetMenu"
+    #menuTrigger="matMenuTrigger"
+    >person</mat-icon
+  >
+  <mat-menu #userWidgetMenu="matMenu" class="user-widget-menu">
+    <div class="menu-item-container">
+      <div class="logout-button-container">
+        <button
+          mat-raised-button
+          color="primary"
+          class="menu-item menu-item-logout"
+          (click)="logout()"
+        >
+          <mat-icon>logout</mat-icon>
+          Logout
+        </button>
+      </div>
+    </div>
+  </mat-menu>
+</div>

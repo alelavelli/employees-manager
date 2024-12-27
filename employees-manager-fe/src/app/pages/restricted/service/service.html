@@ -1,0 +1,19 @@
+<div class="typography-page-container page-with-padding">
+  <div class="h1-title">Service example page</div>
+
+  <div class="text">
+    Here is an example on how to handle a request from a service
+  </div>
+
+  <!-- case "it is loading stuff" -->
+  <mat-spinner diameter="35" color="primary" *ngIf="loading"></mat-spinner>
+
+  <!-- case "everything has been loaded" -->
+  <ng-container *ngIf="!loading">
+    <!-- we have some results -->
+    <div *ngIf="apiResult!==null">Data received from api: {{apiResult}}</div>
+
+    <!-- we dont have any results -->
+    <div *ngIf="apiResult===null">An error occured while loading data</div>
+  </ng-container>
+</div>

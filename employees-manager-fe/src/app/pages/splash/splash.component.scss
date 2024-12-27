@@ -1,0 +1,34 @@
+@keyframes splash {
+  0% {
+    transform: rotate(-900deg);
+    scale: 0;
+    opacity: 0;
+  }
+  50% {
+    transform: rotate(0deg);
+  }
+  60% {
+    scale: 1.5;
+  }
+  75% {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(0deg);
+    opacity: 0;
+  }
+}
+
+.splash-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  img {
+    max-width: 20rem;
+    transform-origin: center;
+    animation: splash 3.5s ease-in-out 0s forwards;
+  }
+}

@@ -1,0 +1,13 @@
+@import "colors";
+
+.toast-container {
+  .toast-success {
+    background-color: $themePrimary;
+  }
+  .toast-info {
+    background-color: $gray700;
+  }
+  .toast-error {
+    background-color: $red700;
+  }
+}
