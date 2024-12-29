@@ -33,10 +33,11 @@ export class ApiService {
   getUserData(): Observable<UserData> {
     return MOCKED
       ? buildMocked({
-          id: '1',
-          username: 'test',
-          name: 'Test',
-          surname: 'Test',
+          id: 'my-id',
+          username: 'my-username',
+          name: 'my-name',
+          surname: 'my-surname',
+          email: 'my-email',
           platformAdmin: true,
           active: true,
         })

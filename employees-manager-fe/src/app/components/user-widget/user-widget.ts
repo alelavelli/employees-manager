@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { Router, RouterModule } from '@angular/router';
 import { UserService } from '../../service/user.service';
+import { UserData } from '../../types/model';
 
 @Component({
   selector: 'user-widget',
@@ -21,12 +22,24 @@ import { UserService } from '../../service/user.service';
   encapsulation: ViewEncapsulation.None,
 })
 export class UserWidgetComponent implements OnInit {
+  userData: UserData | null = null;
+
   constructor(private userService: UserService, private router: Router) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.userService.userData$.subscribe({
+      next: (userData: UserData | null) => {
+        this.userData = userData;
+      },
+    });
+  }
 
   logout() {
     this.userService.clear();
     this.router.navigateByUrl('/login');
+  }
+
+  isPlatformAdmin() {
+    return this.userService.isPlatformAdmin();
   }
 }

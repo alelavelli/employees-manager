@@ -5,6 +5,7 @@ export interface LoginResponse {
 export interface UserData {
   id: string;
   username: string;
+  email: string;
   name: string;
   surname: string;
   platformAdmin: boolean;

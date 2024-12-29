@@ -12,11 +12,19 @@
 .user-widget-menu {
   max-width: none !important;
   padding: 0.5rem 1rem;
-
+  .separator {
+    border: none;
+    height: 0.05rem;
+    background-color: $granata-brown;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    margin-right: 2rem;
+    margin-left: 2rem;
+  }
   .user-info-container {
     margin: 0 0 0.5rem 0;
     display: flex;
-    justify-content: center;
+    justify-content: left;
     align-items: center;
     gap: 1rem;
 
