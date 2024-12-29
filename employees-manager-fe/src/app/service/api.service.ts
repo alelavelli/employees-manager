@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { MOCK_LOGIN_RESPONSE, buildMocked } from './mock';
+import { UserData } from '../types/model';
 
 const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
@@ -27,5 +28,18 @@ export class ApiService {
       ? // buildMockedError():
         buildMocked('IT WORKS!')
       : this.httpClient.get<string>(API_URL + '/api-string');
+  }
+
+  getUserData(): Observable<UserData> {
+    return MOCKED
+      ? buildMocked({
+          id: '1',
+          username: 'test',
+          name: 'Test',
+          surname: 'Test',
+          platformAdmin: true,
+          active: true,
+        })
+      : this.httpClient.get<UserData>(API_URL + '/user');
   }
 }

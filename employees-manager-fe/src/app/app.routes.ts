@@ -11,7 +11,9 @@ import { TypographyPageComponent } from './pages/restricted/typography/typograph
 import { ServicePageComponent } from './pages/restricted/service/service';
 import { AuthGuard } from './guards/auth.guard';
 import { PipePageComponent } from './pages/restricted/pipe/pipe';
-import { UnauthorizedPageComponent } from './pages/unauthorized/unauthorized.component';
+import { AdminPageComponent } from './pages/restricted/admin/admin';
+import { AuthAdminGuard } from './guards/auth_admin.guard';
+import { DoesNotExistPageComponent } from './pages/does-not-exist/does-not-exist.component';
 
 export const routes: Routes = environment.maintenance
   ? [
@@ -36,6 +38,12 @@ export const routes: Routes = environment.maintenance
         path: 'home',
         canActivate: [AuthGuard],
         component: HomePageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'admin',
+        canActivate: [AuthGuard, AuthAdminGuard],
+        component: AdminPageComponent,
         data: { layoutType: LayoutType.Restricted },
       },
       {
@@ -70,7 +78,7 @@ export const routes: Routes = environment.maintenance
       },
       {
         path: '**',
-        component: UnauthorizedPageComponent,
+        component: DoesNotExistPageComponent,
         data: { layoutType: LayoutType.Restricted },
       },
     ];
