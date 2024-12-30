@@ -27,7 +27,7 @@ export class UserWidgetComponent implements OnInit {
   constructor(private userService: UserService, private router: Router) {}
 
   ngOnInit(): void {
-    this.userService.userData$.subscribe({
+    this.userService.fetchUserData().subscribe({
       next: (userData: UserData | null) => {
         this.userData = userData;
       },

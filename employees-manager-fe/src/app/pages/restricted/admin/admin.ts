@@ -1,37 +1,38 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewEncapsulation } from '@angular/core';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ApiService } from '../../../service/api.service';
+import { AdminPanelOverview } from '../../../types/model';
 
 @Component({
   selector: 'admin-page',
   templateUrl: './admin.html',
   styleUrls: ['./admin.scss'],
   standalone: true,
-  imports: [CommonModule, MatProgressSpinnerModule],
+  imports: [CommonModule, MatProgressBarModule],
   encapsulation: ViewEncapsulation.None,
 })
 export class AdminPageComponent implements OnInit {
   //1)define variable to hold "isLoading"
   loading: boolean = false;
   //define variable to handle "ok" and "ko" case, in this case null is equal to KO
-  apiResult: string | null = null;
+  overview: AdminPanelOverview | null = null;
 
   constructor(private apiService: ApiService) {}
 
   ngOnInit(): void {
-    this.loadData();
+    this.loadOverview();
   }
 
-  loadData() {
+  loadOverview() {
     this.loading = true;
-    this.apiService.getApiStringExample().subscribe({
+    this.apiService.getAdminPanelOverview().subscribe({
       next: (response) => {
-        this.apiResult = response;
+        this.overview = response;
         this.loading = false;
       },
       error: () => {
-        this.apiResult = null;
+        this.overview = null;
         this.loading = false;
       },
     });

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { UserData } from '../types/model';
 import { ApiService } from './api.service';
-import { BehaviorSubject, map, Observable } from 'rxjs';
+import { BehaviorSubject, map, Observable, of } from 'rxjs';
 
 const STORAGE_KEY = 'storage-key-jwt';
 
@@ -13,7 +13,7 @@ export class UserService {
   userData: UserData | null = null;
 
   private userDataSubject = new BehaviorSubject<UserData | null>(null);
-  userData$ = this.userDataSubject.asObservable();
+  userData$: Observable<UserData> | null = null;
 
   constructor(private apiService: ApiService) {
     try {
@@ -36,7 +36,7 @@ export class UserService {
     this.jwt = null;
     this.userData = null;
     this.userDataSubject = new BehaviorSubject<UserData | null>(null);
-    this.userData$ = this.userDataSubject.asObservable();
+    this.userData$ = null;
     localStorage.removeItem(STORAGE_KEY);
   }
 
@@ -44,13 +44,24 @@ export class UserService {
     return this.jwt;
   }
 
-  setUserData(): Observable<UserData | null> {
-    this.apiService.getUserData().subscribe({
-      next: (userData) => {
+  fetchUserData(): Observable<UserData> {
+    if (this.userData !== null) {
+      return of(this.userData);
+    } else if (this.userData$ !== null) {
+      return this.userData$;
+    } else {
+      return this.setUserData();
+    }
+  }
+
+  setUserData(): Observable<UserData> {
+    this.userData$ = this.apiService.getUserData().pipe(
+      map((userData) => {
         this.userData = userData;
         this.userDataSubject.next(userData);
-      },
-    });
+        return userData;
+      })
+    );
 
     return this.userData$;
   }
@@ -65,7 +76,9 @@ export class UserService {
 
   isPlatformAdmin() {
     if (this.userData === null) {
-      return false;
+      return this.fetchUserData().pipe(
+        map((userData) => userData.platformAdmin)
+      );
     } else {
       return this.userData.platformAdmin;
     }

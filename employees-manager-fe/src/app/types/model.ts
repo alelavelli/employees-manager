@@ -11,3 +11,11 @@ export interface UserData {
   platformAdmin: boolean;
   active: boolean;
 }
+
+export interface AdminPanelOverview {
+  totalUsers: number;
+  totalAdmins: number;
+  totalActiveUsers: number;
+  totalInactiveUsers: number;
+  totalCompanies: number;
+}

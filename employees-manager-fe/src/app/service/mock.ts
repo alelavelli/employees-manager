@@ -1,6 +1,5 @@
 import { HttpEventType, HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LoginResponse } from '../types/model';
 
 const MOCK_TIME = 1000;
 
