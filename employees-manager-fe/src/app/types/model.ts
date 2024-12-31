@@ -20,7 +20,7 @@ export interface AdminPanelOverview {
   totalCompanies: number;
 }
 
-export interface AdminPanelUser {
+export interface AdminPanelUserInfo {
   id: string;
   username: string;
   email: string;

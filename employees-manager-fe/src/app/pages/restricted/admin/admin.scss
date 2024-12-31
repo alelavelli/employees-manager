@@ -1,13 +1,49 @@
+@import "colors.scss";
+
+.clickable {
+  cursor: pointer;
+}
+
 .admin-page-container {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: left;
   justify-content: center;
-  height: 100%;
+  gap: 5rem;
+}
+.overview {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  margin: 0rem 10rem 0rem 10rem;
 
-  .overview {
+  .overview-item {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    gap: 0.5rem;
+    .overview-item-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .overview-item-value {
+      font-size: 1.5rem;
+    }
   }
+}
 
-  .users {
+.users {
+  margin: 0rem 5rem 0rem 5rem;
+  .mat-mdc-form-field {
+    font-size: 14px;
+    width: 100%;
+  }
+  .users-header-row {
+    color: $themePrimary;
+    font-weight: bold;
+    font-size: 1rem;
   }
 }
