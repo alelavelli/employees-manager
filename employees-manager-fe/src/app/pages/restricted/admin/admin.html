@@ -32,11 +32,11 @@
     <div class="users">
       <div class="h2-title">Users</div>
       <form [formGroup]="userFilterForm">
-        <mat-form-field>
-          <mat-label>Filter</mat-label>
-          <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
-        </mat-form-field>
-        <div style="display: flex; flex-direction: row; gap: 2rem;">
+        <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
+          <mat-form-field style="width: 50%;">
+            <mat-label>Filter</mat-label>
+            <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+          </mat-form-field>
           <div class="users-filter-component">
             <div class="users-filter-label">Active User</div>
             <mat-button-toggle-group name="activeUser" aria-label="Active User" multiple formControlName="activeUser"
@@ -103,6 +103,8 @@
           <tr mat-row *matRowDef="let row; columns: displayedUsersInfoColumns;"></tr>
         </table>
 
+        <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of users"></mat-paginator>
+
         <mat-menu #menu="matMenu">
           <ng-template matMenuContent let-row="row">
             <button mat-menu-item (click)="setPlatformAdminUser(row)" *ngIf="!row.platformAdmin">Set Platform
@@ -115,7 +117,7 @@
           </ng-template>
         </mat-menu>
 
-        <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of users"></mat-paginator>
+
       </div>
     </div>
   </ng-container>
