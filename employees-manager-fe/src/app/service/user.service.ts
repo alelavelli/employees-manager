@@ -19,7 +19,6 @@ export class UserService {
     try {
       const storageJwt = localStorage.getItem(STORAGE_KEY);
       this.jwt = storageJwt !== null ? storageJwt : null;
-      this.setUserData();
     } catch (error) {
       this.jwt = null;
     }
@@ -59,6 +58,7 @@ export class UserService {
       map((userData) => {
         this.userData = userData;
         this.userDataSubject.next(userData);
+
         return userData;
       })
     );
@@ -74,13 +74,15 @@ export class UserService {
     return this.jwt !== null;
   }
 
-  isPlatformAdmin() {
+  isPlatformAdmin(): Observable<boolean> {
     if (this.userData === null) {
       return this.fetchUserData().pipe(
-        map((userData) => userData.platformAdmin)
+        map((userData) => {
+          return userData.platformAdmin;
+        })
       );
     } else {
-      return this.userData.platformAdmin;
+      return of(this.userData.platformAdmin);
     }
   }
 }

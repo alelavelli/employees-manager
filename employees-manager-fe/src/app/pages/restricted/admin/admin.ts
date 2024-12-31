@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ApiService } from '../../../service/api.service';
-import { AdminPanelOverview } from '../../../types/model';
+import { AdminPanelOverview, AdminPanelUser } from '../../../types/model';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'admin-page',
@@ -13,26 +14,32 @@ import { AdminPanelOverview } from '../../../types/model';
   encapsulation: ViewEncapsulation.None,
 })
 export class AdminPageComponent implements OnInit {
-  //1)define variable to hold "isLoading"
   loading: boolean = false;
-  //define variable to handle "ok" and "ko" case, in this case null is equal to KO
+
   overview: AdminPanelOverview | null = null;
+  users: AdminPanelUser[] = [];
 
   constructor(private apiService: ApiService) {}
 
   ngOnInit(): void {
-    this.loadOverview();
+    this.loadData();
   }
 
-  loadOverview() {
+  loadData() {
     this.loading = true;
-    this.apiService.getAdminPanelOverview().subscribe({
+
+    forkJoin({
+      overview: this.apiService.getAdminPanelOverview(),
+      users: this.apiService.getAdminUsers(),
+    }).subscribe({
       next: (response) => {
-        this.overview = response;
+        this.overview = response.overview;
+        this.users = response.users;
         this.loading = false;
       },
       error: () => {
         this.overview = null;
+        this.users = [];
         this.loading = false;
       },
     });

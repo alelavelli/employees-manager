@@ -40,6 +40,6 @@ export class UserWidgetComponent implements OnInit {
   }
 
   isPlatformAdmin() {
-    return this.userService.isPlatformAdmin();
+    return this.userData?.platformAdmin;
   }
 }

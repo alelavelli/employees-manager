@@ -6,7 +6,7 @@ import {
   RouterStateSnapshot,
 } from '@angular/router';
 import { UserService } from '../service/user.service';
-import { ApiService } from '../service/api.service';
+import { map } from 'rxjs';
 
 export const AuthAdminGuard: CanActivateFn = (
   next: ActivatedRouteSnapshot,
@@ -14,10 +14,14 @@ export const AuthAdminGuard: CanActivateFn = (
 ) => {
   const router = inject(Router);
   const userService = inject(UserService);
-  const apiService = inject(ApiService);
-  if (userService.isAuthenticated() && userService.isPlatformAdmin()) {
-    return true;
-  }
 
-  return router.parseUrl('/does-not-exist');
+  return userService.isPlatformAdmin().pipe(
+    map((isAdmin) => {
+      if (isAdmin && userService.isAuthenticated()) {
+        return true;
+      } else {
+        return router.parseUrl('/does-not-exist');
+      }
+    })
+  );
 };

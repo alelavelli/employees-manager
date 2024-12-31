@@ -19,3 +19,14 @@ export interface AdminPanelOverview {
   totalInactiveUsers: number;
   totalCompanies: number;
 }
+
+export interface AdminPanelUser {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+  surname: string;
+  platformAdmin: boolean;
+  active: boolean;
+  totalCompanies: number;
+}

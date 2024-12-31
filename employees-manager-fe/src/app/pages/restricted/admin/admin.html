@@ -6,6 +6,11 @@
 
   <!-- case "everything has been loaded" -->
   <ng-container *ngIf="!loading">
-    {{ overview | json }}
+    <div class="overview">
+      {{ overview | json }}
+    </div>
+    <div class="users">
+      {{ users | json }}
+    </div>
   </ng-container>
 </div>

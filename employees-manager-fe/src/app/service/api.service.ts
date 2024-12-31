@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { MOCK_LOGIN_RESPONSE, buildMocked } from './mock';
-import { AdminPanelOverview, UserData } from '../types/model';
+import { AdminPanelOverview, AdminPanelUser, UserData } from '../types/model';
 
 const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
@@ -54,5 +54,32 @@ export class ApiService {
           totalCompanies: 5,
         })
       : this.httpClient.get<AdminPanelOverview>(API_URL + '/admin/overview');
+  }
+
+  getAdminUsers(): Observable<AdminPanelUser[]> {
+    return MOCKED
+      ? buildMocked([
+          {
+            id: 'my-id',
+            username: 'my-username',
+            name: 'my-name',
+            surname: 'my-surname',
+            email: 'my-email',
+            platformAdmin: true,
+            active: true,
+            totalCompanies: 5,
+          },
+          {
+            id: 'my-id-2',
+            username: 'my-username-2',
+            name: 'my-name-2',
+            surname: 'my-surname-2',
+            email: 'my-email-2',
+            platformAdmin: false,
+            active: true,
+            totalCompanies: 0,
+          },
+        ])
+      : this.httpClient.get<AdminPanelUser[]>(API_URL + '/admin/users');
   }
 }

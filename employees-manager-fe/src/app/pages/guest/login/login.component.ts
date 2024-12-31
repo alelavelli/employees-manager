@@ -54,7 +54,12 @@ export class LoginPageComponent {
     this.apiService.login(username, password).subscribe({
       next: (jwtToken: string) => {
         this.userService.setJwtToken(jwtToken);
-        this.router.navigateByUrl('/home');
+        this.userService.fetchUserData().subscribe({
+          next: () => {
+            this.router.navigateByUrl('/home');
+            this.loading = false;
+          },
+        });
       },
       error: () => {
         this.loading = false;
