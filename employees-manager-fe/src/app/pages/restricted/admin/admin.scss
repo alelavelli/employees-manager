@@ -36,11 +36,32 @@
 }
 
 .users {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
   margin: 0rem 5rem 0rem 5rem;
+
   .mat-mdc-form-field {
     font-size: 14px;
     width: 100%;
   }
+
+  .users-filter-component {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 1rem;
+
+    .users-filter-label {
+      color: $themePrimary;
+      font-size: 1rem;
+    }
+
+    .users-filter-value {
+    }
+  }
+
   .users-header-row {
     color: $themePrimary;
     font-weight: bold;

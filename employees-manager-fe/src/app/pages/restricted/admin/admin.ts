@@ -14,12 +14,9 @@ import {
   MatButtonToggleChange,
   MatButtonToggleModule,
 } from '@angular/material/button-toggle';
-import {
-  AbstractControl,
-  FormBuilder,
-  FormGroup,
-  ReactiveFormsModule,
-} from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { MatMenuModule } from '@angular/material/menu';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'admin-page',
@@ -37,6 +34,7 @@ import {
     MatInputModule,
     MatButtonToggleModule,
     ReactiveFormsModule,
+    MatMenuModule,
   ],
   encapsulation: ViewEncapsulation.None,
 })
@@ -67,11 +65,13 @@ export class AdminPageComponent implements OnInit {
 
   constructor(
     private apiService: ApiService,
-    private formBuilder: FormBuilder
+    private formBuilder: FormBuilder,
+    private toastr: ToastrService
   ) {
     this.userFilterForm = formBuilder.group({
       valueString: '',
       activeUser: null,
+      platformAdmin: null,
     });
     this.userFilterForm.valueChanges.subscribe((value) => {
       const filter = {
@@ -81,6 +81,10 @@ export class AdminPageComponent implements OnInit {
           value.activeUser === null || value.activeUser.length === 0
             ? null
             : value.activeUser[value.activeUser.length - 1] === 'true',
+        platformAdmin:
+          value.platformAdmin === null || value.platformAdmin.length === 0
+            ? null
+            : value.platformAdmin[value.platformAdmin.length - 1] === 'true',
       } as string;
       this.usersTableDataSource.filter = filter;
     });
@@ -108,6 +112,11 @@ export class AdminPageComponent implements OnInit {
                 ? true
                 : data.active === filter.activeUser;
 
+            const platformAdminFilter =
+              filter.platformAdmin === null
+                ? true
+                : data.platformAdmin === filter.platformAdmin;
+
             const idFilter = data.id.toLocaleLowerCase().includes(filter);
             const usernameFilter = data.username
               .toLocaleLowerCase()
@@ -128,6 +137,7 @@ export class AdminPageComponent implements OnInit {
 
             return (
               activeUserFilter &&
+              platformAdminFilter &&
               (idFilter ||
                 usernameFilter ||
                 emailFilter ||
@@ -155,12 +165,146 @@ export class AdminPageComponent implements OnInit {
 
   onActiveUserFilterChange(event: MatButtonToggleChange) {
     const toggle = event.source;
+    console.log('event', event.value);
     if (toggle && event.value.some((item: string) => item === toggle.value)) {
       toggle.buttonToggleGroup.value = [toggle.value];
     }
   }
 
-  openUserActionsMenu(element: any) {
-    console.log('Open user actions menu for user:', element);
+  onPlatformAdminFilterChange(event: MatButtonToggleChange) {
+    const toggle = event.source;
+    if (toggle && event.value.some((item: string) => item === toggle.value)) {
+      toggle.buttonToggleGroup.value = [toggle.value];
+    }
+  }
+
+  setPlatformAdminUser(element: AdminPanelUserInfo) {
+    this.apiService.setPlatformAdminUser(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'User with id ' + element.id + ' set as platform admin',
+          'Set platform admin',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {
+        this.toastr.error(
+          'Failed to set as platform admin user with id ' + element.id,
+          'Failed',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+      },
+    });
+  }
+
+  unsetPlatformAdminUser(element: AdminPanelUserInfo) {
+    this.apiService.unsetPlatformAdminUser(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'User with id ' + element.id + ' unset as platform admin',
+          'Unset platform admin',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {
+        this.toastr.error(
+          'Failed to unset as platform admin user with id ' + element.id,
+          'Failed',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+      },
+    });
+  }
+
+  activateUser(element: AdminPanelUserInfo) {
+    this.apiService.activateUser(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'User with id ' + element.id + ' activated',
+          'Activated',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {
+        this.toastr.error(
+          'Failed to activate user with id ' + element.id,
+          'Failed',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+      },
+    });
+  }
+
+  deactivateUser(element: any) {
+    this.apiService.deactivateUser(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'User with id ' + element.id + ' deactivated',
+          'Deactivated',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {
+        this.toastr.error(
+          'Failed to deactivate user with id ' + element.id,
+          'Failed',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+      },
+    });
+  }
+
+  deleteUser(element: any) {
+    this.apiService.deleteUser(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'User with id ' + element.id + ' deleted',
+          'Deleted',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {
+        this.toastr.error(
+          'Failed to delete user with id ' + element.id,
+          'Failed',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+      },
+    });
   }
 }

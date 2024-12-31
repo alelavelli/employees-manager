@@ -76,4 +76,49 @@ export class ApiService {
         )
       : this.httpClient.get<AdminPanelUserInfo[]>(API_URL + '/admin/users');
   }
+
+  setPlatformAdminUser(userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          environment.apiHost + `/admin/user/${userId}/set-platform-admin`,
+          {}
+        );
+  }
+
+  unsetPlatformAdminUser(userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          environment.apiHost + `/admin/user/${userId}/unset-platform-admin`,
+          {}
+        );
+  }
+
+  activateUser(userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          environment.apiHost + `/admin/user/${userId}/activate`,
+          {}
+        );
+  }
+
+  deactivateUser(userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          environment.apiHost + `/admin/user/${userId}/deactivate`,
+          {}
+        );
+  }
+
+  deleteUser(userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          environment.apiHost + `/admin/user/${userId}/delete`,
+          {}
+        );
+  }
 }
