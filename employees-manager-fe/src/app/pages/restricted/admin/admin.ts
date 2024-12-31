@@ -14,6 +14,12 @@ import {
   MatButtonToggleChange,
   MatButtonToggleModule,
 } from '@angular/material/button-toggle';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+} from '@angular/forms';
 
 @Component({
   selector: 'admin-page',
@@ -30,6 +36,7 @@ import {
     MatFormFieldModule,
     MatInputModule,
     MatButtonToggleModule,
+    ReactiveFormsModule,
   ],
   encapsulation: ViewEncapsulation.None,
 })
@@ -41,8 +48,7 @@ export class AdminPageComponent implements OnInit {
   users: AdminPanelUserInfo[] = [];
   usersTableDataSource: MatTableDataSource<AdminPanelUserInfo> =
     new MatTableDataSource<AdminPanelUserInfo>([]);
-
-  currentActiveUserFilter: boolean | null = null;
+  readonly userFilterForm: FormGroup;
 
   displayedUsersInfoColumns: string[] = [
     'id',
@@ -59,7 +65,26 @@ export class AdminPageComponent implements OnInit {
   @ViewChild(MatSort, { static: false }) sort!: MatSort;
   @ViewChild(MatPaginator, { static: false }) paginator!: MatPaginator;
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private formBuilder: FormBuilder
+  ) {
+    this.userFilterForm = formBuilder.group({
+      valueString: '',
+      activeUser: null,
+    });
+    this.userFilterForm.valueChanges.subscribe((value) => {
+      const filter = {
+        ...value,
+        valueString: value.valueString.trim().toLowerCase(),
+        activeUser:
+          value.activeUser === null || value.activeUser.length === 0
+            ? null
+            : value.activeUser[value.activeUser.length - 1] === 'true',
+      } as string;
+      this.usersTableDataSource.filter = filter;
+    });
+  }
 
   ngOnInit(): void {
     this.loadData();
@@ -77,30 +102,29 @@ export class AdminPageComponent implements OnInit {
         this.users = response.users;
         this.usersTableDataSource = new MatTableDataSource(this.users);
         setTimeout(() => {
-          this.usersTableDataSource.filterPredicate = (data, filter) => {
-            console.log('Filtering:', data, filter);
+          this.usersTableDataSource.filterPredicate = (data, filter: any) => {
             const activeUserFilter =
-              this.currentActiveUserFilter === null
+              filter.activeUser === null
                 ? true
-                : data.active === this.currentActiveUserFilter;
+                : data.active === filter.activeUser;
 
             const idFilter = data.id.toLocaleLowerCase().includes(filter);
             const usernameFilter = data.username
               .toLocaleLowerCase()
               .trim()
-              .includes(filter);
+              .includes(filter.valueString);
             const emailFilter = data.email
               .toLocaleLowerCase()
               .trim()
-              .includes(filter);
+              .includes(filter.valueString);
             const nameFilter = data.name
               .toLocaleLowerCase()
               .trim()
-              .includes(filter);
+              .includes(filter.valueString);
             const surnameFilter = data.surname
               .toLocaleLowerCase()
               .trim()
-              .includes(filter);
+              .includes(filter.valueString);
 
             return (
               activeUserFilter &&
@@ -129,30 +153,7 @@ export class AdminPageComponent implements OnInit {
     });
   }
 
-  applyUsersFilter(event: Event) {
-    const filterValue = (event.target as HTMLInputElement).value;
-    this.usersTableDataSource.filter = filterValue.trim().toLowerCase();
-
-    if (this.usersTableDataSource.paginator) {
-      this.usersTableDataSource.paginator.firstPage();
-    }
-  }
-
-  applyActiveUserFilter(event: MatButtonToggleChange) {
-    this.currentActiveUserFilter = event.value.some((item: string) => {
-      if (this.currentActiveUserFilter === null) {
-        return item === 'true';
-      }
-      if (this.currentActiveUserFilter) {
-        return item === 'true' ? null : false;
-      } else {
-        return item === 'true' ? null : true;
-      }
-    });
-    if (event.value.length === 0) {
-      this.currentActiveUserFilter = null;
-    }
-
+  onActiveUserFilterChange(event: MatButtonToggleChange) {
     const toggle = event.source;
     if (toggle && event.value.some((item: string) => item === toggle.value)) {
       toggle.buttonToggleGroup.value = [toggle.value];

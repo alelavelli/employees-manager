@@ -31,17 +31,18 @@
 
     <div class="users">
       <div class="h2-title">Users</div>
+      <form [formGroup]="userFilterForm">
+        <mat-form-field>
+          <mat-label>Filter</mat-label>
+          <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+        </mat-form-field>
 
-      <mat-form-field>
-        <mat-label>Filter</mat-label>
-        <input matInput (keyup)="applyUsersFilter($event)" placeholder="Enter your filter" #input>
-      </mat-form-field>
-
-      <mat-button-toggle-group name="activeUser" aria-label="Active User" multiple
-        (change)="applyActiveUserFilter($event)">
-        <mat-button-toggle value="true">True</mat-button-toggle>
-        <mat-button-toggle value="false">False</mat-button-toggle>
-      </mat-button-toggle-group>
+        <mat-button-toggle-group name="activeUser" aria-label="Active User" multiple formControlName="activeUser"
+          (change)="onActiveUserFilterChange($event)">
+          <mat-button-toggle value="true">True</mat-button-toggle>
+          <mat-button-toggle value="false">False</mat-button-toggle>
+        </mat-button-toggle-group>
+      </form>
 
       <div class="mat-elevation-z8">
         <table mat-table [dataSource]="usersTableDataSource" matSort>
