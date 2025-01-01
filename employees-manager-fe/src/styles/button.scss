@@ -1,0 +1,13 @@
+.primary-button {
+  background-color: $themePrimary;
+  color: $white;
+  border: none;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+  &:hover {
+    background-color: $themeAccent;
+  }
+}

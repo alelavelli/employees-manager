@@ -1,0 +1,36 @@
+<h1 mat-dialog-title>Create new user</h1>
+
+<div mat-dialog-content class="modal-container">
+    <form [formGroup]="newUserForm" (ngSubmit)="onSubmit()" class="form-container">
+        <mat-form-field appearance="outline">
+            <mat-label>Username</mat-label>
+            <input matInput placeholder="Username" formControlName="username">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Password</mat-label>
+            <input matInput placeholder="Password" formControlName="password">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Confirm Password</mat-label>
+            <input matInput placeholder="Confirm Password" formControlName="passwordConfirm">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput placeholder="Name" formControlName="name">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Surname</mat-label>
+            <input matInput placeholder="Surname" formControlName="surname">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput placeholder="Email" formControlName="email">
+        </mat-form-field>
+    </form>
+    <div mat-dialog-actions align="end" class="action-buttons">
+        <button mat-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-raised-button type="submit" [disabled]="newUserForm.invalid" color="primary" (click)="onSubmit()">
+            Create
+        </button>
+    </div>
+</div>

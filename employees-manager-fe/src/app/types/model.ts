@@ -30,3 +30,11 @@ export interface AdminPanelUserInfo {
   active: boolean;
   totalCompanies: number;
 }
+
+export interface CreateUserParameters {
+  username: string;
+  password: string;
+  name: string;
+  surname: string;
+  email: string;
+}

@@ -6,6 +6,7 @@ import { MOCK_LOGIN_RESPONSE, buildMocked } from './mock';
 import {
   AdminPanelOverview,
   AdminPanelUserInfo,
+  CreateUserParameters,
   UserData,
 } from '../types/model';
 
@@ -120,5 +121,11 @@ export class ApiService {
           environment.apiHost + `/admin/user/${userId}/delete`,
           {}
         );
+  }
+
+  createUser(user: CreateUserParameters): Observable<string> {
+    return MOCKED
+      ? buildMocked('new-user-id')
+      : this.httpClient.post<string>(API_URL + '/admin/user/create', user);
   }
 }

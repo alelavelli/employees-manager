@@ -2,7 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ApiService } from '../../../service/api.service';
-import { AdminPanelOverview, AdminPanelUserInfo } from '../../../types/model';
+import {
+  AdminPanelOverview,
+  AdminPanelUserInfo,
+  CreateUserParameters,
+} from '../../../types/model';
 import { forkJoin } from 'rxjs';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,6 +14,7 @@ import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatDialog } from '@angular/material/dialog';
 import {
   MatButtonToggleChange,
   MatButtonToggleModule,
@@ -17,6 +22,7 @@ import {
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatMenuModule } from '@angular/material/menu';
 import { ToastrService } from 'ngx-toastr';
+import { NewUserDialogComponent } from './new-user-modal/new-user-modal';
 
 @Component({
   selector: 'admin-page',
@@ -66,7 +72,8 @@ export class AdminPageComponent implements OnInit {
   constructor(
     private apiService: ApiService,
     private formBuilder: FormBuilder,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private dialog: MatDialog
   ) {
     this.userFilterForm = formBuilder.group({
       valueString: '',
@@ -165,7 +172,6 @@ export class AdminPageComponent implements OnInit {
 
   onActiveUserFilterChange(event: MatButtonToggleChange) {
     const toggle = event.source;
-    console.log('event', event.value);
     if (toggle && event.value.some((item: string) => item === toggle.value)) {
       toggle.buttonToggleGroup.value = [toggle.value];
     }
@@ -306,5 +312,29 @@ export class AdminPageComponent implements OnInit {
         );
       },
     });
+  }
+
+  openCreateUserDialog() {
+    this.dialog
+      .open(NewUserDialogComponent, {})
+      .afterClosed()
+      .subscribe({
+        next: (newUser: CreateUserParameters | undefined) => {
+          if (newUser !== undefined) {
+            this.apiService.createUser(newUser).subscribe({
+              next: (userId: string) => {
+                this.toastr.success(
+                  'New user created with id ' + userId,
+                  'Sent',
+                  {
+                    timeOut: 5000,
+                    progressBar: true,
+                  }
+                );
+              },
+            });
+          }
+        },
+      });
   }
 }
