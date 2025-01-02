@@ -316,7 +316,10 @@ export class AdminPageComponent implements OnInit {
 
   openCreateUserDialog() {
     this.dialog
-      .open(NewUserDialogComponent, {})
+      .open(NewUserDialogComponent, {
+        width: '40rem',
+        data: {},
+      })
       .afterClosed()
       .subscribe({
         next: (newUser: CreateUserParameters | undefined) => {

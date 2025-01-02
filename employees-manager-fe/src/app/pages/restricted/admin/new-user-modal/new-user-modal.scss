@@ -1,3 +1,5 @@
+@import "colors";
+
 .modal-container {
   .form-container {
     padding: 0.125rem 1rem 0.125rem 1rem;
@@ -12,4 +14,22 @@
     justify-content: end;
     gap: 1rem;
   }
+}
+
+.constraint > span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.constraint-respected {
+  color: $green400;
+}
+
+.constraint-not-respected {
+  opacity: 0.5;
+}
+
+.constraints-list {
+  list-style-type: none;
+  padding-left: 32px;
 }
