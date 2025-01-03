@@ -5,6 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
+use tracing::error;
 
 use crate::dtos::AppJson;
 
@@ -84,12 +85,14 @@ impl From<AuthError> for AppError {
 
 impl From<mongodb::error::Error> for AppError {
     fn from(value: mongodb::error::Error) -> Self {
+        error!("MongoDB error: {:?}", value);
         Self::InternalServerError(anyhow::Error::new(value))
     }
 }
 
 impl From<DatabaseError> for AppError {
     fn from(value: DatabaseError) -> Self {
+        error!("Database error: {:?}", value);
         match value {
             DatabaseError::TransactionNotStarted => {
                 AppError::InternalServerError(anyhow!("Transaction not started"))

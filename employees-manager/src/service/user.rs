@@ -6,7 +6,10 @@ use tracing::info;
 use crate::{
     enums::CompanyRole,
     error::{AppError, AuthError},
-    model::db_entities,
+    model::{
+        db_entities,
+        internal::{AdminPanelOverviewUserInfo, AdminPanelUserInfo},
+    },
     DocumentId,
 };
 
@@ -28,6 +31,93 @@ pub async fn login(username: &str, password: &str) -> Result<db_entities::User, 
         }
     } else {
         Err(AuthError::WrongCredentials)?
+    }
+}
+
+pub async fn get_admin_panel_users_info() -> Result<Vec<AdminPanelUserInfo>, AppError> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct QueryResult {
+        _id: DocumentId,
+        username: String,
+        email: String,
+        name: String,
+        surname: String,
+        platform_admin: bool,
+        active: bool,
+    }
+
+    let users = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
+        doc! {},
+        doc! {
+            "_id": 1,
+            "username": 1,
+            "email": 1,
+            "name": 1,
+            "surname": 1,
+            "platform_admin": 1,
+            "active": 1
+        },
+    )
+    .await?;
+
+    let users = users
+        .iter()
+        .map(|user| AdminPanelUserInfo {
+            id: user._id,
+            username: user.username.clone(),
+            email: user.email.clone(),
+            name: user.name.clone(),
+            surname: user.surname.clone(),
+            platform_admin: user.platform_admin,
+            active: user.active,
+            total_companies: 0,
+        })
+        .collect::<Vec<AdminPanelUserInfo>>();
+
+    Ok(users)
+}
+
+pub async fn get_admin_panel_overview_users_info() -> Result<AdminPanelOverviewUserInfo, AppError> {
+    let result = db_entities::User::aggregate::<db_entities::User>(vec![doc! {"$group": {
+        "_id": null,
+        "total_users": {"$sum": 1},
+        "total_admins": {"$sum": {"$cond": [{"$eq": ["$platform_admin", true]}, 1, 0]}},
+        "total_inactive_users": {"$sum": {"$cond": [{"$eq": ["$active", false]}, 1, 0]}},
+        "total_active_users": {"$sum": {"$cond": [{"$eq": ["$active", true]}, 1, 0]}}
+    }
+    }])
+    .await?;
+
+    if let Some(result) = result.first() {
+        Ok(AdminPanelOverviewUserInfo {
+            total_users: result
+                .get("total_users")
+                .expect("total_users should be present")
+                .as_i32()
+                .unwrap() as u16,
+            total_admins: result
+                .get("total_admins")
+                .expect("total_admins should be present")
+                .as_i32()
+                .unwrap() as u16,
+            total_active_users: result
+                .get("total_active_users")
+                .expect("total_active_users should be present")
+                .as_i32()
+                .unwrap() as u16,
+            total_inactive_users: result
+                .get("total_inactive_users")
+                .expect("total_inactive_users should be present")
+                .as_i32()
+                .unwrap() as u16,
+        })
+    } else {
+        Ok(AdminPanelOverviewUserInfo {
+            total_users: 0,
+            total_admins: 0,
+            total_active_users: 0,
+            total_inactive_users: 0,
+        })
     }
 }
 

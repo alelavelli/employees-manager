@@ -3,3 +3,4 @@
 //! them from permanent storage.
 
 pub mod db_entities;
+pub mod internal;

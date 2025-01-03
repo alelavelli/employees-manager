@@ -558,6 +558,20 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
             }
         }
     }
+
+    fn aggregate<T>(
+        pipeline: Vec<Document>,
+    ) -> impl std::future::Future<Output = Result<Vec<Document>, AppError>> + Send
+    where
+        T: DatabaseDocument + Send + DeserializeOwned,
+    {
+        async {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<T>(T::collection_name());
+            let result = collection.aggregate(pipeline).await?.try_collect().await?;
+            Ok(result)
+        }
+    }
 }
 
 pub fn serialize_opt_object_id<S>(

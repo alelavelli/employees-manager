@@ -79,7 +79,7 @@ export class ApiService {
             totalCompanies: i,
           }))
         )
-      : this.httpClient.get<AdminPanelUserInfo[]>(API_URL + '/admin/users');
+      : this.httpClient.get<AdminPanelUserInfo[]>(API_URL + '/admin/user');
   }
 
   setPlatformAdminUser(userId: string): Observable<void> {

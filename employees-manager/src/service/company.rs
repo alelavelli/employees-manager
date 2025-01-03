@@ -8,9 +8,36 @@ use super::db::{get_database_service, DatabaseDocument};
 use crate::{
     enums::CompanyRole,
     error::AppError,
-    model::db_entities::{self, UserCompanyAssignment},
+    model::{
+        db_entities::{self, UserCompanyAssignment},
+        internal::AdminPanelOverviewCompanyInfo,
+    },
     DocumentId,
 };
+
+/// Returns the companies info for the admin panel
+pub async fn get_admin_panel_overview_companies_info(
+) -> Result<AdminPanelOverviewCompanyInfo, AppError> {
+    let result = db_entities::Company::aggregate::<db_entities::Company>(vec![doc! {
+        "$group": {
+            "_id": null,
+            "total_companies": { "$sum": 1 }
+        }
+    }])
+    .await?;
+
+    if let Some(result) = result.first() {
+        Ok(AdminPanelOverviewCompanyInfo {
+            total_companies: result
+                .get("total_companies")
+                .expect("total_companies should be present")
+                .as_i32()
+                .unwrap() as u16,
+        })
+    } else {
+        Ok(AdminPanelOverviewCompanyInfo { total_companies: 0 })
+    }
+}
 
 /// creates a Company and assigns it to the User creating an entry
 /// in UserCompanyAssignment
