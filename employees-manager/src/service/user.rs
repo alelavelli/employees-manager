@@ -159,9 +159,10 @@ pub async fn create_user(
 
     for document in usernames {
         if username.to_lowercase() == document.username.to_lowercase() {
-            return Err(AppError::ManagedError(
-                format!("Username {} already exist.", username).into(),
-            ));
+            return Err(AppError::ManagedError(format!(
+                "Username {} already exist.",
+                username
+            )));
         }
     }
     let mut user_model = db_entities::User {
