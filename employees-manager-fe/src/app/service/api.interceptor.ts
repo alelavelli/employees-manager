@@ -48,7 +48,12 @@ export const authInterceptor: HttpInterceptorFn = (
         });
       }
 
-      // TODO: handle when the server is unreachable but a jwt is present in local storage
+      if (err.status === 404) {
+        toastr.error('Wrong URL', `SERVER UNREACHABLE`, {
+          timeOut: 5000,
+          progressBar: true,
+        });
+      }
 
       if (err.status === 0) {
         toastr.error(

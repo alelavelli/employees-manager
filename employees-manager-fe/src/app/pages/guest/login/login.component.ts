@@ -60,6 +60,9 @@ export class LoginPageComponent {
             this.router.navigateByUrl('/home');
             this.loading = false;
           },
+          error: () => {
+            this.loading = false;
+          },
         });
       },
       error: () => {
