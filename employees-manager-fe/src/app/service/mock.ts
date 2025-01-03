@@ -37,5 +37,3 @@ export const buildMockedProgress = () =>
       }
     }, MOCK_TIME);
   });
-
-export const MOCK_LOGIN_RESPONSE: string = 'jwt_token';

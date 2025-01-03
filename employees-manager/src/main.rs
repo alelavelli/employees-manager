@@ -6,7 +6,7 @@ use axum::{
 };
 use employees_manager::{
     middleware::{add_cors_middleware, add_logging_middleware},
-    router::{SDK_ROUTER, WEB_APP_ROUTER},
+    router::{ADMIN_ROUTER, SDK_ROUTER, WEB_APP_ROUTER},
     service::{db::get_database_service, environment::ENVIRONMENT},
 };
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -34,7 +34,9 @@ async fn main() {
         // SDK v0 user
         .nest("/sdk/v0", SDK_ROUTER.to_owned())
         // Web application router
-        .nest("/", WEB_APP_ROUTER.to_owned());
+        .nest("/api", WEB_APP_ROUTER.to_owned())
+        // Admin panel router
+        .nest("/api/admin", ADMIN_ROUTER.to_owned());
 
     // add 404 for unknown path
     app = app.fallback(handler_404);

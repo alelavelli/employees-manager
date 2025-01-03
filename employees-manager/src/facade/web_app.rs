@@ -30,6 +30,24 @@ pub async fn authenticate_user(
     })
 }
 
+pub async fn get_auth_user_data(
+    auth_info: impl AuthInfo,
+) -> Result<web_app_response::AuthUserData, AppError> {
+    let user_model = user::get_user(auth_info.user_id()).await?;
+    Ok(web_app_response::AuthUserData {
+        id: user_model
+            .id
+            .expect("field id should exist since the model comes from a db query")
+            .to_hex(),
+        username: user_model.username,
+        email: user_model.email,
+        name: user_model.name,
+        surname: user_model.surname,
+        platform_admin: user_model.platform_admin,
+        active: user_model.active,
+    })
+}
+
 pub async fn create_company(
     auth_info: impl AuthInfo,
     payload: web_app_request::CreateCompany,

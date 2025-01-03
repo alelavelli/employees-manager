@@ -7,6 +7,8 @@ use mongodb::{
     options::{ClientOptions, FindOneOptions, FindOptions},
     Client, ClientSession, Database,
 };
+
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::{
@@ -92,6 +94,10 @@ impl DatabaseService {
             let db = client.database(&db_name);
             Ok(DatabaseService { client, db })
         } else {
+            debug!(
+                "Connecting to database with connection string: {}",
+                ENVIRONMENT.database.connection_string
+            );
             let client_options =
                 ClientOptions::parse(&ENVIRONMENT.database.connection_string).await?;
             let client = Client::with_options(client_options)?;

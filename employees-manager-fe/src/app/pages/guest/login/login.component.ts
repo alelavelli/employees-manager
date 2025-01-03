@@ -14,6 +14,7 @@ import { Router, RouterModule } from '@angular/router';
 import { ApiService } from '../../../service/api.service';
 import { UserService } from '../../../service/user.service';
 import { MatButtonModule } from '@angular/material/button';
+import { LoginResponse } from '../../../types/model';
 
 @Component({
   selector: 'login-page',
@@ -52,8 +53,8 @@ export class LoginPageComponent {
     const password = this.loginForm.get('password')!.value;
 
     this.apiService.login(username, password).subscribe({
-      next: (jwtToken: string) => {
-        this.userService.setJwtToken(jwtToken);
+      next: (loginResponse: LoginResponse) => {
+        this.userService.setJwtToken(loginResponse.token);
         this.userService.fetchUserData().subscribe({
           next: () => {
             this.router.navigateByUrl('/home');

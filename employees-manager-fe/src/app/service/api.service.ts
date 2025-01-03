@@ -2,15 +2,16 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { MOCK_LOGIN_RESPONSE, buildMocked } from './mock';
+import { buildMocked } from './mock';
 import {
   AdminPanelOverview,
   AdminPanelUserInfo,
   CreateUserParameters,
+  LoginResponse,
   UserData,
 } from '../types/model';
 
-const MOCKED = true;
+const MOCKED = false;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -19,11 +20,14 @@ const API_URL = environment.apiHost + '/api';
 export class ApiService {
   constructor(private httpClient: HttpClient) {}
 
-  login(email: string, password: string): Observable<string> {
+  login(username: string, password: string): Observable<LoginResponse> {
     return MOCKED
-      ? buildMocked(MOCK_LOGIN_RESPONSE)
-      : this.httpClient.post<string>(API_URL + '/auth/login', {
-          email,
+      ? buildMocked({
+          token: 'token',
+          tokenType: 'Bearer',
+        })
+      : this.httpClient.post<LoginResponse>(API_URL + '/auth/login', {
+          username,
           password,
         });
   }
@@ -46,7 +50,7 @@ export class ApiService {
           platformAdmin: true,
           active: true,
         })
-      : this.httpClient.get<UserData>(API_URL + '/user');
+      : this.httpClient.get<UserData>(API_URL + '/auth/user');
   }
 
   getAdminPanelOverview(): Observable<AdminPanelOverview> {

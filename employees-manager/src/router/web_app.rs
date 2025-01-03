@@ -16,7 +16,8 @@ use crate::facade::web_app as facade;
 
 pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
     Router::new()
-        .route("/login", post(authorize))
+        .route("/auth/login", post(authorize))
+        .route("/auth/user", get(get_auth_user_data))
         .route("/company", post(create_company))
         .route("/company/:id", get(get_company))
         .route("/company/user", post(add_company_user))
@@ -30,6 +31,14 @@ async fn authorize(
     facade::authenticate_user(&payload.username, &payload.password)
         .await
         .map(AppJson)
+}
+
+/// Get user data from jwt token
+async fn get_auth_user_data(
+    jwt_claim: JWTAuthClaim,
+) -> Result<AppJson<web_app_response::AuthUserData>, AppError> {
+    let user = facade::get_auth_user_data(jwt_claim).await?;
+    Ok(AppJson(user))
 }
 
 /// Create a Company in the portal becoming the owner

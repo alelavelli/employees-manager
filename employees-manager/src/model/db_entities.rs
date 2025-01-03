@@ -77,7 +77,7 @@ pub struct CompanyEmployeeRequest {
 #[async_trait]
 impl DatabaseDocument for User {
     fn collection_name() -> &'static str {
-        "User"
+        "user"
     }
 
     fn get_id(&self) -> Option<&DocumentId> {
@@ -99,7 +99,7 @@ impl DatabaseDocument for User {
 #[async_trait]
 impl DatabaseDocument for UserCompanyAssignment {
     fn collection_name() -> &'static str {
-        "UserCompanyAssignment"
+        "user_company_assignment"
     }
 
     fn get_id(&self) -> Option<&DocumentId> {
@@ -121,7 +121,7 @@ impl DatabaseDocument for UserCompanyAssignment {
 #[async_trait]
 impl DatabaseDocument for CompanyManagementTeam {
     fn collection_name() -> &'static str {
-        "CompanyManagementTeam"
+        "company_management_team"
     }
 
     fn get_id(&self) -> Option<&DocumentId> {
@@ -143,7 +143,7 @@ impl DatabaseDocument for CompanyManagementTeam {
 #[async_trait]
 impl DatabaseDocument for Company {
     fn collection_name() -> &'static str {
-        "Company"
+        "company"
     }
 
     fn get_id(&self) -> Option<&DocumentId> {
@@ -165,7 +165,7 @@ impl DatabaseDocument for Company {
 #[async_trait]
 impl DatabaseDocument for CompanyEmployeeRequest {
     fn collection_name() -> &'static str {
-        "CompanyEmployeeRequest"
+        "company_employee_request"
     }
 
     fn get_id(&self) -> Option<&DocumentId> {

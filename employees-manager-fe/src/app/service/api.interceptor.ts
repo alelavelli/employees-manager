@@ -6,6 +6,9 @@ import {
 } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { UserService } from './user.service';
+import { catchError } from 'rxjs';
+import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
 
 const excludedApiList = ['/login'];
 
@@ -14,6 +17,8 @@ export const authInterceptor: HttpInterceptorFn = (
   next: HttpHandlerFn
 ) => {
   const userService = inject(UserService);
+  const router = inject(Router);
+  const toastr = inject(ToastrService);
 
   let req = request;
 
@@ -27,6 +32,36 @@ export const authInterceptor: HttpInterceptorFn = (
       }),
     });
   }
+  return next(req).pipe(
+    catchError((err) => {
+      if (err.status === 401) {
+        toastr.error('Invalid credentials', 'Authorization Error', {
+          timeOut: 5000,
+          progressBar: true,
+        });
+      }
 
-  return next(req);
+      if (err.error && err.error.errorCode && err.error.errorMessage) {
+        toastr.error(err.error.errorMessage, `ERROR - ${err.error.errorCode}`, {
+          timeOut: 5000,
+          progressBar: true,
+        });
+      }
+
+      // TODO: handle when the server is unreachable but a jwt is present in local storage
+
+      if (err.status === 0) {
+        toastr.error(
+          'Could not reach the remote server',
+          `SERVER UNREACHABLE`,
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+      }
+
+      throw err;
+    })
+  );
 };

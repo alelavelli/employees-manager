@@ -19,6 +19,18 @@ pub struct User {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct AuthUserData {
+    pub id: String,
+    pub username: String,
+    pub email: String,
+    pub name: String,
+    pub surname: String,
+    pub platform_admin: bool,
+    pub active: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Company {
     pub id: DocumentId,
     pub name: String,

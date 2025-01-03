@@ -15,6 +15,7 @@ use super::db::{get_database_service, DatabaseDocument};
 pub async fn login(username: &str, password: &str) -> Result<db_entities::User, AppError> {
     let query_result: Option<db_entities::User> =
         db_entities::User::find_one(doc! {"username": username}).await?;
+
     if let Some(user_document) = query_result {
         if bcrypt::verify(password, &user_document.password_hash).map_err(|e| {
             AppError::InternalServerError(anyhow!(format!(
