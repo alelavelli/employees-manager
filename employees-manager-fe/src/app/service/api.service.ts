@@ -86,7 +86,7 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.post<void>(
-          environment.apiHost + `/admin/user/${userId}/set-platform-admin`,
+          API_URL + `/admin/user/${userId}/platform-admin`,
           {}
         );
   }
@@ -94,8 +94,8 @@ export class ApiService {
   unsetPlatformAdminUser(userId: string): Observable<void> {
     return MOCKED
       ? buildMocked()
-      : this.httpClient.post<void>(
-          environment.apiHost + `/admin/user/${userId}/unset-platform-admin`,
+      : this.httpClient.delete<void>(
+          API_URL + `/admin/user/${userId}/platform-admin`,
           {}
         );
   }
@@ -104,7 +104,7 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.post<void>(
-          environment.apiHost + `/admin/user/${userId}/activate`,
+          API_URL + `/admin/user/${userId}/activate`,
           {}
         );
   }
@@ -112,8 +112,8 @@ export class ApiService {
   deactivateUser(userId: string): Observable<void> {
     return MOCKED
       ? buildMocked()
-      : this.httpClient.post<void>(
-          environment.apiHost + `/admin/user/${userId}/deactivate`,
+      : this.httpClient.delete<void>(
+          API_URL + `/admin/user/${userId}/activate`,
           {}
         );
   }
@@ -121,15 +121,12 @@ export class ApiService {
   deleteUser(userId: string): Observable<void> {
     return MOCKED
       ? buildMocked()
-      : this.httpClient.post<void>(
-          environment.apiHost + `/admin/user/${userId}/delete`,
-          {}
-        );
+      : this.httpClient.delete<void>(API_URL + `/admin/user/${userId}`, {});
   }
 
   createUser(user: CreateUserParameters): Observable<string> {
     return MOCKED
       ? buildMocked('new-user-id')
-      : this.httpClient.post<string>(API_URL + '/admin/user/create', user);
+      : this.httpClient.post<string>(API_URL + '/admin/user', user);
   }
 }

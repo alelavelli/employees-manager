@@ -22,9 +22,13 @@ pub static ADMIN_ROUTER: Lazy<Router> = Lazy::new(|| {
     Router::new()
         .route("/overview", get(get_admin_panel_overview))
         .route("/user", get(get_admin_panel_users_info))
-        .route("/user/{id}", get(get_user))
         .route("/user", post(create_user))
+        .route("/user/{id}/platform-admin", post(set_platform_admin))
+        .route("/user/{id}/platform-admin", delete(unset_platform_admin))
+        .route("/user/{id}/activate", post(activate_platform_admin))
+        .route("/user/{id}/activate", delete(deactivate_platform_admin))
         .route("/user/{id}", delete(delete_user))
+        .route("/user/{id}", get(get_user))
 });
 
 /// Returns overview of all users and companies in application
@@ -43,6 +47,15 @@ async fn get_admin_panel_users_info(
     Ok(AppJson(users))
 }
 
+/// Create new user providing required attributes
+async fn create_user(
+    jwt_claim: JWTAuthClaim,
+    Json(payload): Json<web_app_request::CreateUser>,
+) -> Result<AppJson<String>, AppError> {
+    let user = facade::create_user(jwt_claim, payload).await?;
+    Ok(AppJson(user))
+}
+
 /// Returns the user if it exists with all the information
 ///
 /// Request parameter is extracted from the url
@@ -54,16 +67,35 @@ async fn get_user(
     Ok(AppJson(user))
 }
 
-/// Create new user providing required attributes
-async fn create_user(
-    jwt_claim: JWTAuthClaim,
-    Json(payload): Json<web_app_request::CreateUser>,
-) -> Result<AppJson<String>, AppError> {
-    let user = facade::create_user(jwt_claim, payload).await?;
-    Ok(AppJson(user))
-}
-
 /// Delete user from the application
 async fn delete_user(jwt_claim: JWTAuthClaim, Path(id): Path<DocumentId>) -> Result<(), AppError> {
     facade::delete_user(jwt_claim, id).await
+}
+
+async fn set_platform_admin(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<(), AppError> {
+    facade::set_platform_admin(jwt_claim, id).await
+}
+
+async fn unset_platform_admin(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<(), AppError> {
+    facade::unset_platform_admin(jwt_claim, id).await
+}
+
+async fn activate_platform_admin(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<(), AppError> {
+    facade::activate_platform_admin(jwt_claim, id).await
+}
+
+async fn deactivate_platform_admin(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<(), AppError> {
+    facade::deactivate_platform_admin(jwt_claim, id).await
 }

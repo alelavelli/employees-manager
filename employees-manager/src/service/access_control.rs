@@ -11,8 +11,13 @@ pub struct AccessControl<T: AuthInfo> {
 }
 
 impl<T: AuthInfo> AccessControl<T> {
-    pub fn new(auth_info: T) -> AccessControl<T> {
-        AccessControl { auth_info }
+    pub async fn new(auth_info: T) -> Result<AccessControl<T>, AppError> {
+        let user = get_user(auth_info.user_id()).await?;
+        if user.active {
+            Ok(AccessControl { auth_info })
+        } else {
+            Err(AppError::AccessControlError)
+        }
     }
 
     /// Verify that the user has ADMIN role, otherwise it

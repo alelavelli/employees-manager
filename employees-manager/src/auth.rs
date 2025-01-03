@@ -27,12 +27,12 @@ use crate::{
 };
 
 /// Trait for auth info objects that need to return specific information
-pub trait AuthInfo {
+pub trait AuthInfo: Clone {
     fn user_id(&self) -> &DocumentId;
 }
 
 /// Struct containing information that will be encoded inside the jwt token
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JWTAuthClaim {
     pub exp: usize,
     pub user_id: DocumentId,
@@ -84,7 +84,7 @@ impl AuthInfo for JWTAuthClaim {
 }
 
 /// Struct containing api key authentication
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct APIKeyAuthClaim {
     pub key: String,
     pub user_id: DocumentId,

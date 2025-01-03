@@ -1,6 +1,6 @@
 .primary-button {
-  background-color: $themePrimary;
-  color: $white;
+  background-color: $themePrimary !important;
+  color: $white !important;
   border: none;
   padding: 0.5rem 0.5rem;
   border-radius: 0.5rem;
@@ -8,6 +8,6 @@
   cursor: pointer;
   transition: 0.3s;
   &:hover {
-    background-color: $themeAccent;
+    background-color: $themeAccent !important;
   }
 }

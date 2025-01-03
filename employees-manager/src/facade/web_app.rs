@@ -90,6 +90,7 @@ pub async fn add_company_user(
 ) -> Result<(), AppError> {
     // only company owner and admin can add users to the company
     AccessControl::new(auth_info)
+        .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
@@ -119,6 +120,7 @@ pub async fn remove_company_user(
     company_id: DocumentId,
 ) -> Result<(), AppError> {
     AccessControl::new(auth_info)
+        .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 

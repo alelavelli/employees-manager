@@ -23,6 +23,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatMenuModule } from '@angular/material/menu';
 import { ToastrService } from 'ngx-toastr';
 import { NewUserDialogComponent } from './new-user-modal/new-user-modal';
+import { ConfirmDialogComponent } from '../../../components/confirm-modal/confirm-modal';
 
 @Component({
   selector: 'admin-page',
@@ -197,16 +198,7 @@ export class AdminPageComponent implements OnInit {
         );
         this.loadData();
       },
-      error: () => {
-        this.toastr.error(
-          'Failed to set as platform admin user with id ' + element.id,
-          'Failed',
-          {
-            timeOut: 5000,
-            progressBar: true,
-          }
-        );
-      },
+      error: () => {},
     });
   }
 
@@ -223,16 +215,7 @@ export class AdminPageComponent implements OnInit {
         );
         this.loadData();
       },
-      error: () => {
-        this.toastr.error(
-          'Failed to unset as platform admin user with id ' + element.id,
-          'Failed',
-          {
-            timeOut: 5000,
-            progressBar: true,
-          }
-        );
-      },
+      error: () => {},
     });
   }
 
@@ -249,16 +232,7 @@ export class AdminPageComponent implements OnInit {
         );
         this.loadData();
       },
-      error: () => {
-        this.toastr.error(
-          'Failed to activate user with id ' + element.id,
-          'Failed',
-          {
-            timeOut: 5000,
-            progressBar: true,
-          }
-        );
-      },
+      error: () => {},
     });
   }
 
@@ -275,43 +249,42 @@ export class AdminPageComponent implements OnInit {
         );
         this.loadData();
       },
-      error: () => {
-        this.toastr.error(
-          'Failed to deactivate user with id ' + element.id,
-          'Failed',
-          {
-            timeOut: 5000,
-            progressBar: true,
-          }
-        );
-      },
+      error: () => {},
     });
   }
 
   deleteUser(element: any) {
-    this.apiService.deleteUser(element.id).subscribe({
-      next: () => {
-        this.toastr.success(
-          'User with id ' + element.id + ' deleted',
-          'Deleted',
-          {
-            timeOut: 5000,
-            progressBar: true,
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Delete user',
+          content:
+            'Are you sure you want to delete user with id <b>' +
+            element.id +
+            '</b>?',
+        },
+      })
+      .afterClosed()
+      .subscribe({
+        next: (result) => {
+          if (result) {
+            this.apiService.deleteUser(element.id).subscribe({
+              next: () => {
+                this.toastr.success(
+                  'User with id ' + element.id + ' deleted',
+                  'Deleted',
+                  {
+                    timeOut: 5000,
+                    progressBar: true,
+                  }
+                );
+                this.loadData();
+              },
+              error: () => {},
+            });
           }
-        );
-        this.loadData();
-      },
-      error: () => {
-        this.toastr.error(
-          'Failed to delete user with id ' + element.id,
-          'Failed',
-          {
-            timeOut: 5000,
-            progressBar: true,
-          }
-        );
-      },
-    });
+        },
+      });
   }
 
   openCreateUserDialog() {
@@ -326,6 +299,7 @@ export class AdminPageComponent implements OnInit {
           if (newUser !== undefined) {
             this.apiService.createUser(newUser).subscribe({
               next: (userId: string) => {
+                this.loadData();
                 this.toastr.success(
                   'New user created with id ' + userId,
                   'Sent',

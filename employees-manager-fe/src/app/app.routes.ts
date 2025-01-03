@@ -14,6 +14,7 @@ import { PipePageComponent } from './pages/restricted/pipe/pipe';
 import { AdminPageComponent } from './pages/restricted/admin/admin';
 import { AuthAdminGuard } from './guards/auth_admin.guard';
 import { DoesNotExistPageComponent } from './pages/does-not-exist/does-not-exist.component';
+import { GuestGuard } from './guards/auth_guest.guard';
 
 export const routes: Routes = environment.maintenance
   ? [
@@ -32,6 +33,7 @@ export const routes: Routes = environment.maintenance
       {
         path: 'login',
         component: LoginPageComponent,
+        canActivate: [GuestGuard],
         data: { layoutType: LayoutType.Guest },
       },
       {

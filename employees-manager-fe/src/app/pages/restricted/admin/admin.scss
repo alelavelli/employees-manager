@@ -5,6 +5,7 @@
 }
 
 .admin-page-container {
+  margin-top: 2rem;
   display: flex;
   flex-direction: column;
   align-items: left;
@@ -55,9 +56,6 @@
     .users-filter-label {
       color: $themePrimary;
       font-size: 1rem;
-    }
-
-    .users-filter-value {
     }
   }
 

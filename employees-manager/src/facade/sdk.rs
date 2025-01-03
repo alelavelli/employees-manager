@@ -18,7 +18,10 @@ pub async fn get_user(
         "Making access control for auth_info with user {}",
         auth_info.user_id()
     );
-    AccessControl::new(auth_info).is_platform_admin().await?;
+    AccessControl::new(auth_info)
+        .await?
+        .is_platform_admin()
+        .await?;
     let user_model = user::get_user(&user_id).await?;
     Ok(sdk_response::User {
         id: user_model
@@ -37,7 +40,10 @@ pub async fn create_user(
         "Making access control for auth_info with user {}",
         auth_info.user_id()
     );
-    AccessControl::new(auth_info).is_platform_admin().await?;
+    AccessControl::new(auth_info)
+        .await?
+        .is_platform_admin()
+        .await?;
     user::create_user(
         payload.username,
         payload.password,

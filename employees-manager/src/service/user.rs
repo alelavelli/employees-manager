@@ -25,7 +25,11 @@ pub async fn login(username: &str, password: &str) -> Result<db_entities::User, 
                 "Error in password hash verification. Got {e}"
             )))
         })? {
-            Ok(user_document)
+            if user_document.active {
+                Ok(user_document)
+            } else {
+                Err(AuthError::WrongCredentials)?
+            }
         } else {
             Err(AuthError::WrongCredentials)?
         }
@@ -156,7 +160,7 @@ pub async fn create_user(
     for document in usernames {
         if username.to_lowercase() == document.username.to_lowercase() {
             return Err(AppError::ManagedError(
-                "Username {username} already exist.".into(),
+                format!("Username {} already exist.", username).into(),
             ));
         }
     }
