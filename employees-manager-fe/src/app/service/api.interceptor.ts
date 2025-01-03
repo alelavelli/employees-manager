@@ -40,22 +40,18 @@ export const authInterceptor: HttpInterceptorFn = (
           progressBar: true,
         });
       }
-
-      if (err.error && err.error.errorCode && err.error.errorMessage) {
-        toastr.error(err.error.errorMessage, `ERROR - ${err.error.errorCode}`, {
+      console.error(err);
+      if (err.error && err.statusText && err.error.message) {
+        toastr.error(err.error.message, `ERROR - ${err.statusText}`, {
           timeOut: 5000,
           progressBar: true,
         });
-      }
-
-      if (err.status === 404) {
-        toastr.error('Wrong URL', `SERVER UNREACHABLE`, {
+      } else if (err.status === 404) {
+        toastr.error('Resource not found', `SERVER UNREACHABLE`, {
           timeOut: 5000,
           progressBar: true,
         });
-      }
-
-      if (err.status === 0) {
+      } else if (err.status === 0) {
         toastr.error(
           'Could not reach the remote server',
           `SERVER UNREACHABLE`,
@@ -64,6 +60,11 @@ export const authInterceptor: HttpInterceptorFn = (
             progressBar: true,
           }
         );
+      } else {
+        toastr.error('Something wrong happened', `INTERNAL SERVER ERROR`, {
+          timeOut: 5000,
+          progressBar: true,
+        });
       }
 
       throw err;
