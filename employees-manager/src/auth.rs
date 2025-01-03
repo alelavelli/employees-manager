@@ -1,5 +1,5 @@
+use async_trait::async_trait;
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     http::{request::Parts, HeaderValue},
     RequestPartsExt,
@@ -47,7 +47,7 @@ impl JWTAuthClaim {
     }
 }
 
-#[async_trait]
+//#[async_trait]
 impl<S> FromRequestParts<S> for JWTAuthClaim
 where
     S: Send + Sync,
@@ -76,7 +76,7 @@ where
     }
 }
 
-#[async_trait]
+//#[async_trait]
 impl AuthInfo for JWTAuthClaim {
     fn user_id(&self) -> &DocumentId {
         &self.user_id
@@ -90,7 +90,7 @@ pub struct APIKeyAuthClaim {
     pub user_id: DocumentId,
 }
 
-#[async_trait]
+//#[async_trait]
 impl<S> FromRequestParts<S> for APIKeyAuthClaim
 where
     S: Send + Sync,

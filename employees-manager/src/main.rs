@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 use employees_manager::{
-    middleware::{add_cors_middleware, add_logging_middleware},
+    middleware::{add_cors_middleware, add_error_handling_middleware, add_logging_middleware},
     router::{ADMIN_ROUTER, SDK_ROUTER, WEB_APP_ROUTER},
     service::{db::get_database_service, environment::ENVIRONMENT},
 };
@@ -42,6 +42,7 @@ async fn main() {
     app = app.fallback(handler_404);
     // Add middlewares to our application.
     // Layers are accessed from bottom to up, hence the order is very important
+    app = add_error_handling_middleware(app);
     app = add_logging_middleware(app);
     app = add_cors_middleware(app);
 

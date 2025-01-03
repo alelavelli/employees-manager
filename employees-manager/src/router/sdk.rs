@@ -16,7 +16,7 @@ use crate::facade::sdk as facade;
 
 pub static SDK_ROUTER: Lazy<Router> = Lazy::new(|| {
     Router::new()
-        .route("/user/:id", get(get_user))
+        .route("/user/{id}", get(get_user))
         .route("/user", post(create_user))
 });
 

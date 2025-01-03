@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use axum::async_trait;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +73,6 @@ pub struct CompanyEmployeeRequest {
 
 // Impl blocks
 
-#[async_trait]
 impl DatabaseDocument for User {
     fn collection_name() -> &'static str {
         "user"
@@ -96,7 +94,6 @@ impl DatabaseDocument for User {
     }
 }
 
-#[async_trait]
 impl DatabaseDocument for UserCompanyAssignment {
     fn collection_name() -> &'static str {
         "user_company_assignment"
@@ -118,7 +115,6 @@ impl DatabaseDocument for UserCompanyAssignment {
     }
 }
 
-#[async_trait]
 impl DatabaseDocument for CompanyManagementTeam {
     fn collection_name() -> &'static str {
         "company_management_team"
@@ -140,7 +136,6 @@ impl DatabaseDocument for CompanyManagementTeam {
     }
 }
 
-#[async_trait]
 impl DatabaseDocument for Company {
     fn collection_name() -> &'static str {
         "company"
@@ -162,7 +157,6 @@ impl DatabaseDocument for Company {
     }
 }
 
-#[async_trait]
 impl DatabaseDocument for CompanyEmployeeRequest {
     fn collection_name() -> &'static str {
         "company_employee_request"

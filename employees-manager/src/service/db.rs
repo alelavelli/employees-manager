@@ -1,6 +1,5 @@
 use std::{borrow::Borrow, str::FromStr, sync::Arc};
 
-use axum::async_trait;
 use futures::TryStreamExt;
 use mongodb::{
     bson::{doc, Document},
@@ -302,35 +301,36 @@ impl DatabaseTransaction {
 /// Methods are save and delete and refers only to the current instance.
 ///
 /// Functions are general and operate outside the instance
-#[async_trait]
-pub trait DatabaseDocument: Sized + Sync + Serialize + DeserializeOwned {
+pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn get_id(&self) -> Option<&DocumentId>;
     fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError>;
     fn collection_name() -> &'static str;
 
     /// Reload the document from the database
-    async fn reload(&mut self) -> Result<(), AppError> {
-        if let Some(document_id) = self.get_id() {
-            let query = doc! {"_id": document_id};
-            let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<Self>(Self::collection_name());
-            let result = collection.find_one(query).await?;
-            match result {
-                Some(document) => {
-                    *self = document;
-                    Ok(())
+    fn reload(&mut self) -> impl std::future::Future<Output = Result<(), AppError>> {
+        async {
+            if let Some(document_id) = self.get_id() {
+                let query = doc! {"_id": document_id};
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                let result = collection.find_one(query).await?;
+                match result {
+                    Some(document) => {
+                        *self = document;
+                        Ok(())
+                    }
+                    None => Err(AppError::DoesNotExist(anyhow!(format!(
+                        "Document with id {} not found in collection {}",
+                        document_id,
+                        Self::collection_name()
+                    )))),
                 }
-                None => Err(AppError::DoesNotExist(anyhow!(format!(
-                    "Document with id {} not found in collection {}",
-                    document_id,
-                    Self::collection_name()
-                )))),
-            }
-        } else {
-            Err(AppError::DoesNotExist(anyhow!(format!(
+            } else {
+                Err(AppError::DoesNotExist(anyhow!(format!(
                 "Something went wrong when reloading collection {} because there is not ObjectId",
                 Self::collection_name()
             ))))
+            }
         }
     }
 
@@ -338,198 +338,223 @@ pub trait DatabaseDocument: Sized + Sync + Serialize + DeserializeOwned {
     ///
     /// It insert the new document or update it if it already exists.
     /// If the transaction parameter is present then the operation is added to the transaction
-    async fn save(
+    fn save(
         &mut self,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> Result<String, AppError>
+    ) -> impl std::future::Future<Output = Result<String, AppError>> + Send
     where
         Self: Sized + Serialize + Send + Clone,
     {
-        // TODO: improve the save operation by computing the diff with the document in the database and call the update method
-        let document_id = if let Some(document_id) = self.get_id() {
-            let query = doc! {"_id": document_id};
-            // the document already exists, hence we call replace_one method
-            if let Some(transaction) = transaction {
-                transaction.replace_one(query, self).await?;
-                document_id.to_hex()
+        async {
+            // TODO: improve the save operation by computing the diff with the document in the database and call the update method
+            let document_id = if let Some(document_id) = self.get_id() {
+                let query = doc! {"_id": document_id};
+                // the document already exists, hence we call replace_one method
+                if let Some(transaction) = transaction {
+                    transaction.replace_one(query, self).await?;
+                    document_id.to_hex()
+                } else {
+                    let db_service = get_database_service().await;
+                    let collection = db_service.db.collection::<Self>(Self::collection_name());
+                    collection.replace_one(query, self.clone()).await?;
+                    document_id.to_hex()
+                }
             } else {
-                let db_service = get_database_service().await;
-                let collection = db_service.db.collection::<Self>(Self::collection_name());
-                collection.replace_one(query, self.clone()).await?;
-                document_id.to_hex()
-            }
-        } else {
-            // the document does not exist in the database, hence we call insert_one method
-            if let Some(transaction) = transaction {
-                transaction.insert_one(self).await?
-            } else {
-                let db_service = get_database_service().await;
-                let collection = db_service.db.collection::<Self>(Self::collection_name());
-                let outcome = collection.insert_one(&mut *self).await?;
-                outcome.inserted_id.as_object_id().unwrap().to_hex()
-            }
-        };
-        self.set_id(&document_id)?;
-        Ok(document_id)
+                // the document does not exist in the database, hence we call insert_one method
+                if let Some(transaction) = transaction {
+                    transaction.insert_one(self).await?
+                } else {
+                    let db_service = get_database_service().await;
+                    let collection = db_service.db.collection::<Self>(Self::collection_name());
+                    let outcome = collection.insert_one(&mut *self).await?;
+                    outcome.inserted_id.as_object_id().unwrap().to_hex()
+                }
+            };
+            self.set_id(&document_id)?;
+            Ok(document_id)
+        }
     }
 
     /// Delete the current document from the database
     ///
     /// Returns Err if the document does not exist
-    async fn delete(&self, transaction: Option<&mut DatabaseTransaction>) -> Result<(), AppError>
+    fn delete(
+        &self,
+        transaction: Option<&mut DatabaseTransaction>,
+    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send
     where
         Self: Sized + Serialize + Send,
     {
-        if let Some(document_id) = self.get_id() {
-            let query = doc! {"_id": document_id};
-            if let Some(transaction) = transaction {
-                transaction.delete_one::<Self>(query).await
-            } else {
-                let db_service = get_database_service().await;
-                let collection = db_service.db.collection::<Self>(Self::collection_name());
-                let result = collection.delete_one(query).await?;
-                if result.deleted_count >= 1 {
-                    Ok(())
+        async {
+            if let Some(document_id) = self.get_id() {
+                let query = doc! {"_id": document_id};
+                if let Some(transaction) = transaction {
+                    transaction.delete_one::<Self>(query).await
                 } else {
-                    Err(AppError::InternalServerError(anyhow!(format!(
+                    let db_service = get_database_service().await;
+                    let collection = db_service.db.collection::<Self>(Self::collection_name());
+                    let result = collection.delete_one(query).await?;
+                    if result.deleted_count >= 1 {
+                        Ok(())
+                    } else {
+                        Err(AppError::InternalServerError(anyhow!(format!(
                         "Something went wrong when deleting document with id {} for collection {}",
                         document_id,
                         Self::collection_name()
                     ))))
+                    }
                 }
-            }
-        } else {
-            Err(AppError::InternalServerError(anyhow!(format!(
+            } else {
+                Err(AppError::InternalServerError(anyhow!(format!(
                 "Something went wrong when deleting collection {} because there is not ObjectId",
                 Self::collection_name()
             ))))
+            }
         }
     }
 
-    async fn find_one<T>(query: Document) -> Result<Option<T>, AppError>
+    fn find_one<T>(
+        query: Document,
+    ) -> impl std::future::Future<Output = Result<Option<T>, AppError>> + Send
     where
         T: DatabaseDocument + Send + DeserializeOwned,
     {
-        let db_service = get_database_service().await;
-        let collection = db_service.db.collection::<T>(T::collection_name());
-        let result = collection.find_one(query).await?;
-        Ok(result)
+        async {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<T>(T::collection_name());
+            let result = collection.find_one(query).await?;
+            Ok(result)
+        }
     }
 
-    async fn find_many<T>(query: Document) -> Result<Vec<T>, AppError>
+    fn find_many<T>(
+        query: Document,
+    ) -> impl std::future::Future<Output = Result<Vec<T>, AppError>> + Send
     where
         T: DatabaseDocument + Send + DeserializeOwned,
     {
-        let db_service = get_database_service().await;
-        let collection = db_service.db.collection::<T>(T::collection_name());
-        let result: Vec<T> = collection.find(query).await?.try_collect().await?;
-        Ok(result)
+        async {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<T>(T::collection_name());
+            let result: Vec<T> = collection.find(query).await?.try_collect().await?;
+            Ok(result)
+        }
     }
 
-    async fn find_one_projection<T, P>(
+    fn find_one_projection<T, P>(
         query: Document,
         projection: Document,
-    ) -> Result<Option<P>, AppError>
+    ) -> impl std::future::Future<Output = Result<Option<P>, AppError>> + Send
     where
         T: DatabaseDocument + Send + DeserializeOwned,
         P: Send + Sync + Serialize + DeserializeOwned,
     {
-        let db_service = get_database_service().await;
-        let collection = db_service.db.collection::<T>(T::collection_name());
-        let query_options = FindOneOptions::builder().projection(projection).build();
-        let result: Option<P> = collection
-            .clone_with_type::<P>()
-            .find_one(query)
-            .with_options(query_options)
-            .await?;
-        Ok(result)
+        async {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<T>(T::collection_name());
+            let query_options = FindOneOptions::builder().projection(projection).build();
+            let result: Option<P> = collection
+                .clone_with_type::<P>()
+                .find_one(query)
+                .with_options(query_options)
+                .await?;
+            Ok(result)
+        }
     }
 
-    async fn find_many_projection<T, P>(
+    fn find_many_projection<T, P>(
         query: Document,
         projection: Document,
-    ) -> Result<Vec<P>, AppError>
+    ) -> impl std::future::Future<Output = Result<Vec<P>, AppError>> + Send
     where
         T: DatabaseDocument + Send + DeserializeOwned,
         P: Send + Sync + Serialize + DeserializeOwned,
     {
-        let db_service = get_database_service().await;
-        let collection = db_service.db.collection::<T>(T::collection_name());
-        let query_options = FindOptions::builder().projection(projection).build();
-        let result: Vec<P> = collection
-            .clone_with_type::<P>()
-            .find(query)
-            .with_options(query_options)
-            .await?
-            .try_collect()
-            .await?;
-        Ok(result)
+        async {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<T>(T::collection_name());
+            let query_options = FindOptions::builder().projection(projection).build();
+            let result: Vec<P> = collection
+                .clone_with_type::<P>()
+                .find(query)
+                .with_options(query_options)
+                .await?
+                .try_collect()
+                .await?;
+            Ok(result)
+        }
     }
 
-    async fn update_one(
+    fn update_one(
         query: Document,
         update: Document,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> Result<(), AppError> {
-        if let Some(transaction) = transaction {
-            transaction.update_one::<Self>(query, update).await
-        } else {
-            let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<Self>(Self::collection_name());
-            let result = collection.update_one(query.clone(), update).await?;
-            if result.matched_count == result.modified_count {
-                Ok(())
+    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send {
+        async {
+            if let Some(transaction) = transaction {
+                transaction.update_one::<Self>(query, update).await
             } else {
-                Err(AppError::InternalServerError(anyhow!(format!(
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                let result = collection.update_one(query.clone(), update).await?;
+                if result.matched_count == result.modified_count {
+                    Ok(())
+                } else {
+                    Err(AppError::InternalServerError(anyhow!(format!(
                     "Something went wrong when updating document with filter {} for collection {}",
                     query,
                     Self::collection_name()
                 ))))
+                }
             }
         }
     }
 
-    async fn update_many(
+    fn update_many(
         query: Document,
         update: Document,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> Result<(), AppError> {
-        if let Some(transaction) = transaction {
-            transaction.update_many::<Self>(query, update).await
-        } else {
-            let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<Self>(Self::collection_name());
-            let result = collection.update_many(query.clone(), update).await?;
-            if result.matched_count == result.modified_count {
-                Ok(())
+    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send {
+        async {
+            if let Some(transaction) = transaction {
+                transaction.update_many::<Self>(query, update).await
             } else {
-                Err(AppError::InternalServerError(anyhow!(format!(
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                let result = collection.update_many(query.clone(), update).await?;
+                if result.matched_count == result.modified_count {
+                    Ok(())
+                } else {
+                    Err(AppError::InternalServerError(anyhow!(format!(
                     "Something went wrong when updating documents with filter {} for collection {}",
                     query,
                     Self::collection_name()
                 ))))
+                }
             }
         }
     }
 
-    async fn delete_many(
+    fn delete_many(
         query: Document,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> Result<(), AppError> {
-        if let Some(transaction) = transaction {
-            transaction.delete_many::<Self>(query).await
-        } else {
-            let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<Self>(Self::collection_name());
-            let result = collection.delete_many(query.clone()).await?;
-            if result.deleted_count >= 1 {
-                Ok(())
+    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send {
+        async {
+            if let Some(transaction) = transaction {
+                transaction.delete_many::<Self>(query).await
             } else {
-                Err(AppError::InternalServerError(anyhow!(format!(
+                let db_service = get_database_service().await;
+                let collection = db_service.db.collection::<Self>(Self::collection_name());
+                let result = collection.delete_many(query.clone()).await?;
+                if result.deleted_count >= 1 {
+                    Ok(())
+                } else {
+                    Err(AppError::InternalServerError(anyhow!(format!(
                     "Something went wrong when deleting documents with query {} for collection {}",
                     query,
                     Self::collection_name()
                 ))))
+                }
             }
         }
     }

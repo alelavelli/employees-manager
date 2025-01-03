@@ -16,9 +16,9 @@ use crate::facade::admin as facade;
 
 pub static ADMIN_ROUTER: Lazy<Router> = Lazy::new(|| {
     Router::new()
-        .route("/user/:id", get(get_user))
+        .route("/user/{id}", get(get_user))
         .route("/user", post(create_user))
-        .route("/user/:id", delete(delete_user))
+        .route("/user/{id}", delete(delete_user))
 });
 
 /// Returns the user if it exists with all the information

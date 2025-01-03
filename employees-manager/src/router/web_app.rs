@@ -19,7 +19,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/auth/login", post(authorize))
         .route("/auth/user", get(get_auth_user_data))
         .route("/company", post(create_company))
-        .route("/company/:id", get(get_company))
+        .route("/company/{id}", get(get_company))
         .route("/company/user", post(add_company_user))
         .route("/company/user", delete(remove_company_user))
 });
