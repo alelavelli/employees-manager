@@ -24,7 +24,7 @@ axum = { version = "0.8.1", features = ["macros"] }
 axum-extra = { version = "0.10.0", features = ["typed-header"] }
 async-trait = "0.1.84"
 headers = "0.4"
-tower = "0.5.2"
+tower = { version = "0.5.2", features = ["timeout"] }
 tower-http = { version = "0.6.2", features = ["trace", "cors"] }
 # jwt
 jsonwebtoken = "8.0"

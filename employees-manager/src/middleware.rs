@@ -39,8 +39,3 @@ pub fn add_logging_middleware(router: Router) -> Router {
             ),
     )
 }
-
-/// Create Error handling middleware for application
-pub fn add_error_handling_middleware(router: Router) -> Router {
-    router
-}
