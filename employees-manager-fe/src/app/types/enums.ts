@@ -9,3 +9,9 @@ export enum LayoutType {
 export enum NotificationType {
   InviteAddCompany = 'inviteAddCompany',
 }
+
+export enum CompanyRole {
+  User = 'user',
+  Admin = 'admin',
+  Owner = 'owner',
+}

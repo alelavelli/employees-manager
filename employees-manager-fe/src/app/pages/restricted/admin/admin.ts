@@ -125,7 +125,9 @@ export class AdminPageComponent implements OnInit {
                 ? true
                 : data.platformAdmin === filter.platformAdmin;
 
-            const idFilter = data.id.toLocaleLowerCase().includes(filter);
+            const idFilter = data.id
+              .toLocaleLowerCase()
+              .includes(filter.valueString);
             const usernameFilter = data.username
               .toLocaleLowerCase()
               .trim()

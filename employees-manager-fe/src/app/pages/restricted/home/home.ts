@@ -1,10 +1,13 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { CompanyInfo, UserData } from '../../../types/model';
+import { CompanyInfo, UserCompanyInfo, UserData } from '../../../types/model';
 import { UserService } from '../../../service/user.service';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import {
+  MatButtonToggleChange,
+  MatButtonToggleModule,
+} from '@angular/material/button-toggle';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
@@ -16,6 +19,7 @@ import { ApiService } from '../../../service/api.service';
 import { ToastrService } from 'ngx-toastr';
 import { MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
+import { CompanyRole } from '../../../types/enums';
 
 @Component({
   selector: 'home-page',
@@ -37,14 +41,22 @@ import { forkJoin } from 'rxjs';
   ],
 })
 export class HomePageComponent implements OnInit {
-  loading = false;
+  CompanyRole = CompanyRole;
+
+  loading: boolean = false;
   userData: UserData | null = null;
 
   companies: CompanyInfo[] = [];
   companiesTableDataSource: MatTableDataSource<CompanyInfo> =
     new MatTableDataSource<CompanyInfo>([]);
   readonly companiesFilterForm: FormGroup;
-  displayedCompaniesInfoColumns: string[] = ['id', 'name', 'actionMenu'];
+  displayedCompaniesInfoColumns: string[] = [
+    'id',
+    'name',
+    'active',
+    'totalUsers',
+    'actionMenu',
+  ];
 
   @ViewChild(MatSort, { static: false }) sort!: MatSort;
   @ViewChild(MatPaginator, { static: false }) paginator!: MatPaginator;
@@ -58,11 +70,16 @@ export class HomePageComponent implements OnInit {
   ) {
     this.companiesFilterForm = formBuilder.group({
       valueString: '',
+      activeCompany: null,
     });
     this.companiesFilterForm.valueChanges.subscribe((value) => {
       const filter = {
         ...value,
         valueString: value.valueString.trim().toLowerCase(),
+        activeCompany:
+          value.activeCompany === null || value.activeCompany.length === 0
+            ? null
+            : value.activeCompany[value.activeCompany.length - 1] === 'true',
       } as string;
       this.companiesTableDataSource.filter = filter;
     });
@@ -73,7 +90,7 @@ export class HomePageComponent implements OnInit {
   }
 
   loadData() {
-    this.loading = false;
+    this.loading = true;
 
     forkJoin({
       userData: this.userService.fetchUserData(),
@@ -88,10 +105,17 @@ export class HomePageComponent implements OnInit {
             data,
             filter: any
           ) => {
+            const activeCompanyFilter =
+              filter.activeCompany === null
+                ? true
+                : data.active === filter.activeCompany;
+            const idFilter = data.id
+              .toLocaleLowerCase()
+              .includes(filter.valueString);
             const nameFilter = data.name
               .toLocaleLowerCase()
               .includes(filter.valueString);
-            return nameFilter;
+            return activeCompanyFilter && (nameFilter || idFilter);
           };
           this.companiesTableDataSource.sort = this.sort;
           this.companiesTableDataSource.paginator = this.paginator;
@@ -111,5 +135,20 @@ export class HomePageComponent implements OnInit {
     });
   }
 
+  onActiveCompanyFilterChange(event: MatButtonToggleChange) {
+    const toggle = event.source;
+    if (toggle && event.value.some((item: string) => item === toggle.value)) {
+      toggle.buttonToggleGroup.value = [toggle.value];
+    }
+  }
+
   openCreateCompanyDialog() {}
+
+  onCalendar(companyInfo: CompanyInfo) {}
+
+  onWorkExpenses(companyInfo: CompanyInfo) {}
+
+  onTimeSheet(companyInfo: CompanyInfo) {}
+
+  onCompanySettings(companyInfo: CompanyInfo) {}
 }

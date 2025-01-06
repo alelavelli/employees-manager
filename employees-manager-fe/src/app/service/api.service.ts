@@ -7,12 +7,13 @@ import {
   AdminPanelOverview,
   AdminPanelUserInfo,
   AppNotification,
-  CompanyInfo,
+  UserCompanyInfo,
   CreateUserParameters,
   LoginResponse,
   UserData,
+  CompanyInfo,
 } from '../types/model';
-import { NotificationType } from '../types/enums';
+import { CompanyRole, NotificationType } from '../types/enums';
 
 const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
@@ -156,14 +157,33 @@ export class ApiService {
         );
   }
 
-  getUserCompanies() {
+  getUserCompanies(): Observable<CompanyInfo[]> {
     return MOCKED
       ? buildMocked(
           [...Array(5).keys()].map((i) => ({
             id: `id-${i}`,
             name: `company-${i}`,
+            active: i % 3 === 0,
+            totalUsers: i * 2,
+            role: i % 2 === 0 ? CompanyRole.Admin : CompanyRole.User,
           }))
         )
       : this.httpClient.get<CompanyInfo[]>(API_URL + 'company');
+  }
+
+  getUsersInCompany(companyId: string): Observable<UserCompanyInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            userId: `user-id-${i}`,
+            companyId: `company-id-${i}`,
+            role: i % 3 === 0 ? CompanyRole.Admin : CompanyRole.User,
+            job_title: `job-title-${i}`,
+            managementTeam: i % 2 === 0,
+          }))
+        )
+      : this.httpClient.get<UserCompanyInfo[]>(
+          API_URL + `company/${companyId}/user`
+        );
   }
 }

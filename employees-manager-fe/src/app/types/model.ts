@@ -1,4 +1,4 @@
-import { NotificationType } from './enums';
+import { CompanyRole, NotificationType } from './enums';
 
 export interface LoginResponse {
   token: string;
@@ -51,4 +51,15 @@ export interface AppNotification {
 export interface CompanyInfo {
   id: string;
   name: string;
+  active: boolean;
+  totalUsers: number;
+  role: CompanyRole;
+}
+
+export interface UserCompanyInfo {
+  userId: string;
+  companyId: string;
+  role: CompanyRole;
+  job_title: string;
+  managementTeam: boolean;
 }
