@@ -1,5 +1,10 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { CompanyInfo, UserCompanyInfo, UserData } from '../../../types/model';
+import {
+  CompanyInfo,
+  CreateCompanyParameters,
+  UserCompanyInfo,
+  UserData,
+} from '../../../types/model';
 import { UserService } from '../../../service/user.service';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,6 +25,7 @@ import { ToastrService } from 'ngx-toastr';
 import { MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { CompanyRole } from '../../../types/enums';
+import { NewCompanyDialogComponent } from './new-company-modal/new-company-modal';
 
 @Component({
   selector: 'home-page',
@@ -142,7 +148,33 @@ export class HomePageComponent implements OnInit {
     }
   }
 
-  openCreateCompanyDialog() {}
+  openCreateCompanyDialog() {
+    this.dialog
+      .open(NewCompanyDialogComponent, {
+        width: '40rem',
+        data: {},
+      })
+      .afterClosed()
+      .subscribe({
+        next: (newCompany: CreateCompanyParameters | undefined) => {
+          if (newCompany !== undefined) {
+            this.apiService.createCompany(newCompany).subscribe({
+              next: (companyId: string) => {
+                this.loadData();
+                this.toastr.success(
+                  'New company created with id ' + companyId,
+                  'Sent',
+                  {
+                    timeOut: 5000,
+                    progressBar: true,
+                  }
+                );
+              },
+            });
+          }
+        },
+      });
+  }
 
   onCalendar(companyInfo: CompanyInfo) {}
 

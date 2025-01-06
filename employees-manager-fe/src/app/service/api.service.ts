@@ -12,6 +12,7 @@ import {
   LoginResponse,
   UserData,
   CompanyInfo,
+  CreateCompanyParameters,
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
@@ -185,5 +186,11 @@ export class ApiService {
       : this.httpClient.get<UserCompanyInfo[]>(
           API_URL + `company/${companyId}/user`
         );
+  }
+
+  createCompany(company: CreateCompanyParameters): Observable<string> {
+    return MOCKED
+      ? buildMocked('new-company-id')
+      : this.httpClient.post<string>(API_URL + '/company', company);
   }
 }

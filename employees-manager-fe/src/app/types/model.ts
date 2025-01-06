@@ -63,3 +63,8 @@ export interface UserCompanyInfo {
   job_title: string;
   managementTeam: boolean;
 }
+
+export interface CreateCompanyParameters {
+  name: string;
+  jobTitle: string;
+}
