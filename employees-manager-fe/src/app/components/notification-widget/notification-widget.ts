@@ -23,6 +23,7 @@ import { Router, RouterLink } from '@angular/router';
   encapsulation: ViewEncapsulation.None,
 })
 export class NotificationWidgetComponent implements OnInit {
+  maxNotifications = 5;
   notifications: AppNotification[] = [];
 
   constructor(private apiService: ApiService, private router: Router) {}
@@ -35,6 +36,7 @@ export class NotificationWidgetComponent implements OnInit {
     this.apiService.getUnreadNotifications().subscribe({
       next: (notifications: AppNotification[]) => {
         this.notifications = notifications;
+        this.maxNotifications = Math.min(this.notifications.length, 5);
       },
     });
   }
