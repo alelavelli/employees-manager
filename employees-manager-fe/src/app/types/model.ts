@@ -47,3 +47,8 @@ export interface AppNotification {
   notificationType: NotificationType;
   message: string;
 }
+
+export interface CompanyInfo {
+  id: string;
+  name: string;
+}

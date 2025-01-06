@@ -7,6 +7,7 @@ import {
   AdminPanelOverview,
   AdminPanelUserInfo,
   AppNotification,
+  CompanyInfo,
   CreateUserParameters,
   LoginResponse,
   UserData,
@@ -153,5 +154,16 @@ export class ApiService {
           API_URL + `notification/invite-add-company/decline/${notificationId}`,
           {}
         );
+  }
+
+  getUserCompanies() {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            id: `id-${i}`,
+            name: `company-${i}`,
+          }))
+        )
+      : this.httpClient.get<CompanyInfo[]>(API_URL + 'company');
   }
 }
