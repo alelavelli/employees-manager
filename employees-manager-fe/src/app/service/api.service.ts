@@ -34,13 +34,6 @@ export class ApiService {
         });
   }
 
-  getApiStringExample(): Observable<string> {
-    return MOCKED
-      ? // buildMockedError():
-        buildMocked('IT WORKS!')
-      : this.httpClient.get<string>(API_URL + '/api-string');
-  }
-
   getUserData(): Observable<UserData> {
     return MOCKED
       ? buildMocked({

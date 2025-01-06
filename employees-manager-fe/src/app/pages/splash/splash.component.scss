@@ -1,21 +1,13 @@
-@keyframes splash {
+@keyframes scaleUp {
   0% {
-    transform: rotate(-900deg);
-    scale: 0;
+    transform: scale(0);
     opacity: 0;
   }
-  50% {
-    transform: rotate(0deg);
-  }
-  60% {
-    scale: 1.5;
-  }
   75% {
-    transform: rotate(0deg);
+    transform: scale(1.5);
     opacity: 1;
   }
   100% {
-    transform: rotate(0deg);
     opacity: 0;
   }
 }
@@ -29,6 +21,6 @@
   img {
     max-width: 20rem;
     transform-origin: center;
-    animation: splash 3.5s ease-in-out 0s forwards;
+    animation: scaleUp 3.5s ease-in-out 0s forwards;
   }
 }
