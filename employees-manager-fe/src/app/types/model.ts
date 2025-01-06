@@ -1,3 +1,5 @@
+import { NotificationType } from './enums';
+
 export interface LoginResponse {
   token: string;
   tokenType: string;
@@ -38,4 +40,10 @@ export interface CreateUserParameters {
   name: string;
   surname: string;
   email: string;
+}
+
+export interface AppNotification {
+  id: string;
+  notificationType: NotificationType;
+  message: string;
 }

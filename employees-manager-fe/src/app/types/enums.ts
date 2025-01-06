@@ -5,3 +5,7 @@ export enum LayoutType {
   Empty = 'empty',
   Maintenance = 'maintenance',
 }
+
+export enum NotificationType {
+  InviteAddCompany = 'inviteAddCompany',
+}

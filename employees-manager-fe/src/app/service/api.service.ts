@@ -6,12 +6,14 @@ import { buildMocked } from './mock';
 import {
   AdminPanelOverview,
   AdminPanelUserInfo,
+  AppNotification,
   CreateUserParameters,
   LoginResponse,
   UserData,
 } from '../types/model';
+import { NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -128,5 +130,35 @@ export class ApiService {
     return MOCKED
       ? buildMocked('new-user-id')
       : this.httpClient.post<string>(API_URL + '/admin/user', user);
+  }
+
+  getUnreadNotifications(): Observable<AppNotification[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            id: `id-${i}`,
+            notificationType: NotificationType.InviteAddCompany,
+            message: `You has been invited to Company ${i}`,
+          }))
+        )
+      : this.httpClient.get<AppNotification[]>(API_URL + 'notification');
+  }
+
+  acceptInviteAddCompany(notificationId: string) {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `notification/invite-add-company/accept/${notificationId}`,
+          {}
+        );
+  }
+
+  declineInviteAddCompany(notificationId: string) {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `notification/invite-add-company/decline/${notificationId}`,
+          {}
+        );
   }
 }

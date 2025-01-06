@@ -12,6 +12,7 @@ import { ServicePageComponent } from './pages/restricted/service/service';
 import { AuthGuard } from './guards/auth.guard';
 import { PipePageComponent } from './pages/restricted/pipe/pipe';
 import { AdminPageComponent } from './pages/restricted/admin/admin';
+import { NotificationsPageComponent } from './pages/restricted/notifications/notifications';
 import { AuthAdminGuard } from './guards/auth_admin.guard';
 import { DoesNotExistPageComponent } from './pages/does-not-exist/does-not-exist.component';
 import { GuestGuard } from './guards/auth_guest.guard';
@@ -46,6 +47,12 @@ export const routes: Routes = environment.maintenance
         path: 'admin',
         canActivate: [AuthGuard, AuthAdminGuard],
         component: AdminPageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'notifications',
+        canActivate: [AuthGuard],
+        component: NotificationsPageComponent,
         data: { layoutType: LayoutType.Restricted },
       },
       {

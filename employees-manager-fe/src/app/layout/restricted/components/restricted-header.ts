@@ -1,7 +1,7 @@
 import { Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { UserWidgetComponent } from '../../../components/user-widget/user-widget';
 import { RouterModule } from '@angular/router';
-import { DarkModeWidgetComponent } from '../../../components/dark-mode-widget/dark-mode-widget';
+import { NotificationWidgetComponent } from '../../../components/notification-widget/notification-widget';
 
 @Component({
   selector: 'restricted-header',
@@ -9,7 +9,7 @@ import { DarkModeWidgetComponent } from '../../../components/dark-mode-widget/da
   styleUrls: ['./restricted-header.scss'],
   encapsulation: ViewEncapsulation.None,
   standalone: true,
-  imports: [UserWidgetComponent, DarkModeWidgetComponent, RouterModule],
+  imports: [UserWidgetComponent, RouterModule, NotificationWidgetComponent],
 })
 export class RestrictedHeaderComponent implements OnInit {
   constructor() {}
