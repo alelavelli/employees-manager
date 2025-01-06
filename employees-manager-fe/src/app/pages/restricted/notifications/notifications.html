@@ -50,9 +50,9 @@
                 <mat-menu #menu="matMenu">
                     <ng-template matMenuContent let-row="row">
                         <button mat-menu-item (click)="acceptInviteAddCompany(row)"
-                            *ngIf="row.notificationType == NotificationType.InviteAddCompany">Accept</button>
+                            *ngIf="row.notificationType == NotificationType.InviteAddCompany"><mat-icon>done</mat-icon>Accept</button>
                         <button mat-menu-item (click)="declineInviteAddCompany(row)"
-                            *ngIf="row.notificationType == NotificationType.InviteAddCompany">Decline</button>
+                            *ngIf="row.notificationType == NotificationType.InviteAddCompany"><mat-icon>close</mat-icon>Decline</button>
                     </ng-template>
                 </mat-menu>
             </div>

@@ -56,9 +56,9 @@ export class NotificationsPageComponent implements OnInit {
   @ViewChild(MatPaginator, { static: false }) paginator!: MatPaginator;
 
   constructor(
+    private route: ActivatedRoute,
     private apiService: ApiService,
     private formBuilder: FormBuilder,
-    private route: ActivatedRoute,
     private toastr: ToastrService
   ) {
     this.notificationsFilterForm = formBuilder.group({
@@ -84,9 +84,8 @@ export class NotificationsPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.route.params.subscribe((params) => {
-      this.notificationId =
-        this.route.snapshot.queryParamMap.get('notificationId');
+    this.route.queryParamMap.subscribe((params) => {
+      this.notificationId = params.get('notificationId');
       this.loadNotifications();
     });
   }
