@@ -4,10 +4,10 @@ use mongodb::bson::doc;
 use crate::{
     auth::{AuthInfo, JWTAuthClaim},
     dtos::{web_app_request, web_app_response},
-    enums::CompanyRole,
+    enums::{CompanyRole, NotificationType},
     error::AppError,
     model::db_entities,
-    service::{access_control::AccessControl, company, db::DatabaseDocument, user},
+    service::{access_control::AccessControl, company, db::DatabaseDocument, notification, user},
     DocumentId,
 };
 
@@ -46,6 +46,50 @@ pub async fn get_auth_user_data(
         platform_admin: user_model.platform_admin,
         active: user_model.active,
     })
+}
+
+pub async fn get_unread_notifications(
+    auth_info: impl AuthInfo,
+) -> Result<Vec<web_app_response::AppNotification>, AppError> {
+    let notifications: Vec<db_entities::AppNotification> =
+        notification::get_unread_notifications(auth_info.user_id()).await?;
+    Ok(notifications
+        .iter()
+        .map(|doc| web_app_response::AppNotification {
+            id: doc
+                .get_id()
+                .expect("expected document id for document read from database")
+                .clone(),
+            notification_type: doc.notification_type,
+            message: doc.message.clone(),
+        })
+        .collect())
+}
+
+pub async fn answer_to_invite_add_company(
+    auth_info: impl AuthInfo,
+    payload: web_app_request::InviteAddCompanyAnswer,
+) -> Result<(), AppError> {
+    if let Some(notification) = notification::get_notification(&payload.notification_id).await? {
+        if notification.user_id != *auth_info.user_id() {
+            Err(AppError::ManagedError(format!(
+                "Notification with id {} does not exist",
+                payload.notification_id
+            )))
+        } else if notification.notification_type != NotificationType::InviteAddCompany {
+            Err(AppError::ManagedError(format!(
+                "Notification with id {} is not of type Invite Add Company",
+                payload.notification_id
+            )))
+        } else {
+            notification::answer_to_invite_add_company(notification, payload.accept).await
+        }
+    } else {
+        Err(AppError::ManagedError(format!(
+            "Notification with id {} does not exist",
+            payload.notification_id
+        )))
+    }
 }
 
 pub async fn create_company(
@@ -137,4 +181,43 @@ pub async fn remove_company_user(
             user_id, company_id
         )))
     }
+}
+
+pub async fn get_companies_of_user(
+    auth_info: impl AuthInfo,
+) -> Result<Vec<web_app_response::CompanyInfo>, AppError> {
+    let companies = company::get_user_companies(auth_info.user_id()).await?;
+    let mut to_return = vec![];
+    for doc in companies {
+        let id = *doc
+            .get_id()
+            .expect("expecting document id since it has been loaded from db.");
+        to_return.push(web_app_response::CompanyInfo {
+            id,
+            name: doc.name,
+            active: doc.active,
+            total_users: company::get_users_in_company(&id).await?.len() as u16,
+            role: company::get_user_company_role(auth_info.user_id(), &id)
+                .await?
+                .role,
+        })
+    }
+    Ok(to_return)
+}
+
+pub async fn get_users_in_company(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+) -> Result<Vec<web_app_response::UserInCompanyInfo>, AppError> {
+    Ok(company::get_users_in_company(&company_id)
+        .await?
+        .iter()
+        .map(|doc| web_app_response::UserInCompanyInfo {
+            user_id: doc.user_id,
+            company_id: doc.company_id,
+            role: doc.role,
+            job_title: doc.job_title.clone(),
+            management_team: doc.management_team,
+        })
+        .collect())
 }

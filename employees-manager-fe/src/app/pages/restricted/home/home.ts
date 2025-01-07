@@ -2,7 +2,7 @@ import { Component, OnInit, ViewChild } from '@angular/core';
 import {
   CompanyInfo,
   CreateCompanyParameters,
-  UserCompanyInfo,
+  UserInCompanyInfo,
   UserData,
 } from '../../../types/model';
 import { UserService } from '../../../service/user.service';

@@ -14,4 +14,5 @@ pub mod access_control;
 pub mod company;
 pub mod db;
 pub mod environment;
+pub mod notification;
 pub mod user;

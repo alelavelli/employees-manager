@@ -7,7 +7,7 @@ import {
   AdminPanelOverview,
   AdminPanelUserInfo,
   AppNotification,
-  UserCompanyInfo,
+  UserInCompanyInfo,
   CreateUserParameters,
   LoginResponse,
   UserData,
@@ -144,8 +144,10 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.patch<void>(
-          API_URL + `notification/invite-add-company/accept/${notificationId}`,
-          {}
+          API_URL + `notification/invite-add-company/${notificationId}`,
+          {
+            accept: true,
+          }
         );
   }
 
@@ -153,8 +155,10 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.patch<void>(
-          API_URL + `notification/invite-add-company/decline/${notificationId}`,
-          {}
+          API_URL + `notification/invite-add-company/${notificationId}`,
+          {
+            accept: false,
+          }
         );
   }
 
@@ -172,7 +176,7 @@ export class ApiService {
       : this.httpClient.get<CompanyInfo[]>(API_URL + 'company');
   }
 
-  getUsersInCompany(companyId: string): Observable<UserCompanyInfo[]> {
+  getUsersInCompany(companyId: string): Observable<UserInCompanyInfo[]> {
     return MOCKED
       ? buildMocked(
           [...Array(5).keys()].map((i) => ({
@@ -183,7 +187,7 @@ export class ApiService {
             managementTeam: i % 2 === 0,
           }))
         )
-      : this.httpClient.get<UserCompanyInfo[]>(
+      : this.httpClient.get<UserInCompanyInfo[]>(
           API_URL + `company/${companyId}/user`
         );
   }

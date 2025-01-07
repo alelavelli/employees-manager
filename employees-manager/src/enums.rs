@@ -94,3 +94,9 @@ pub enum EmployeeRequestOutcome {
     /// when the request is refused by management team
     Refused,
 }
+
+/// Enumeration with type of app notification
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+pub enum NotificationType {
+    InviteAddCompany,
+}

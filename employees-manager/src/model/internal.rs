@@ -1,4 +1,4 @@
-use crate::DocumentId;
+use crate::{enums::CompanyRole, DocumentId};
 
 /// Internal data type returned by the user service to the facade for the admin panel overview
 #[derive(Debug)]
@@ -23,4 +23,13 @@ pub struct AdminPanelUserInfo {
 /// Internal data type returned by the company service to the facade for the admin panel overview
 pub struct AdminPanelOverviewCompanyInfo {
     pub total_companies: u16,
+}
+
+/// Internal data type returned to give information of a user inside a company
+pub struct UserInCompanyInfo {
+    pub user_id: DocumentId,
+    pub company_id: DocumentId,
+    pub role: CompanyRole,
+    pub job_title: String,
+    pub management_team: bool,
 }

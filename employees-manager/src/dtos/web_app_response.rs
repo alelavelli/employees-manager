@@ -1,6 +1,9 @@
 use serde::Serialize;
 
-use crate::DocumentId;
+use crate::{
+    enums::{CompanyRole, NotificationType},
+    DocumentId,
+};
 
 /// Authorization response for jwt token
 #[derive(Serialize)]
@@ -57,4 +60,32 @@ pub struct AuthUserData {
 pub struct Company {
     pub id: DocumentId,
     pub name: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppNotification {
+    pub id: DocumentId,
+    pub notification_type: NotificationType,
+    pub message: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanyInfo {
+    pub id: DocumentId,
+    pub name: String,
+    pub active: bool,
+    pub total_users: u16,
+    pub role: CompanyRole,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserInCompanyInfo {
+    pub user_id: DocumentId,
+    pub company_id: DocumentId,
+    pub role: CompanyRole,
+    pub job_title: String,
+    pub management_team: bool,
 }

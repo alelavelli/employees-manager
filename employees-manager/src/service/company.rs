@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use anyhow::anyhow;
 use futures::TryStreamExt;
@@ -10,7 +10,7 @@ use crate::{
     error::AppError,
     model::{
         db_entities::{self, UserCompanyAssignment},
-        internal::AdminPanelOverviewCompanyInfo,
+        internal::{AdminPanelOverviewCompanyInfo, UserInCompanyInfo},
     },
     DocumentId,
 };
@@ -236,6 +236,58 @@ pub async fn get_user_company_role(
             "User with id {user_id} does not have a role in Company with id {company_id}.",
         )))
     }
+}
+
+/// Returns the users inside a company
+pub async fn get_users_in_company(
+    company_id: &DocumentId,
+) -> Result<Vec<UserInCompanyInfo>, AppError> {
+    let assignments: HashMap<DocumentId, db_entities::UserCompanyAssignment> =
+        db_entities::UserCompanyAssignment::find_many::<db_entities::UserCompanyAssignment>(
+            doc! { "company_id": company_id },
+        )
+        .await?
+        .into_iter()
+        .map(|doc| {
+            (
+                doc.get_id()
+                    .expect("expecting to have id after query on db")
+                    .clone(),
+                doc,
+            )
+        })
+        .collect();
+
+    let management_team = db_entities::CompanyManagementTeam::find_one::<
+        db_entities::CompanyManagementTeam,
+    >(doc! {"company_id": company_id})
+    .await?;
+
+    let user_ids: Vec<Bson> = assignments
+        .iter()
+        .map(|(&id, _)| Bson::ObjectId(id))
+        .collect();
+    let users: Vec<db_entities::User> =
+        db_entities::User::find_many::<db_entities::User>(doc! {"_id": {"$in": user_ids}}).await?;
+
+    let mut to_return = vec![];
+    for user in users {
+        let user_id = user
+            .get_id()
+            .expect("expecting to have id after query on db.");
+        if let Some(user_assignment) = assignments.get(user_id) {
+            to_return.push(UserInCompanyInfo {
+                user_id: user_id.clone(),
+                company_id: company_id.clone(),
+                role: user_assignment.role,
+                job_title: user_assignment.job_title.clone(),
+                management_team: management_team
+                    .as_ref()
+                    .is_some_and(|doc| doc.user_ids.contains(user_id)),
+            });
+        }
+    }
+    return Ok(to_return);
 }
 
 #[cfg(test)]

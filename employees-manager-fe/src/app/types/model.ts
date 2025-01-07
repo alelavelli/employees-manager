@@ -56,7 +56,7 @@ export interface CompanyInfo {
   role: CompanyRole;
 }
 
-export interface UserCompanyInfo {
+export interface UserInCompanyInfo {
   userId: string;
   companyId: string;
   role: CompanyRole;
