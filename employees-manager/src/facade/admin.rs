@@ -134,7 +134,8 @@ pub async fn get_user(
     Ok(web_app_response::User {
         id: user_model
             .id
-            .expect("field user_id should exist since the model comes from a db query"),
+            .expect("field user_id should exist since the model comes from a db query")
+            .to_hex(),
         username: user_model.username,
     })
 }

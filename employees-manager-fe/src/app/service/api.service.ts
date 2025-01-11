@@ -16,7 +16,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = true;
+const MOCKED = false;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -137,14 +137,14 @@ export class ApiService {
             message: `You has been invited to Company ${i}`,
           }))
         )
-      : this.httpClient.get<AppNotification[]>(API_URL + 'notification');
+      : this.httpClient.get<AppNotification[]>(API_URL + '/notification');
   }
 
   acceptInviteAddCompany(notificationId: string) {
     return MOCKED
       ? buildMocked()
       : this.httpClient.patch<void>(
-          API_URL + `notification/invite-add-company/${notificationId}`,
+          API_URL + `/notification/invite-add-company/${notificationId}`,
           {
             accept: true,
           }
@@ -155,7 +155,7 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.patch<void>(
-          API_URL + `notification/invite-add-company/${notificationId}`,
+          API_URL + `/notification/invite-add-company/${notificationId}`,
           {
             accept: false,
           }
@@ -173,7 +173,7 @@ export class ApiService {
             role: i % 2 === 0 ? CompanyRole.Admin : CompanyRole.User,
           }))
         )
-      : this.httpClient.get<CompanyInfo[]>(API_URL + 'company');
+      : this.httpClient.get<CompanyInfo[]>(API_URL + '/company');
   }
 
   getUsersInCompany(companyId: string): Observable<UserInCompanyInfo[]> {
@@ -188,7 +188,7 @@ export class ApiService {
           }))
         )
       : this.httpClient.get<UserInCompanyInfo[]>(
-          API_URL + `company/${companyId}/user`
+          API_URL + `/company/${companyId}/user`
         );
   }
 

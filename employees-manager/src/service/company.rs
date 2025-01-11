@@ -1,7 +1,7 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::anyhow;
-use futures::TryStreamExt;
+
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 
 use super::db::{get_database_service, DatabaseDocument};
@@ -9,7 +9,7 @@ use crate::{
     enums::CompanyRole,
     error::AppError,
     model::{
-        db_entities::{self, UserCompanyAssignment},
+        db_entities,
         internal::{AdminPanelOverviewCompanyInfo, UserInCompanyInfo},
     },
     DocumentId,
@@ -86,37 +86,28 @@ pub async fn create_company(
     }
 }
 
+pub async fn get_companies() -> Result<Vec<db_entities::Company>, AppError> {
+    db_entities::Company::find_many::<db_entities::Company>(doc! {}).await
+}
+
 /// Get all the Companies the User is in by looking at the UserCompanyAssignment
 pub async fn get_user_companies(
     user_id: &DocumentId,
 ) -> Result<Vec<db_entities::Company>, AppError> {
-    let db = &get_database_service().await.db;
-    let assignments_collection = db.collection::<db_entities::UserCompanyAssignment>(
-        db_entities::UserCompanyAssignment::collection_name(),
-    );
-
-    let filter = doc! { "user_id": user_id};
-    let query_result: Vec<UserCompanyAssignment> = assignments_collection
-        .find(filter)
-        .await?
-        .try_collect()
-        .await?;
+    let query_result = db_entities::UserCompanyAssignment::find_many::<
+        db_entities::UserCompanyAssignment,
+    >(doc! { "user_id": user_id})
+    .await?;
 
     let mut company_ids = vec![];
     for doc in query_result {
         company_ids.push(Bson::ObjectId(doc.company_id));
     }
     if company_ids.is_empty() {
-        return Err(AppError::DoesNotExist(anyhow!(
-            "User with id {user_id} does not have Companies.",
-        )));
+        return Ok(vec![]);
     }
 
-    let company_collection =
-        db.collection::<db_entities::Company>(db_entities::Company::collection_name());
-    let filter = doc! { "_id": {"$in": company_ids}};
-    let query_result: Vec<db_entities::Company> =
-        company_collection.find(filter).await?.try_collect().await?;
+    let query_result = db_entities::Company::find_many(doc! { "_id": {"$in": company_ids}}).await?;
     Ok(query_result)
 }
 

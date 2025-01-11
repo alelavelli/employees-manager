@@ -11,7 +11,7 @@ export enum NotificationType {
 }
 
 export enum CompanyRole {
-  User = 'user',
-  Admin = 'admin',
-  Owner = 'owner',
+  User = 'User',
+  Admin = 'Admin',
+  Owner = 'Owner',
 }

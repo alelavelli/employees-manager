@@ -33,6 +33,7 @@ pub async fn authenticate_user(
 pub async fn get_auth_user_data(
     auth_info: impl AuthInfo,
 ) -> Result<web_app_response::AuthUserData, AppError> {
+    AccessControl::new(auth_info.clone()).await?;
     let user_model = user::get_user(auth_info.user_id()).await?;
     Ok(web_app_response::AuthUserData {
         id: user_model
@@ -51,6 +52,7 @@ pub async fn get_auth_user_data(
 pub async fn get_unread_notifications(
     auth_info: impl AuthInfo,
 ) -> Result<Vec<web_app_response::AppNotification>, AppError> {
+    AccessControl::new(auth_info.clone()).await?;
     let notifications: Vec<db_entities::AppNotification> =
         notification::get_unread_notifications(auth_info.user_id()).await?;
     Ok(notifications
@@ -59,7 +61,8 @@ pub async fn get_unread_notifications(
             id: doc
                 .get_id()
                 .expect("expected document id for document read from database")
-                .clone(),
+                .clone()
+                .to_hex(),
             notification_type: doc.notification_type,
             message: doc.message.clone(),
         })
@@ -70,6 +73,7 @@ pub async fn answer_to_invite_add_company(
     auth_info: impl AuthInfo,
     payload: web_app_request::InviteAddCompanyAnswer,
 ) -> Result<(), AppError> {
+    AccessControl::new(auth_info.clone()).await?;
     if let Some(notification) = notification::get_notification(&payload.notification_id).await? {
         if notification.user_id != *auth_info.user_id() {
             Err(AppError::ManagedError(format!(
@@ -96,11 +100,10 @@ pub async fn create_company(
     auth_info: impl AuthInfo,
     payload: web_app_request::CreateCompany,
 ) -> Result<String, AppError> {
-    // any user can create a new company hence, we don't have access control
-    // however, we need to verify that the User does not have already a Company
-    // with the same name
-    let user_companies = company::get_user_companies(auth_info.user_id()).await?;
-    for company in user_companies {
+    AccessControl::new(auth_info.clone()).await?;
+    // we need to verify that the a Company with the same name does not already exist
+    let companies = company::get_companies().await?;
+    for company in companies {
         if payload.name == company.name {
             return Err(AppError::ManagedError(format!(
                 "Failed to create Company: Company with name {} already exists.",
@@ -115,12 +118,14 @@ pub async fn get_company(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
 ) -> Result<web_app_response::Company, AppError> {
+    AccessControl::new(auth_info.clone()).await?;
     // any User can read his companies hence, we don't have access control
     let company_model = company::get_user_company(auth_info.user_id(), &company_id).await?;
     Ok(web_app_response::Company {
         id: company_model
             .id
-            .expect("field company_id should exist since the model comes from a db query"),
+            .expect("field company_id should exist since the model comes from a db query")
+            .to_hex(),
         name: company_model.name,
     })
 }
@@ -186,6 +191,7 @@ pub async fn remove_company_user(
 pub async fn get_companies_of_user(
     auth_info: impl AuthInfo,
 ) -> Result<Vec<web_app_response::CompanyInfo>, AppError> {
+    AccessControl::new(auth_info.clone()).await?;
     let companies = company::get_user_companies(auth_info.user_id()).await?;
     let mut to_return = vec![];
     for doc in companies {
@@ -193,7 +199,7 @@ pub async fn get_companies_of_user(
             .get_id()
             .expect("expecting document id since it has been loaded from db.");
         to_return.push(web_app_response::CompanyInfo {
-            id,
+            id: id.to_hex(),
             name: doc.name,
             active: doc.active,
             total_users: company::get_users_in_company(&id).await?.len() as u16,
@@ -209,12 +215,13 @@ pub async fn get_users_in_company(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
 ) -> Result<Vec<web_app_response::UserInCompanyInfo>, AppError> {
+    AccessControl::new(auth_info.clone()).await?;
     Ok(company::get_users_in_company(&company_id)
         .await?
         .iter()
         .map(|doc| web_app_response::UserInCompanyInfo {
-            user_id: doc.user_id,
-            company_id: doc.company_id,
+            user_id: doc.user_id.to_hex(),
+            company_id: doc.company_id.to_hex(),
             role: doc.role,
             job_title: doc.job_title.clone(),
             management_team: doc.management_team,
