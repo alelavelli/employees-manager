@@ -26,6 +26,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { forkJoin } from 'rxjs';
 import { CompanyRole } from '../../../types/enums';
 import { NewCompanyDialogComponent } from './new-company-modal/new-company-modal';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'home-page',
@@ -44,6 +45,7 @@ import { NewCompanyDialogComponent } from './new-company-modal/new-company-modal
     MatButtonToggleModule,
     ReactiveFormsModule,
     MatMenuModule,
+    RouterLink,
   ],
 })
 export class HomePageComponent implements OnInit {
@@ -175,12 +177,4 @@ export class HomePageComponent implements OnInit {
         },
       });
   }
-
-  onCalendar(companyInfo: CompanyInfo) {}
-
-  onWorkExpenses(companyInfo: CompanyInfo) {}
-
-  onTimeSheet(companyInfo: CompanyInfo) {}
-
-  onCompanySettings(companyInfo: CompanyInfo) {}
 }

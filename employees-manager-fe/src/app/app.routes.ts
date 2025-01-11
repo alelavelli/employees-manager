@@ -11,6 +11,10 @@ import { NotificationsPageComponent } from './pages/restricted/notifications/not
 import { AuthAdminGuard } from './guards/auth_admin.guard';
 import { DoesNotExistPageComponent } from './pages/does-not-exist/does-not-exist.component';
 import { GuestGuard } from './guards/auth_guest.guard';
+import { CalendarPageComponent } from './pages/restricted/calendar/calendar';
+import { TimesheetPageComponent } from './pages/restricted/timesheet/timesheet';
+import { ExpensesPageComponent } from './pages/restricted/expenses/expenses';
+import { CompanyPageComponent } from './pages/restricted/company/company';
 
 export const routes: Routes = environment.maintenance
   ? [
@@ -48,6 +52,30 @@ export const routes: Routes = environment.maintenance
         path: 'notifications',
         canActivate: [AuthGuard],
         component: NotificationsPageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'calendar',
+        canActivate: [AuthGuard],
+        component: CalendarPageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'timesheet',
+        canActivate: [AuthGuard],
+        component: TimesheetPageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'expenses',
+        canActivate: [AuthGuard],
+        component: ExpensesPageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'company',
+        canActivate: [AuthGuard],
+        component: CompanyPageComponent,
         data: { layoutType: LayoutType.Restricted },
       },
       {

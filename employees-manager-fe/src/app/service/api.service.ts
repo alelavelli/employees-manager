@@ -16,7 +16,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({

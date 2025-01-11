@@ -65,11 +65,14 @@
 
         <mat-menu #menu="matMenu">
           <ng-template matMenuContent let-row="row">
-            <button mat-menu-item (click)="onCalendar(row)"><mat-icon>calendar_month</mat-icon>Calendar</button>
-            <button mat-menu-item (click)="onTimeSheet(row)"><mat-icon>schedule</mat-icon>Time sheet</button>
-            <button mat-menu-item (click)="onWorkExpenses(row)"><mat-icon>attach_money</mat-icon>Work Expenses</button>
-            <button mat-menu-item (click)="onCompanySettings(row)"
-              *ngIf="row.role === CompanyRole.Admin || row.role === CompanyRole.Owner"><mat-icon>settings</mat-icon>Settings</button>
+            <button mat-menu-item [routerLink]="'/calendar'"
+              [queryParams]="{companyId: row.id}"><mat-icon>calendar_month</mat-icon>Calendar</button>
+            <button mat-menu-item [routerLink]="'/timesheet'"
+              [queryParams]="{companyId: row.id}"><mat-icon>schedule</mat-icon>Time sheet</button>
+            <button mat-menu-item [routerLink]="'/expenses'"
+              [queryParams]="{companyId: row.id}"><mat-icon>attach_money</mat-icon>Work Expenses</button>
+            <button mat-menu-item [routerLink]="'/company'" [queryParams]="{companyId: row.id}" *ngIf=" row.role===CompanyRole.Admin ||
+              row.role===CompanyRole.Owner"><mat-icon>settings</mat-icon>Settings</button>
           </ng-template>
         </mat-menu>
 
