@@ -241,9 +241,8 @@ pub async fn get_users_in_company(
         .into_iter()
         .map(|doc| {
             (
-                doc.get_id()
-                    .expect("expecting to have id after query on db")
-                    .clone(),
+                *doc.get_id()
+                    .expect("expecting to have id after query on db"),
                 doc,
             )
         })
@@ -268,8 +267,8 @@ pub async fn get_users_in_company(
             .expect("expecting to have id after query on db.");
         if let Some(user_assignment) = assignments.get(user_id) {
             to_return.push(UserInCompanyInfo {
-                user_id: user_id.clone(),
-                company_id: company_id.clone(),
+                user_id: *user_id,
+                company_id: *company_id,
                 role: user_assignment.role,
                 job_title: user_assignment.job_title.clone(),
                 management_team: management_team
@@ -278,7 +277,7 @@ pub async fn get_users_in_company(
             });
         }
     }
-    return Ok(to_return);
+    Ok(to_return)
 }
 
 #[cfg(test)]

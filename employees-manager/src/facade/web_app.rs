@@ -58,11 +58,10 @@ pub async fn get_unread_notifications(
     Ok(notifications
         .iter()
         .map(|doc| web_app_response::AppNotification {
-            id: doc
+            id: (*doc
                 .get_id()
-                .expect("expected document id for document read from database")
-                .clone()
-                .to_hex(),
+                .expect("expected document id for document read from database"))
+            .to_hex(),
             notification_type: doc.notification_type,
             message: doc.message.clone(),
         })
