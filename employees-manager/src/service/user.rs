@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 use crate::{
     enums::CompanyRole,
@@ -218,33 +217,19 @@ pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
                 let db_service = get_database_service().await;
                 let mut transaction = db_service.new_transaction().await?;
                 transaction.start_transaction().await?;
-                let result = db_entities::User::update_one(
+                db_entities::User::update_one(
                     doc! {"_id": user_id},
                     doc! { "$set": {"active": false} },
                     Some(&mut transaction),
                 )
-                .await;
-                if result.is_err() {
-                    transaction.abort_transaction().await?;
-                    return Err(AppError::InternalServerError(anyhow!(
-                        "Got an error during User update"
-                    )));
-                }
-                let result = db_entities::Company::update_many(
+                .await?;
+
+                db_entities::Company::update_many(
                     doc! { "_id": {"$in": companies}},
                     doc! {"$set": {"active": false}},
                     Some(&mut transaction),
                 )
-                .await;
-                if result.is_err() {
-                    info!("Aborting transaction due to an error in Company update");
-                    let result = transaction.abort_transaction().await;
-                    println!("{:?}", result);
-                    info!("Transaction aborted");
-                    return Err(AppError::InternalServerError(anyhow!(
-                        "Got an error during Company update"
-                    )));
-                }
+                .await?;
                 transaction.commit_transaction().await?;
             } else {
                 // Since the user does not have companies with Owner role we do not create a transaction
@@ -305,30 +290,20 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
                 let db_service = get_database_service().await;
                 let mut transaction = db_service.new_transaction().await?;
                 transaction.start_transaction().await?;
-                let result = db_entities::User::update_one(
+                db_entities::User::update_one(
                     doc! {"_id": user_id},
                     doc! { "$set": {"active": true} },
                     Some(&mut transaction),
                 )
-                .await;
-                if result.is_err() {
-                    transaction.abort_transaction().await?;
-                    return Err(AppError::InternalServerError(anyhow!(
-                        "Got an error during User update"
-                    )));
-                }
-                let result = db_entities::Company::update_many(
+                .await?;
+
+                db_entities::Company::update_many(
                     doc! { "_id": {"$in": companies}},
                     doc! {"$set": {"active": true}},
                     Some(&mut transaction),
                 )
-                .await;
-                if result.is_err() {
-                    transaction.abort_transaction().await?;
-                    return Err(AppError::InternalServerError(anyhow!(
-                        "Got an error during Company update"
-                    )));
-                }
+                .await?;
+
                 transaction.commit_transaction().await?;
             } else {
                 // Since the user does not have companies with Owner role we do not create a transaction
@@ -381,25 +356,13 @@ pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
             let db_service = get_database_service().await;
             let mut transaction = db_service.new_transaction().await?;
             transaction.start_transaction().await?;
-            let result = user.delete(Some(&mut transaction)).await;
-            if result.is_err() {
-                transaction.abort_transaction().await?;
-                return Err(AppError::InternalServerError(anyhow!(
-                    "Got an error during User delete"
-                )));
-            }
+            user.delete(Some(&mut transaction)).await?;
 
-            let result = db_entities::Company::delete_many(
+            db_entities::Company::delete_many(
                 doc! { "_id": {"$in": &companies}},
                 Some(&mut transaction),
             )
-            .await;
-            if result.is_err() {
-                transaction.abort_transaction().await?;
-                return Err(AppError::InternalServerError(anyhow!(
-                    "Got an error during Company delete"
-                )));
-            }
+            .await?;
 
             // We delete any UserCompanyAssignment for the deleted companies
             #[derive(Serialize, Deserialize, Debug)]
@@ -418,17 +381,11 @@ pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
                 .iter()
                 .map(|doc| doc.user_id)
                 .collect::<Vec<ObjectId>>();
-            let result = db_entities::User::delete_many(
+            db_entities::User::delete_many(
                 doc! {"_id": {"$in": &other_assignments}},
                 Some(&mut transaction),
             )
-            .await;
-            if result.is_err() {
-                transaction.abort_transaction().await?;
-                return Err(AppError::InternalServerError(anyhow!(
-                    "Got an error during Company assignments delete"
-                )));
-            }
+            .await?;
 
             transaction.commit_transaction().await?;
         } else {
