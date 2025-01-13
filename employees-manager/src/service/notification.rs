@@ -34,55 +34,33 @@ pub async fn answer_to_invite_add_company(
     transaction.start_transaction().await?;
 
     notification.read = true;
-    if notification.save(Some(&mut transaction)).await.is_err() {
-        transaction.abort_transaction().await?;
-        return Err(AppError::InternalServerError(anyhow!(format!(
-            "Error in updating notification document with id {:?} as read.",
-            notification.get_id()
-        ))));
-    }
+    notification.save(Some(&mut transaction)).await?;
 
     if let Some(entity_id) = notification.entity_id {
-        if db_entities::InviteAddCompany::update_one(
+        db_entities::InviteAddCompany::update_one(
             doc! {"_id": entity_id},
             doc! { "$set": { "answer":  answer}},
             Some(&mut transaction),
         )
-        .await
-        .is_err()
-        {
-            transaction.abort_transaction().await?;
-            return Err(AppError::InternalServerError(anyhow!(format!(
-                "Error in updating InviteAddCompany document with id {} as read.",
-                entity_id
-            ))));
-        }
+        .await?;
 
         if answer {
             let invite_add_company_doc_result = db_entities::InviteAddCompany::find_one::<
                 db_entities::InviteAddCompany,
             >(doc! {"_id": notification.entity_id})
-            .await;
-            if let Ok(Some(invite_add_company)) = invite_add_company_doc_result {
-                if company::add_user_to_company(
+            .await?;
+            if let Some(invite_add_company) = invite_add_company_doc_result {
+                company::add_user_to_company(
                     invite_add_company.invited_user_id,
                     invite_add_company.company_id,
                     invite_add_company.company_role,
                     invite_add_company.job_title,
                 )
-                .await
-                .is_err()
-                {
-                    transaction.abort_transaction().await?;
-                    return Err(AppError::InternalServerError(anyhow!(format!(
-                        "Error in adding user with id {} to company with id {}",
-                        invite_add_company.invited_user_id, invite_add_company.company_id,
-                    ))));
-                }
+                .await?;
             } else {
                 transaction.abort_transaction().await?;
                 return Err(AppError::InternalServerError(anyhow!(format!(
-                    "Error in adding user to company for notification with id {:?}",
+                    "Error in adding user to company for notification with id {:?}, InviteAddCompany document not found",
                     notification.get_id()
                 ))));
             }

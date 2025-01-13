@@ -119,6 +119,7 @@ impl DatabaseService {
 pub struct DatabaseTransaction {
     session: ClientSession,
     transaction_started: bool,
+    transaction_closed: bool,
 }
 
 impl DatabaseTransaction {
@@ -126,6 +127,7 @@ impl DatabaseTransaction {
         DatabaseTransaction {
             session,
             transaction_started: false,
+            transaction_closed: false,
         }
     }
 
@@ -135,16 +137,18 @@ impl DatabaseTransaction {
         Ok(())
     }
 
-    pub async fn abort_transaction(mut self) -> Result<(), AppError> {
+    pub async fn abort_transaction(&mut self) -> Result<(), AppError> {
         if self.transaction_started {
             self.session.abort_transaction().await?;
+            self.transaction_closed = true;
         }
         Ok(())
     }
 
-    pub async fn commit_transaction(mut self) -> Result<(), AppError> {
+    pub async fn commit_transaction(&mut self) -> Result<(), AppError> {
         if self.transaction_started {
             self.session.commit_transaction().await?;
+            self.transaction_closed = true;
         }
         Ok(())
     }
@@ -153,18 +157,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            let outcome = collection
+            if let Ok(outcome) = collection
                 .insert_one(document)
                 .session(&mut self.session)
-                .await?;
-            let id = outcome.inserted_id.as_object_id().unwrap().to_hex();
-            Ok(id)
+                .await
+            {
+                let id = outcome.inserted_id.as_object_id().unwrap().to_hex();
+                Ok(id)
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }
@@ -174,17 +185,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            collection
+            if collection
                 .insert_many(documents)
                 .session(&mut self.session)
-                .await?;
-            Ok(())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }
@@ -194,17 +213,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            collection
+            if collection
                 .update_one(query, update)
                 .session(&mut self.session)
-                .await?;
-            Ok(())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }
@@ -218,17 +245,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            collection
+            if collection
                 .update_many(query, update)
                 .session(&mut self.session)
-                .await?;
-            Ok(())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }
@@ -238,17 +273,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize + Borrow<T>,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            collection
+            if collection
                 .replace_one(query, replacement)
                 .session(&mut self.session)
-                .await?;
-            Ok(())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }
@@ -258,17 +301,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            collection
+            if collection
                 .delete_one(filter)
                 .session(&mut self.session)
-                .await?;
-            Ok(())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }
@@ -278,17 +329,25 @@ impl DatabaseTransaction {
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
-        if self.transaction_started {
+        if self.transaction_closed {
+            Err(DatabaseError::TransactionClosed.into())
+        } else if self.transaction_started {
             let db = self
                 .session
                 .client()
                 .database(get_database_service().await.db.name());
             let collection = db.collection::<T>(T::collection_name());
-            collection
+            if collection
                 .delete_many(filter)
                 .session(&mut self.session)
-                .await?;
-            Ok(())
+                .await
+                .is_ok()
+            {
+                Ok(())
+            } else {
+                self.abort_transaction().await?;
+                Err(DatabaseError::TransactionError.into())
+            }
         } else {
             Err(DatabaseError::TransactionNotStarted.into())
         }

@@ -71,19 +71,10 @@ pub async fn create_company(
         job_title,
     };
     // If for some reasons we fail to dump the assignment we need to rollback
-    if user_company_assignment
-        .save(Some(&mut transaction))
-        .await
-        .is_err()
-    {
-        transaction.abort_transaction().await?;
-        Err(AppError::InternalServerError(anyhow!(
-            "Unexpected failed conversion of ObjectId"
-        )))
-    } else {
-        transaction.commit_transaction().await?;
-        Ok(company_id)
-    }
+    user_company_assignment.save(Some(&mut transaction)).await?;
+
+    transaction.commit_transaction().await?;
+    Ok(company_id)
 }
 
 pub async fn get_companies() -> Result<Vec<db_entities::Company>, AppError> {

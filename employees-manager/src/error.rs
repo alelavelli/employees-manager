@@ -97,6 +97,12 @@ impl From<DatabaseError> for AppError {
             DatabaseError::TransactionNotStarted => {
                 AppError::InternalServerError(anyhow!("Transaction not started"))
             }
+            DatabaseError::TransactionClosed => {
+                AppError::InternalServerError(anyhow!("Transaction already committed"))
+            }
+            DatabaseError::TransactionError => {
+                AppError::InternalServerError(anyhow!("Transaction operation encountered an error"))
+            }
             DatabaseError::DocumentDoesNotExist => {
                 AppError::InternalServerError(anyhow!("Document not found"))
             }
@@ -147,6 +153,10 @@ impl AuthError {
 pub enum DatabaseError {
     /// When an operation over a transaction is executed but the transaction is not started yet
     TransactionNotStarted,
+    /// When an operation over a transaction is executed but the transaction is already committed
+    TransactionClosed,
+    /// When an operation over a transaction fails
+    TransactionError,
     DocumentDoesNotExist,
     DocumentHasAlreadyAnId,
     InvalidObjectId,
