@@ -58,6 +58,9 @@ export interface CompanyInfo {
 
 export interface UserInCompanyInfo {
   userId: string;
+  userUsername: string;
+  userName: string;
+  userSurname: string;
   companyId: string;
   role: CompanyRole;
   job_title: string;

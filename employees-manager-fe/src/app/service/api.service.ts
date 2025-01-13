@@ -170,7 +170,9 @@ export class ApiService {
             name: `company-${i}`,
             active: i % 3 === 0,
             totalUsers: i * 2,
-            role: i % 2 === 0 ? CompanyRole.Admin : CompanyRole.User,
+            role: [CompanyRole.Owner, CompanyRole.Admin, CompanyRole.User][
+              i % 3
+            ],
           }))
         )
       : this.httpClient.get<CompanyInfo[]>(API_URL + '/company');
@@ -181,6 +183,9 @@ export class ApiService {
       ? buildMocked(
           [...Array(5).keys()].map((i) => ({
             userId: `user-id-${i}`,
+            userName: `name-${i}`,
+            userSurname: `surname-${i}`,
+            userUsername: `username-${1}`,
             companyId: `company-id-${i}`,
             role: i % 3 === 0 ? CompanyRole.Admin : CompanyRole.User,
             job_title: `job-title-${i}`,
@@ -196,5 +201,61 @@ export class ApiService {
     return MOCKED
       ? buildMocked('new-company-id')
       : this.httpClient.post<string>(API_URL + '/company', company);
+  }
+
+  changeUserCompanyRole(
+    companyId: string,
+    userId: string,
+    role: CompanyRole
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(API_URL + `/company/${companyId}/role`, {
+          userId: userId,
+          role: role,
+        });
+  }
+
+  changeUserJobTitle(
+    companyId: string,
+    userId: string,
+    jobTitle: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/job-title`,
+          {
+            userId: userId,
+            jobTitle: jobTitle,
+          }
+        );
+  }
+
+  setUserCompanyManager(companyId: string, userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(API_URL + `/company/${companyId}/manager`, {
+          userId: userId,
+          manager: true,
+        });
+  }
+
+  unsetUserCompanyManager(companyId: string, userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(API_URL + `/company/${companyId}/manager`, {
+          userId: userId,
+          manager: false,
+        });
+  }
+
+  removeUserFromCompany(companyId: string, userId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/company/${companyId}/user/${userId}`,
+          {}
+        );
   }
 }
