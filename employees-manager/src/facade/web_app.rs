@@ -113,53 +113,24 @@ pub async fn create_company(
     company::create_company(auth_info.user_id(), payload.name, payload.job_title).await
 }
 
-pub async fn get_company(
+pub async fn invite_user_to_company(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
-) -> Result<web_app_response::Company, AppError> {
-    AccessControl::new(auth_info.clone()).await?;
-    // any User can read his companies hence, we don't have access control
-    let company_model = company::get_user_company(auth_info.user_id(), &company_id).await?;
-    Ok(web_app_response::Company {
-        id: company_model
-            .id
-            .expect("field company_id should exist since the model comes from a db query")
-            .to_hex(),
-        name: company_model.name,
-    })
-}
-
-pub async fn add_company_user(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-    company_id: DocumentId,
-    role: CompanyRole,
-    job_title: String,
+    payload: web_app_request::InviteUserToCompany,
 ) -> Result<(), AppError> {
-    // only company owner and admin can add users to the company
-    AccessControl::new(auth_info)
+    AccessControl::new(auth_info.clone())
         .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
-    let company =
-        db_entities::Company::find_one::<db_entities::Company>(doc! {"_id": company_id}).await?;
-    if let Some(company) = company {
-        let mut company_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            company_id: *company.get_id().expect("Company id should exist"),
-            user_id,
-            role,
-            job_title,
-        };
-        company_assignment.save(None).await?;
-        Ok(())
-    } else {
-        Err(AppError::ManagedError(format!(
-            "Company with id {} does not exist",
-            company_id
-        )))
-    }
+    company::invite_user(
+        *auth_info.user_id(),
+        company_id,
+        payload.user_id,
+        payload.role,
+        payload.job_title,
+    )
+    .await
 }
 
 pub async fn remove_company_user(
@@ -167,11 +138,15 @@ pub async fn remove_company_user(
     user_id: DocumentId,
     company_id: DocumentId,
 ) -> Result<(), AppError> {
-    AccessControl::new(auth_info)
+    AccessControl::new(auth_info.clone())
         .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
-
+    if auth_info.user_id() == &user_id {
+        return Err(AppError::ManagedError(
+            "You cannot remove yourself from the company".into(),
+        ));
+    }
     let company_assignment = db_entities::UserCompanyAssignment::find_one::<
         db_entities::UserCompanyAssignment,
     >(doc! {"company_id": company_id, "user_id": user_id})
@@ -214,7 +189,11 @@ pub async fn get_users_in_company(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
 ) -> Result<Vec<web_app_response::UserInCompanyInfo>, AppError> {
-    AccessControl::new(auth_info.clone()).await?;
+    AccessControl::new(auth_info.clone())
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
     Ok(company::get_users_in_company(&company_id)
         .await?
         .iter()
@@ -226,4 +205,49 @@ pub async fn get_users_in_company(
             management_team: doc.management_team,
         })
         .collect())
+}
+
+pub async fn change_user_company_role(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    payload: web_app_request::ChangeUserCompanyRole,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info.clone())
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+    // A user cannot change the role of himself
+    if auth_info.user_id() == &payload.user_id {
+        Err(AppError::ManagedError(
+            "You cannot change your own role".into(),
+        ))
+    } else {
+        company::update_user_in_company(&payload.user_id, &company_id, Some(payload.role), None)
+            .await
+    }
+}
+
+pub async fn change_user_company_job_title(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    payload: web_app_request::ChangeUserJobTitle,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+    company::update_user_in_company(&payload.user_id, &company_id, None, Some(payload.job_title))
+        .await
+}
+
+pub async fn change_user_company_manager(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    payload: web_app_request::ChangeUserCompanyManager,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+    company::change_user_company_manager(&payload.user_id, &company_id, payload.manager).await
 }

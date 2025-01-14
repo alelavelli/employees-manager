@@ -6,7 +6,7 @@ use mongodb::bson::{doc, oid::ObjectId, Bson};
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
-    enums::CompanyRole,
+    enums::{CompanyRole, NotificationType},
     error::AppError,
     model::{
         db_entities,
@@ -41,6 +41,8 @@ pub async fn get_admin_panel_overview_companies_info(
 
 /// creates a Company and assigns it to the User creating an entry
 /// in UserCompanyAssignment
+/// Moreover, it creates the empty document CompanyManagementTeam that will
+/// be used to identity manager users for the company
 pub async fn create_company(
     user_id: &DocumentId,
     name: String,
@@ -63,15 +65,23 @@ pub async fn create_company(
             "Unexpected failed conversion of ObjectId"
         )));
     }
+    let company_id_object_id = company_id_object_id.unwrap();
     let mut user_company_assignment = db_entities::UserCompanyAssignment {
         id: None,
         user_id: *user_id,
-        company_id: company_id_object_id.unwrap(),
+        company_id: company_id_object_id.clone(),
         role: CompanyRole::Owner,
         job_title,
     };
     // If for some reasons we fail to dump the assignment we need to rollback
     user_company_assignment.save(Some(&mut transaction)).await?;
+
+    let mut company_management_team = db_entities::CompanyManagementTeam {
+        id: None,
+        company_id: company_id_object_id.clone(),
+        user_ids: vec![],
+    };
+    company_management_team.save(Some(&mut transaction)).await?;
 
     transaction.commit_transaction().await?;
     Ok(company_id)
@@ -202,6 +212,46 @@ pub async fn update_user_in_company(
     }
 }
 
+/// Update the management team for the company adding or removing the given user
+pub async fn change_user_company_manager(
+    user_id: &DocumentId,
+    company_id: &DocumentId,
+    manager: bool,
+) -> Result<(), AppError> {
+    let query_result = db_entities::CompanyManagementTeam::find_one::<
+        db_entities::CompanyManagementTeam,
+    >(doc! { "company_id": company_id})
+    .await?;
+
+    if let Some(mut management_team) = query_result {
+        let mut user_index = None;
+        for (i, i_user_id) in management_team.user_ids.iter().enumerate() {
+            if i_user_id == user_id {
+                user_index = Some(i);
+                break;
+            }
+        }
+        let is_user_a_manager = user_index.is_some();
+        if is_user_a_manager & !manager {
+            // we remove the user to the management team
+            management_team.user_ids.remove(user_index.unwrap());
+            management_team.save(None).await?;
+        } else if !is_user_a_manager & manager {
+            // we add the user to the management team
+            management_team.user_ids.push(*user_id);
+            management_team.save(None).await?;
+        }
+        // otherwise the user is either not a manager and we want to remove him
+        // or he is a manager and we want to add him
+        Ok(())
+    } else {
+        Err(AppError::InternalServerError(anyhow!(format!(
+            "Missing management team for company {}",
+            company_id
+        ))))
+    }
+}
+
 /// Returns the user company role assignment
 pub async fn get_user_company_role(
     user_id: &DocumentId,
@@ -230,13 +280,7 @@ pub async fn get_users_in_company(
         )
         .await?
         .into_iter()
-        .map(|doc| {
-            (
-                *doc.get_id()
-                    .expect("expecting to have id after query on db"),
-                doc,
-            )
-        })
+        .map(|doc| (doc.user_id, doc))
         .collect();
 
     let management_team = db_entities::CompanyManagementTeam::find_one::<
@@ -250,7 +294,6 @@ pub async fn get_users_in_company(
         .collect();
     let users: Vec<db_entities::User> =
         db_entities::User::find_many::<db_entities::User>(doc! {"_id": {"$in": user_ids}}).await?;
-
     let mut to_return = vec![];
     for user in users {
         let user_id = user
@@ -269,6 +312,56 @@ pub async fn get_users_in_company(
         }
     }
     Ok(to_return)
+}
+
+pub async fn invite_user(
+    inviting_user_id: DocumentId,
+    company_id: DocumentId,
+    invited_user_id: DocumentId,
+    role: CompanyRole,
+    job_title: String,
+) -> Result<(), AppError> {
+    /*
+    Create InviteAddCompany document and AppNotification document
+    */
+    let db_service = get_database_service().await;
+    let mut transaction = db_service.new_transaction().await?;
+    transaction.start_transaction().await?;
+
+    let mut invite = db_entities::InviteAddCompany {
+        id: None,
+        inviting_user_id,
+        invited_user_id,
+        company_id,
+        company_role: role,
+        job_title,
+        answer: None,
+    };
+    invite.save(Some(&mut transaction)).await?;
+
+    let query_result =
+        db_entities::Company::find_one::<db_entities::Company>(doc! {"_id": company_id}).await;
+    if let Ok(Some(company)) = query_result {
+        let mut notification = db_entities::AppNotification {
+            id: None,
+            user_id: invited_user_id,
+            notification_type: NotificationType::InviteAddCompany,
+            message: format!("You has been invited to Company {}", company.name),
+            read: false,
+            entity_id: invite.get_id().cloned(),
+        };
+        notification.save(Some(&mut transaction)).await?;
+
+        transaction.commit_transaction().await?;
+
+        Ok(())
+    } else {
+        transaction.abort_transaction().await?;
+        Err(AppError::ManagedError(format!(
+            "Company with id {} does not exist",
+            company_id
+        )))
+    }
 }
 
 #[cfg(test)]

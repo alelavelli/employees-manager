@@ -16,7 +16,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = true;
+const MOCKED = false;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -256,6 +256,24 @@ export class ApiService {
       : this.httpClient.delete<void>(
           API_URL + `/company/${companyId}/user/${userId}`,
           {}
+        );
+  }
+
+  inviteUserToCompany(
+    companyId: string,
+    userId: string,
+    role: CompanyRole,
+    jobTitle: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          API_URL + `company/${companyId}/invite-user`,
+          {
+            userId: userId,
+            role: role,
+            jobTitle: jobTitle,
+          }
         );
   }
 }

@@ -30,23 +30,36 @@ pub struct CreateCompany {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AddCompanyUser {
+pub struct InviteAddCompanyAnswer {
+    pub notification_id: DocumentId,
+    pub accept: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeUserCompanyRole {
     pub user_id: DocumentId,
-    pub company_id: DocumentId,
     pub role: CompanyRole,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeUserJobTitle {
+    pub user_id: DocumentId,
     pub job_title: String,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RemoveCompanyUser {
+pub struct ChangeUserCompanyManager {
     pub user_id: DocumentId,
-    pub company_id: DocumentId,
+    pub manager: bool,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InviteAddCompanyAnswer {
-    pub notification_id: DocumentId,
-    pub accept: bool,
+pub struct InviteUserToCompany {
+    pub user_id: DocumentId,
+    pub role: CompanyRole,
+    pub job_title: String,
 }
