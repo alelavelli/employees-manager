@@ -69,6 +69,7 @@ export class CompanyPageComponent implements OnInit {
     'username',
     'name',
     'surname',
+    'jobTitle',
     'role',
     'manager',
     'actionMenu',

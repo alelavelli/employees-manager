@@ -304,6 +304,9 @@ pub async fn get_users_in_company(
                 user_id: *user_id,
                 company_id: *company_id,
                 role: user_assignment.role,
+                username: user.username.clone(),
+                surname: user.surname.clone(),
+                name: user.name.clone(),
                 job_title: user_assignment.job_title.clone(),
                 management_team: management_team
                     .as_ref()

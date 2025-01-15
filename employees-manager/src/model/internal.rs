@@ -30,6 +30,9 @@ pub struct UserInCompanyInfo {
     pub user_id: DocumentId,
     pub company_id: DocumentId,
     pub role: CompanyRole,
+    pub username: String,
+    pub name: String,
+    pub surname: String,
     pub job_title: String,
     pub management_team: bool,
 }

@@ -201,6 +201,9 @@ pub async fn get_users_in_company(
             user_id: doc.user_id.to_hex(),
             company_id: doc.company_id.to_hex(),
             role: doc.role,
+            user_surname: doc.surname.clone(),
+            user_name: doc.name.clone(),
+            user_username: doc.username.clone(),
             job_title: doc.job_title.clone(),
             management_team: doc.management_team,
         })

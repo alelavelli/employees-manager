@@ -82,6 +82,9 @@ pub struct CompanyInfo {
 pub struct UserInCompanyInfo {
     pub user_id: String,
     pub company_id: String,
+    pub user_username: String,
+    pub user_name: String,
+    pub user_surname: String,
     pub role: CompanyRole,
     pub job_title: String,
     pub management_team: bool,

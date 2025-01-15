@@ -429,7 +429,9 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
                     outcome.inserted_id.as_object_id().unwrap().to_hex()
                 }
             };
-            self.set_id(&document_id)?;
+            if self.get_id().is_none() {
+                self.set_id(&document_id)?;
+            }
             Ok(document_id)
         }
     }

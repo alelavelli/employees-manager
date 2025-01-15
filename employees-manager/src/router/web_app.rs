@@ -129,8 +129,7 @@ async fn invite_user_to_company(
 /// Remove user from the Company
 async fn remove_company_user(
     jwt_claim: JWTAuthClaim,
-    Path(id): Path<DocumentId>,
-    Path(user_id): Path<DocumentId>,
+    Path((id, user_id)): Path<(DocumentId, DocumentId)>,
 ) -> Result<AppJson<()>, AppError> {
     facade::remove_company_user(jwt_claim, user_id, id).await?;
     Ok(AppJson(()))

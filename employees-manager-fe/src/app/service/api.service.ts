@@ -187,6 +187,7 @@ export class ApiService {
             userSurname: `surname-${i}`,
             userUsername: `username-${1}`,
             companyId: `company-id-${i}`,
+            jobTitle: `job-title-${i}`,
             role: i % 3 === 0 ? CompanyRole.Admin : CompanyRole.User,
             job_title: `job-title-${i}`,
             managementTeam: i % 2 === 0,

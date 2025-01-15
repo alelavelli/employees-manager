@@ -61,6 +61,7 @@ export interface UserInCompanyInfo {
   userUsername: string;
   userName: string;
   userSurname: string;
+  jobTitle: string;
   companyId: string;
   role: CompanyRole;
   job_title: string;

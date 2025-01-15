@@ -47,7 +47,7 @@ impl EnvironmentVariables {
     /// they are used by tracing to define correct logging properties
     fn build_logging(local: &bool, _deploy_environment: &str) -> LoggingVariables {
         let (level, include_headers) = if *local {
-            (tracing::Level::TRACE, true)
+            (tracing::Level::TRACE, false)
         } else {
             (tracing::Level::INFO, false)
         };
