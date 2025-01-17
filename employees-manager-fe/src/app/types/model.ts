@@ -72,3 +72,14 @@ export interface CreateCompanyParameters {
   name: string;
   jobTitle: string;
 }
+
+export interface InviteUserInCompany {
+  userId: string;
+  role: CompanyRole;
+  jobTitle: string;
+}
+
+export interface UserToInvite {
+  username: string;
+  userId: string;
+}

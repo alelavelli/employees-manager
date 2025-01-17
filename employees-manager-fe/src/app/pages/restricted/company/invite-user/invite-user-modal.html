@@ -1,0 +1,34 @@
+<h1 mat-dialog-title>Invite user</h1>
+
+<div mat-dialog-content class="modal-container">
+    <form [formGroup]="invitationForm" (ngSubmit)="onSubmit()" class="form-container">
+        <mat-form-field appearance="outline">
+            <mat-label>User</mat-label>
+            <input matInput type="text" placeholder="Select a user" formControlName="username" [matAutocomplete]="auto">
+
+            <mat-autocomplete #auto="matAutocomplete">
+                @for (user of filteredUsers | async; track user) {
+                <mat-option [value]="user.username">{{user.username}}</mat-option>
+                }
+            </mat-autocomplete>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Job Title</mat-label>
+            <input matInput placeholder="Job Title" formControlName="jobTitle">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Role</mat-label>
+            <mat-select formControlName="role">
+                <mat-option [value]="CompanyRole.Admin">Admin</mat-option>
+                <mat-option [value]="CompanyRole.User">User</mat-option>
+            </mat-select>
+        </mat-form-field>
+    </form>
+    <div mat-dialog-actions align="end" class="action-buttons">
+        <button mat-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-raised-button type="submit" [disabled]="invitationForm.invalid" color="primary"
+            (click)="onSubmit()">
+            Create
+        </button>
+    </div>
+</div>

@@ -3,7 +3,12 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { UserService } from '../../../service/user.service';
-import { CompanyInfo, UserData, UserInCompanyInfo } from '../../../types/model';
+import {
+  CompanyInfo,
+  InviteUserInCompany,
+  UserData,
+  UserInCompanyInfo,
+} from '../../../types/model';
 import {
   FormBuilder,
   FormGroup,
@@ -28,6 +33,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ToastrService } from 'ngx-toastr';
 import { MatDialog } from '@angular/material/dialog';
+import { InviteUserInCompanyDialogComponent } from './invite-user/invite-user-modal';
 @Component({
   selector: 'company-page',
   templateUrl: './company.html',
@@ -198,6 +204,39 @@ export class CompanyPageComponent implements OnInit {
         },
       });
     }
+  }
+
+  openInviteUserInCompanyDialog() {
+    this.dialog
+      .open(InviteUserInCompanyDialogComponent, {
+        width: '40rem',
+        data: {
+          companyId: this.companyId,
+        },
+      })
+      .afterClosed()
+      .subscribe({
+        next: (data: InviteUserInCompany) => {
+          if (data !== undefined) {
+            this.apiService
+              .inviteUserInCompany(
+                this.companyId!,
+                data.userId,
+                data.role,
+                data.jobTitle
+              )
+              .subscribe({
+                next: () => {
+                  this.loadData();
+                  this.toastr.success('User invited to company', 'Sent', {
+                    timeOut: 5000,
+                    progressBar: true,
+                  });
+                },
+              });
+          }
+        },
+      });
   }
 
   onManagerFilterChange(event: MatButtonToggleChange) {

@@ -13,10 +13,11 @@ import {
   UserData,
   CompanyInfo,
   CreateCompanyParameters,
+  UserToInvite,
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -260,7 +261,20 @@ export class ApiService {
         );
   }
 
-  inviteUserToCompany(
+  getUsersToInvite(companyId: string): Observable<UserToInvite[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(20).keys()].map((i) => ({
+            userId: `user-id-${i}`,
+            username: `name-${i}`,
+          }))
+        )
+      : this.httpClient.get<UserToInvite[]>(
+          API_URL + `company/${companyId}/user-to-invite`
+        );
+  }
+
+  inviteUserInCompany(
     companyId: string,
     userId: string,
     role: CompanyRole,
