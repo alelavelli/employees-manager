@@ -7,11 +7,14 @@ import {
   ViewEncapsulation,
 } from '@angular/core';
 import {
+  AbstractControl,
   AbstractControlOptions,
   FormBuilder,
   FormControl,
   FormGroup,
   ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
   Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -75,6 +78,16 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
     this.apiService.getUsersToInvite(this.companyId!).subscribe({
       next: (response) => {
         this.usersToInvite = response;
+        const usernameField = this.invitationForm.get('username');
+        if (usernameField) {
+          usernameField.setValidators([
+            Validators.required,
+            this.existUsernameValidator(
+              this.usersToInvite.map((user) => user.username)
+            ),
+          ]);
+          usernameField.updateValueAndValidity();
+        }
       },
     });
     this.filteredUsers = this.invitationForm.valueChanges.pipe(
@@ -87,6 +100,13 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
           : this.usersToInvite.slice();
       })
     );
+  }
+
+  existUsernameValidator(usernames: string[]): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const is_valid = usernames.includes(control.value);
+      return is_valid ? null : { username: { value: control.value } };
+    };
   }
 
   private _filterUsername(name: string): UserToInvite[] {
