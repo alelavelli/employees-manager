@@ -71,7 +71,7 @@ pub async fn create_company(
     let mut user_company_assignment = db_entities::UserCompanyAssignment {
         id: None,
         user_id: *user_id,
-        company_id: company_id_object_id.clone(),
+        company_id: company_id_object_id,
         role: CompanyRole::Owner,
         job_title,
     };
@@ -80,7 +80,7 @@ pub async fn create_company(
 
     let mut company_management_team = db_entities::CompanyManagementTeam {
         id: None,
-        company_id: company_id_object_id.clone(),
+        company_id: company_id_object_id,
         user_ids: vec![],
     };
     company_management_team.save(Some(&mut transaction)).await?;
