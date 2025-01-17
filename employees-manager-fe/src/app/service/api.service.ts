@@ -270,7 +270,7 @@ export class ApiService {
           }))
         )
       : this.httpClient.get<UserToInvite[]>(
-          API_URL + `company/${companyId}/user-to-invite`
+          API_URL + `/company/${companyId}/user-to-invite`
         );
   }
 
@@ -283,7 +283,7 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.post<void>(
-          API_URL + `company/${companyId}/invite-user`,
+          API_URL + `/company/${companyId}/invite-user`,
           {
             userId: userId,
             role: role,

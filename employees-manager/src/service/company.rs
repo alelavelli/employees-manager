@@ -3,6 +3,8 @@ use std::{collections::HashMap, str::FromStr};
 use anyhow::anyhow;
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
+use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -365,6 +367,53 @@ pub async fn invite_user(
             company_id
         )))
     }
+}
+
+pub async fn get_users_to_invite_in_company(
+    company_id: DocumentId,
+) -> Result<Vec<(DocumentId, String)>, AppError> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct QueryResult {
+        user_id: DocumentId,
+    }
+    let users_in_company: Vec<DocumentId> =
+        db_entities::UserCompanyAssignment::find_many_projection::<
+            db_entities::UserCompanyAssignment,
+            QueryResult,
+        >(
+            doc! {"company_id": company_id},
+            doc! {
+                "user_id": 1
+            },
+        )
+        .await?
+        .iter()
+        .map(|doc| doc.user_id)
+        .collect();
+
+    debug!("{}", format!("Users in company {:?}", users_in_company));
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct UserQueryResult {
+        _id: DocumentId,
+        username: String,
+    }
+
+    let to_return: Vec<(DocumentId, String)> =
+        db_entities::User::find_many_projection::<db_entities::User, UserQueryResult>(
+            doc! {"_id": {"$not": {"$in": users_in_company}}},
+            doc! {
+                "_id": 1,
+                "username": 1,
+            },
+        )
+        .await?
+        .iter()
+        .map(|user| (user._id, user.username.clone()))
+        .collect();
+    debug!("{}", format!("To return {:?}", to_return));
+
+    Ok(to_return)
 }
 
 #[cfg(test)]

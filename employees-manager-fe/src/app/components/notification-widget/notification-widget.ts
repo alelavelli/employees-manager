@@ -7,6 +7,7 @@ import { AppNotification } from '../../types/model';
 import { ApiService } from '../../service/api.service';
 import { NotificationType } from '../../types/enums';
 import { Router, RouterLink } from '@angular/router';
+import { MatBadgeModule } from '@angular/material/badge';
 
 @Component({
   selector: 'notification-widget',
@@ -17,6 +18,7 @@ import { Router, RouterLink } from '@angular/router';
     MatIconModule,
     MatButtonModule,
     RouterLink,
+    MatBadgeModule,
   ],
   templateUrl: './notification-widget.html',
   styleUrl: './notification-widget.scss',

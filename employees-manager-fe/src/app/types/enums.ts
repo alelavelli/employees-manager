@@ -7,7 +7,7 @@ export enum LayoutType {
 }
 
 export enum NotificationType {
-  InviteAddCompany = 'inviteAddCompany',
+  InviteAddCompany = 'InviteAddCompany',
 }
 
 export enum CompanyRole {

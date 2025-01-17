@@ -31,7 +31,6 @@ pub struct CreateCompany {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InviteAddCompanyAnswer {
-    pub notification_id: DocumentId,
     pub accept: bool,
 }
 

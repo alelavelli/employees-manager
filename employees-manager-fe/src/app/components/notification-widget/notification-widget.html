@@ -2,7 +2,7 @@
   <mat-icon class="notification-icon" [matMenuTriggerFor]="notificationWidgetMenu" #menuTrigger="matMenuTrigger"
     *ngIf="notifications.length == 0">notifications</mat-icon>
   <mat-icon class="notification-icon" [matMenuTriggerFor]="notificationWidgetMenu" #menuTrigger="matMenuTrigger"
-    *ngIf="notifications.length > 0">notifications_active</mat-icon>
+    *ngIf="notifications.length > 0" matBadge="{{notifications.length}}">notifications</mat-icon>
   <mat-menu #notificationWidgetMenu="matMenu" class="notification-widget-menu">
     <div class="notification-info-list-container">
       <div *ngIf="notifications.length == 0">

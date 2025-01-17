@@ -24,7 +24,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/auth/user", get(get_auth_user_data))
         .route("/notification", get(get_unread_notifications))
         .route(
-            "/notification/invite-add-company",
+            "/notification/invite-add-company/{id}",
             patch(answer_to_invite_add_company),
         )
         .route("/company", get(get_companies_of_user))
@@ -33,6 +33,10 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/company/{id}/role", patch(change_user_company_role))
         .route("/company/{id}/job-title", patch(change_user_job_title))
         .route("/company/{id}/manager", patch(change_user_company_manager))
+        .route(
+            "/company/{id}/user-to-invite",
+            get(get_users_to_invite_in_company),
+        )
         .route("/company/{id}/invite-user", post(invite_user_to_company))
         .route("/company/{id}/user/{user_id}", delete(remove_company_user))
 });
@@ -62,9 +66,10 @@ async fn get_unread_notifications(
 }
 async fn answer_to_invite_add_company(
     jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
     Json(payload): Json<web_app_request::InviteAddCompanyAnswer>,
 ) -> Result<AppJson<()>, AppError> {
-    facade::answer_to_invite_add_company(jwt_claim, payload)
+    facade::answer_to_invite_add_company(jwt_claim, id, payload)
         .await
         .map(AppJson)
 }
@@ -133,4 +138,13 @@ async fn remove_company_user(
 ) -> Result<AppJson<()>, AppError> {
     facade::remove_company_user(jwt_claim, user_id, id).await?;
     Ok(AppJson(()))
+}
+
+async fn get_users_to_invite_in_company(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<Vec<web_app_response::UserToInviteInCompany>>, AppError> {
+    facade::get_users_to_invite_in_company(jwt_claim, id)
+        .await
+        .map(AppJson)
 }

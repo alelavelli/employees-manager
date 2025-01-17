@@ -89,3 +89,10 @@ pub struct UserInCompanyInfo {
     pub job_title: String,
     pub management_team: bool,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserToInviteInCompany {
+    pub username: String,
+    pub user_id: String,
+}

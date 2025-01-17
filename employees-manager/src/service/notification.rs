@@ -13,7 +13,7 @@ use super::db::DatabaseDocument;
 pub async fn get_unread_notifications(
     user_id: &DocumentId,
 ) -> Result<Vec<db_entities::AppNotification>, AppError> {
-    db_entities::AppNotification::find_many(doc! {"user_id": user_id}).await
+    db_entities::AppNotification::find_many(doc! {"user_id": user_id, "read": false}).await
 }
 
 pub async fn get_notification(

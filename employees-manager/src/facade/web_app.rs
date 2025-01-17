@@ -70,19 +70,20 @@ pub async fn get_unread_notifications(
 
 pub async fn answer_to_invite_add_company(
     auth_info: impl AuthInfo,
+    notification_id: DocumentId,
     payload: web_app_request::InviteAddCompanyAnswer,
 ) -> Result<(), AppError> {
     AccessControl::new(auth_info.clone()).await?;
-    if let Some(notification) = notification::get_notification(&payload.notification_id).await? {
+    if let Some(notification) = notification::get_notification(&notification_id).await? {
         if notification.user_id != *auth_info.user_id() {
             Err(AppError::ManagedError(format!(
                 "Notification with id {} does not exist",
-                payload.notification_id
+                notification_id
             )))
         } else if notification.notification_type != NotificationType::InviteAddCompany {
             Err(AppError::ManagedError(format!(
                 "Notification with id {} is not of type Invite Add Company",
-                payload.notification_id
+                notification_id
             )))
         } else {
             notification::answer_to_invite_add_company(notification, payload.accept).await
@@ -90,7 +91,7 @@ pub async fn answer_to_invite_add_company(
     } else {
         Err(AppError::ManagedError(format!(
             "Notification with id {} does not exist",
-            payload.notification_id
+            notification_id
         )))
     }
 }
@@ -131,6 +132,27 @@ pub async fn invite_user_to_company(
         payload.job_title,
     )
     .await
+}
+
+pub async fn get_users_to_invite_in_company(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+) -> Result<Vec<web_app_response::UserToInviteInCompany>, AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    Ok(company::get_users_to_invite_in_company(company_id)
+        .await?
+        .into_iter()
+        .map(
+            |(user_id, username)| web_app_response::UserToInviteInCompany {
+                username,
+                user_id: user_id.to_hex(),
+            },
+        )
+        .collect())
 }
 
 pub async fn remove_company_user(
