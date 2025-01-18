@@ -5,6 +5,7 @@ import { forkJoin } from 'rxjs';
 import { UserService } from '../../../service/user.service';
 import {
   CompanyInfo,
+  InvitedUserInCompanyInfo,
   InviteUserInCompany,
   UserData,
   UserInCompanyInfo,
@@ -66,6 +67,12 @@ export class CompanyPageComponent implements OnInit {
   usersTableDataSource: MatTableDataSource<UserInCompanyInfo> =
     new MatTableDataSource<UserInCompanyInfo>([]);
   readonly userFilterForm: FormGroup;
+
+  pendingUsers: InvitedUserInCompanyInfo[] = [];
+  pendingUsersTableDataSource: MatTableDataSource<InvitedUserInCompanyInfo> =
+    new MatTableDataSource<InvitedUserInCompanyInfo>([]);
+  readonly pendingUserFilterForm: FormGroup;
+
   changeJobTitleForm: FormGroup = this.formBuilder.group({
     jobTitle: ['', Validators.required],
   });
@@ -78,6 +85,14 @@ export class CompanyPageComponent implements OnInit {
     'jobTitle',
     'role',
     'manager',
+    'actionMenu',
+  ];
+
+  displayedPendingUsersInfoColumns: string[] = [
+    'id',
+    'username',
+    'jobTitle',
+    'role',
     'actionMenu',
   ];
 
@@ -117,6 +132,22 @@ export class CompanyPageComponent implements OnInit {
       } as string;
       this.usersTableDataSource.filter = filter;
     });
+
+    this.pendingUserFilterForm = formBuilder.group({
+      valueString: '',
+      role: null,
+    });
+    this.pendingUserFilterForm.valueChanges.subscribe((value) => {
+      const filter = {
+        ...value,
+        valueString: value.valueString.trim().toLocaleLowerCase(),
+        role:
+          value.role === null || value.role.length === 0
+            ? null
+            : value.role[value.role.length - 1],
+      } as string;
+      this.pendingUsersTableDataSource.filter = filter;
+    });
   }
 
   ngOnInit(): void {
@@ -152,6 +183,7 @@ export class CompanyPageComponent implements OnInit {
     if (this.companyId !== null) {
       forkJoin({
         users: this.apiService.getUsersInCompany(this.companyId),
+        pendingUsers: this.apiService.getPendingUsersInCompany(this.companyId),
       }).subscribe({
         next: (response) => {
           this.usersInCompany = response.users;
@@ -191,6 +223,31 @@ export class CompanyPageComponent implements OnInit {
             this.usersTableDataSource.sort = this.sort;
             this.usersTableDataSource.paginator = this.paginator;
           });
+
+          this.pendingUsers = response.pendingUsers;
+          this.pendingUsersTableDataSource = new MatTableDataSource(
+            this.pendingUsers
+          );
+          setTimeout(() => {
+            this.pendingUsersTableDataSource.filterPredicate = (
+              data,
+              filter: any
+            ) => {
+              const roleFilter =
+                filter.role === null ? true : data.role === filter.role;
+              const idFilter = data.userId
+                .toLocaleLowerCase()
+                .includes(filter.valueString);
+              const usernameFilter = data.username
+                .toLocaleLowerCase()
+                .trim()
+                .includes(filter.valueString);
+
+              return roleFilter && (idFilter || usernameFilter);
+            };
+            this.pendingUsersTableDataSource.sort = this.sort;
+            this.pendingUsersTableDataSource.paginator = this.paginator;
+          });
         },
         error: () => {
           this.usersInCompany = [];
@@ -200,6 +257,15 @@ export class CompanyPageComponent implements OnInit {
           setTimeout(() => {
             this.usersTableDataSource.sort = this.sort;
             this.usersTableDataSource.paginator = this.paginator;
+          });
+
+          this.pendingUsers = [];
+          this.pendingUsersTableDataSource = new MatTableDataSource(
+            this.pendingUsers
+          );
+          setTimeout(() => {
+            this.pendingUsersTableDataSource.sort = this.sort;
+            this.pendingUsersTableDataSource.paginator = this.paginator;
           });
         },
       });
@@ -212,6 +278,9 @@ export class CompanyPageComponent implements OnInit {
         width: '40rem',
         data: {
           companyId: this.companyId,
+          role: this.companies.filter(
+            (company) => company.id == this.companyId
+          )[0].role,
         },
       })
       .afterClosed()
@@ -365,5 +434,24 @@ export class CompanyPageComponent implements OnInit {
       )[0].role;
       return userRole === CompanyRole.Owner;
     }
+  }
+
+  cancelInvitation(invitation: InvitedUserInCompanyInfo) {
+    this.apiService
+      .cancelInvitation(invitation.companyId, invitation.notificationId)
+      .subscribe({
+        next: () => {
+          this.toastr.success(
+            `Canceled invitation for user ${invitation.username}`,
+            'Invitation canceled',
+            {
+              timeOut: 5000,
+              progressBar: true,
+            }
+          );
+          this.loadData();
+        },
+        error: () => {},
+      });
   }
 }

@@ -14,6 +14,7 @@ import {
   CompanyInfo,
   CreateCompanyParameters,
   UserToInvite,
+  InvitedUserInCompanyInfo,
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
@@ -134,11 +135,26 @@ export class ApiService {
       ? buildMocked(
           [...Array(5).keys()].map((i) => ({
             id: `id-${i}`,
-            notificationType: NotificationType.InviteAddCompany,
-            message: `You has been invited to Company ${i}`,
+            notificationType:
+              i % 2 == 0
+                ? NotificationType.InviteAddCompany
+                : NotificationType.InviteAddCompanyAnswer,
+            message:
+              i % 2 == 0
+                ? `You has been invited to Company ${i}`
+                : `The user accepted to join in Company ${i}`,
           }))
         )
       : this.httpClient.get<AppNotification[]>(API_URL + '/notification');
+  }
+
+  setNotificationAsRead(notificationId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/notification/${notificationId}/read`,
+          {}
+        );
   }
 
   acceptInviteAddCompany(notificationId: string) {
@@ -196,6 +212,25 @@ export class ApiService {
         )
       : this.httpClient.get<UserInCompanyInfo[]>(
           API_URL + `/company/${companyId}/user`
+        );
+  }
+
+  getPendingUsersInCompany(
+    companyId: string
+  ): Observable<InvitedUserInCompanyInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            userId: `user-id-${i}`,
+            notificationId: `notification-id-${i}`,
+            username: `name-${i}`,
+            companyId: `company-id-${i}`,
+            jobTitle: `job-title-${i}`,
+            role: i % 3 === 0 ? CompanyRole.Admin : CompanyRole.User,
+          }))
+        )
+      : this.httpClient.get<InvitedUserInCompanyInfo[]>(
+          API_URL + `/company/${companyId}/pending-user`
         );
   }
 
@@ -289,6 +324,18 @@ export class ApiService {
             role: role,
             jobTitle: jobTitle,
           }
+        );
+  }
+
+  cancelInvitation(
+    companyId: string,
+    notificationId: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/company/${companyId}/invite-user/${notificationId}`,
+          {}
         );
   }
 }

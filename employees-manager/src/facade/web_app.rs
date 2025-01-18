@@ -68,6 +68,28 @@ pub async fn get_unread_notifications(
         .collect())
 }
 
+pub async fn set_notification_as_read(
+    auth_info: impl AuthInfo,
+    notification_id: DocumentId,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info.clone()).await?;
+    if let Some(notification) = notification::get_notification(&notification_id).await? {
+        if notification.user_id != *auth_info.user_id() {
+            Err(AppError::ManagedError(format!(
+                "Notification with id {} does not exist",
+                notification_id
+            )))
+        } else {
+            notification::set_notification_as_read(notification).await
+        }
+    } else {
+        Err(AppError::ManagedError(format!(
+            "Notification with id {} does not exist",
+            notification_id
+        )))
+    }
+}
+
 pub async fn answer_to_invite_add_company(
     auth_info: impl AuthInfo,
     notification_id: DocumentId,
@@ -275,4 +297,38 @@ pub async fn change_user_company_manager(
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
     company::change_user_company_manager(&payload.user_id, &company_id, payload.manager).await
+}
+
+pub async fn get_pending_invited_users_in_company(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+) -> Result<Vec<web_app_response::InvitedUserInCompanyInfo>, AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+    Ok(company::get_pending_invited_users(&company_id)
+        .await?
+        .into_iter()
+        .map(|elem| web_app_response::InvitedUserInCompanyInfo {
+            notification_id: elem.notification_id,
+            user_id: elem.user_id,
+            username: elem.username,
+            role: elem.role,
+            job_title: elem.job_title,
+            company_id: elem.company_id,
+        })
+        .collect())
+}
+
+pub async fn cancel_invite_user_to_company(
+    auth_info: impl AuthInfo,
+    notification_id: DocumentId,
+    company_id: DocumentId,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+    notification::cancel_invite_user_to_company(notification_id).await
 }

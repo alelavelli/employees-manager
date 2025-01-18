@@ -27,6 +27,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
             "/notification/invite-add-company/{id}",
             patch(answer_to_invite_add_company),
         )
+        .route("/notification/{id}/read", patch(set_notification_as_read))
         .route("/company", get(get_companies_of_user))
         .route("/company/{id}/user", get(get_users_in_company))
         .route("/company", post(create_company))
@@ -36,6 +37,14 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route(
             "/company/{id}/user-to-invite",
             get(get_users_to_invite_in_company),
+        )
+        .route(
+            "/company/{id}/pending-user",
+            get(get_pending_invited_users_in_company),
+        )
+        .route(
+            "/company/{id}/invite-user/{notification_id}",
+            delete(cancel_invite_user_to_company),
         )
         .route("/company/{id}/invite-user", post(invite_user_to_company))
         .route("/company/{id}/user/{user_id}", delete(remove_company_user))
@@ -64,6 +73,15 @@ async fn get_unread_notifications(
     let notifications = facade::get_unread_notifications(jwt_claim).await?;
     Ok(AppJson(notifications))
 }
+
+async fn set_notification_as_read(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<()>, AppError> {
+    facade::set_notification_as_read(jwt_claim, id).await?;
+    Ok(AppJson(()))
+}
+
 async fn answer_to_invite_add_company(
     jwt_claim: JWTAuthClaim,
     Path(id): Path<DocumentId>,
@@ -145,6 +163,24 @@ async fn get_users_to_invite_in_company(
     Path(id): Path<DocumentId>,
 ) -> Result<AppJson<Vec<web_app_response::UserToInviteInCompany>>, AppError> {
     facade::get_users_to_invite_in_company(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
+async fn get_pending_invited_users_in_company(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<Vec<web_app_response::InvitedUserInCompanyInfo>>, AppError> {
+    facade::get_pending_invited_users_in_company(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
+async fn cancel_invite_user_to_company(
+    jwt_claim: JWTAuthClaim,
+    Path((id, notification_id)): Path<(DocumentId, DocumentId)>,
+) -> Result<AppJson<()>, AppError> {
+    facade::cancel_invite_user_to_company(jwt_claim, notification_id, id)
         .await
         .map(AppJson)
 }

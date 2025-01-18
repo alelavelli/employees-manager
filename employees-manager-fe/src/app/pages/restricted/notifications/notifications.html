@@ -15,7 +15,8 @@
                         <div class="notifications-filter-label">Notification Type</div>
                         <mat-button-toggle-group name="notificationType" aria-label="Notification Type" multiple
                             formControlName="notificationType">
-                            <mat-button-toggle value="inviteAddCompany">Invite Add Company</mat-button-toggle>
+                            <mat-button-toggle *ngFor="let notificationType of NotificationType | keyvalue"
+                                value={{notificationType.value}}>{{notificationType.value}}</mat-button-toggle>
                         </mat-button-toggle-group>
                     </div>
                 </div>
@@ -53,6 +54,9 @@
                             *ngIf="row.notificationType == NotificationType.InviteAddCompany"><mat-icon>done</mat-icon>Accept</button>
                         <button mat-menu-item (click)="declineInviteAddCompany(row)"
                             *ngIf="row.notificationType == NotificationType.InviteAddCompany"><mat-icon>close</mat-icon>Decline</button>
+                        <button mat-menu-item (click)="setAsRead(row)"
+                            *ngIf="row.notificationType == NotificationType.InviteAddCompanyAnswer"><mat-icon>mark_email_read</mat-icon>Mark
+                            as read</button>
                     </ng-template>
                 </mat-menu>
             </div>

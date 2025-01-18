@@ -46,6 +46,8 @@ export class NotificationWidgetComponent implements OnInit {
   notificationTypeToTitle(notificationType: NotificationType): string {
     if (notificationType == NotificationType.InviteAddCompany) {
       return 'Company invitation';
+    } else if (notificationType == NotificationType.InviteAddCompanyAnswer) {
+      return 'Company invitation answer';
     } else {
       return '';
     }
@@ -54,6 +56,8 @@ export class NotificationWidgetComponent implements OnInit {
   notificationTypeToIcon(notificationType: NotificationType): string {
     if (notificationType == NotificationType.InviteAddCompany) {
       return 'work';
+    } else if (notificationType == NotificationType.InviteAddCompanyAnswer) {
+      return 'info';
     } else {
       return '';
     }

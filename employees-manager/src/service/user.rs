@@ -148,30 +148,37 @@ pub async fn create_user(
     #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         username: String,
+        email: String,
     }
 
     let usernames = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
         doc! {},
-        doc! {"username": 1},
+        doc! {"username": 1, "email": 1},
     )
     .await?;
 
     for document in usernames {
-        if username.to_lowercase() == document.username.to_lowercase() {
+        if username.to_lowercase().trim() == document.username.to_lowercase().trim() {
             return Err(AppError::ManagedError(format!(
-                "Username {} already exist.",
+                "Username {} already exists.",
                 username
+            )));
+        }
+        if email.to_lowercase().trim() == document.email.to_lowercase().trim() {
+            return Err(AppError::ManagedError(format!(
+                "Email {} already exists.",
+                email
             )));
         }
     }
     let mut user_model = db_entities::User {
         id: None,
-        username,
+        username: username.trim().into(),
         password_hash: hash_password(&password)?,
         api_key: None,
-        email,
-        name,
-        surname,
+        email: email.trim().into(),
+        name: name.trim().into(),
+        surname: surname.trim().into(),
         // by default users are always not platform admin
         platform_admin: false,
         active: true,

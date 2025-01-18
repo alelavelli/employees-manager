@@ -68,7 +68,8 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
     private formBuilder: FormBuilder,
     public dialogRef: MatDialogRef<InviteUserInCompany>,
     private apiService: ApiService,
-    @Inject(MAT_DIALOG_DATA) public data: { companyId: string }
+    @Inject(MAT_DIALOG_DATA)
+    public data: { companyId: string; role: CompanyRole }
   ) {
     this.companyId = data.companyId;
     this.filteredUsers = of([]);

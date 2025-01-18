@@ -148,6 +148,8 @@ export class NotificationsPageComponent implements OnInit {
   notificationTypeToTitle(notificationType: NotificationType): string {
     if (notificationType == NotificationType.InviteAddCompany) {
       return 'Company invitation';
+    } else if (notificationType == NotificationType.InviteAddCompanyAnswer) {
+      return 'Company invitation answer';
     } else {
       return '';
     }
@@ -165,9 +167,21 @@ export class NotificationsPageComponent implements OnInit {
     });
   }
   declineInviteAddCompany(notification: AppNotification) {
-    this.apiService.acceptInviteAddCompany(notification.id).subscribe({
+    this.apiService.declineInviteAddCompany(notification.id).subscribe({
       next: () => {
         this.toastr.success('Declined invite to company', 'Success', {
+          timeOut: 5000,
+          progressBar: true,
+        });
+        this.loadNotifications();
+      },
+    });
+  }
+
+  setAsRead(notification: AppNotification) {
+    this.apiService.setNotificationAsRead(notification.id).subscribe({
+      next: () => {
+        this.toastr.success('Notification marked as read', 'Success', {
           timeOut: 5000,
           progressBar: true,
         });

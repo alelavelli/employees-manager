@@ -83,3 +83,12 @@ export interface UserToInvite {
   username: string;
   userId: string;
 }
+
+export interface InvitedUserInCompanyInfo {
+  notificationId: string;
+  userId: string;
+  username: string;
+  role: CompanyRole;
+  jobTitle: string;
+  companyId: string;
+}

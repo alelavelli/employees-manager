@@ -36,3 +36,12 @@ pub struct UserInCompanyInfo {
     pub job_title: String,
     pub management_team: bool,
 }
+
+pub struct InvitedUserInCompanyInfo {
+    pub notification_id: String,
+    pub user_id: String,
+    pub username: String,
+    pub role: CompanyRole,
+    pub job_title: String,
+    pub company_id: String,
+}

@@ -19,7 +19,7 @@
         <mat-form-field appearance="outline">
             <mat-label>Role</mat-label>
             <mat-select formControlName="role">
-                <mat-option [value]="CompanyRole.Admin">Admin</mat-option>
+                <mat-option [value]="CompanyRole.Admin" *ngIf="data.role === CompanyRole.Owner">Admin</mat-option>
                 <mat-option [value]="CompanyRole.User">User</mat-option>
             </mat-select>
         </mat-form-field>

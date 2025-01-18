@@ -99,4 +99,5 @@ pub enum EmployeeRequestOutcome {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum NotificationType {
     InviteAddCompany,
+    InviteAddCompanyAnswer,
 }

@@ -4,7 +4,6 @@ use anyhow::anyhow;
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
     error::AppError,
     model::{
         db_entities,
-        internal::{AdminPanelOverviewCompanyInfo, UserInCompanyInfo},
+        internal::{AdminPanelOverviewCompanyInfo, InvitedUserInCompanyInfo, UserInCompanyInfo},
     },
     DocumentId,
 };
@@ -50,13 +49,33 @@ pub async fn create_company(
     name: String,
     job_title: String,
 ) -> Result<String, AppError> {
+    // check if a company with the same name already exists
+    #[derive(Serialize, Deserialize, Debug)]
+    struct QueryResult {
+        name: String,
+    }
+
+    let companies =
+        db_entities::Company::find_many_projection::<db_entities::Company, QueryResult>(
+            doc! {},
+            doc! {"name": 1},
+        )
+        .await?;
+    for document in companies {
+        if name.to_lowercase().trim() == document.name.to_lowercase().trim() {
+            return Err(AppError::ManagedError(
+                "A Company with name {name} already exists.".into(),
+            ));
+        }
+    }
+
     let db_service = get_database_service().await;
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
 
     let mut company_model = db_entities::Company {
         id: None,
-        name,
+        name: name.trim().into(),
         active: true,
     };
     let company_id = company_model.save(Some(&mut transaction)).await?;
@@ -329,6 +348,27 @@ pub async fn invite_user(
     /*
     Create InviteAddCompany document and AppNotification document
     */
+
+    // the role can be Admin only if the requesting user is an admin
+    if role == CompanyRole::Admin {
+        #[derive(Serialize, Deserialize, Debug)]
+        struct QueryResult {
+            role: CompanyRole,
+        }
+
+        let inviting_user_role = db_entities::UserCompanyAssignment::find_one_projection::<
+            db_entities::UserCompanyAssignment,
+            QueryResult,
+        >(doc! {"user_id": inviting_user_id}, doc! {"role": 1})
+        .await?
+        .expect("user must be in company")
+        .role;
+
+        if inviting_user_role == CompanyRole::Admin {
+            return Err(AppError::ManagedError("You don't have Admin role in Company {company_id}, hence, you cannot assign Admin role to other users".into()));
+        }
+    }
+
     let db_service = get_database_service().await;
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
@@ -369,14 +409,81 @@ pub async fn invite_user(
     }
 }
 
+pub async fn get_pending_invited_users(
+    company_id: &DocumentId,
+) -> Result<Vec<InvitedUserInCompanyInfo>, AppError> {
+    let pending_invitations = db_entities::InviteAddCompany::find_many::<
+        db_entities::InviteAddCompany,
+    >(doc! {"company_id": company_id, "answer": null})
+    .await?;
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct QueryResult {
+        _id: DocumentId,
+        username: String,
+    }
+    let usernames = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
+        doc! {"_id": {"$in": pending_invitations.iter().map(|doc| &doc.invited_user_id).collect::<Vec<&DocumentId>>()}},
+        doc! {
+            "username": 1,
+            "_id": 1
+        },
+    )
+    .await?.iter().map(|doc| (doc._id, doc.username.clone())).collect::<HashMap<DocumentId, String>>();
+
+    let mut to_return = vec![];
+
+    for invitation in pending_invitations {
+        if let Some(username) = usernames.get(&invitation.invited_user_id) {
+            to_return.push(InvitedUserInCompanyInfo {
+                notification_id: invitation
+                    .get_id()
+                    .expect("id should exist from document retrieved from db")
+                    .to_hex(),
+                user_id: invitation.invited_user_id.to_hex(),
+                username: username.clone(),
+                role: invitation.company_role,
+                job_title: invitation.job_title,
+                company_id: invitation.company_id.to_hex(),
+            });
+        } else {
+            return Err(AppError::InternalServerError(anyhow!(format!(
+                "User {} should exist",
+                invitation.invited_user_id.to_hex()
+            ))));
+        }
+    }
+
+    Ok(to_return)
+}
+
 pub async fn get_users_to_invite_in_company(
     company_id: DocumentId,
 ) -> Result<Vec<(DocumentId, String)>, AppError> {
+    // Users can be invited to a company if they are not already in it and if there is no pending invitation
+
+    #[derive(Serialize, Deserialize, Debug)]
+    struct InvitedUsersQueryResult {
+        invited_user_id: DocumentId,
+    }
+    let mut users_to_exclude: Vec<DocumentId> =
+        db_entities::InviteAddCompany::find_many_projection::<
+            db_entities::InviteAddCompany,
+            InvitedUsersQueryResult,
+        >(
+            doc! {"company_id": company_id, "answer": null},
+            doc! {"invited_user_id": 1},
+        )
+        .await?
+        .iter()
+        .map(|doc| doc.invited_user_id)
+        .collect();
+
     #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         user_id: DocumentId,
     }
-    let users_in_company: Vec<DocumentId> =
+    let mut users_in_company: Vec<DocumentId> =
         db_entities::UserCompanyAssignment::find_many_projection::<
             db_entities::UserCompanyAssignment,
             QueryResult,
@@ -391,17 +498,17 @@ pub async fn get_users_to_invite_in_company(
         .map(|doc| doc.user_id)
         .collect();
 
-    debug!("{}", format!("Users in company {:?}", users_in_company));
-
     #[derive(Serialize, Deserialize, Debug)]
     struct UserQueryResult {
         _id: DocumentId,
         username: String,
     }
 
+    users_to_exclude.append(&mut users_in_company);
+
     let to_return: Vec<(DocumentId, String)> =
         db_entities::User::find_many_projection::<db_entities::User, UserQueryResult>(
-            doc! {"_id": {"$not": {"$in": users_in_company}}},
+            doc! {"_id": {"$not": {"$in": users_to_exclude}}},
             doc! {
                 "_id": 1,
                 "username": 1,
@@ -411,7 +518,6 @@ pub async fn get_users_to_invite_in_company(
         .iter()
         .map(|user| (user._id, user.username.clone()))
         .collect();
-    debug!("{}", format!("To return {:?}", to_return));
 
     Ok(to_return)
 }
