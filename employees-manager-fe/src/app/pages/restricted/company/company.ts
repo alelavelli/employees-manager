@@ -1,10 +1,17 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { UserService } from '../../../service/user.service';
 import {
   CompanyInfo,
+  CompanyProjectInfo,
   InvitedUserInCompanyInfo,
   InviteUserInCompany,
   UserData,
@@ -63,6 +70,7 @@ export class CompanyPageComponent implements OnInit {
   userData: UserData | null = null;
   companyId: string | null = null;
   companies: CompanyInfo[] = [];
+
   usersInCompany: UserInCompanyInfo[] = [];
   usersTableDataSource: MatTableDataSource<UserInCompanyInfo> =
     new MatTableDataSource<UserInCompanyInfo>([]);
@@ -72,6 +80,11 @@ export class CompanyPageComponent implements OnInit {
   pendingUsersTableDataSource: MatTableDataSource<InvitedUserInCompanyInfo> =
     new MatTableDataSource<InvitedUserInCompanyInfo>([]);
   readonly pendingUserFilterForm: FormGroup;
+
+  projects: CompanyProjectInfo[] = [];
+  projectsTableDataSource: MatTableDataSource<CompanyProjectInfo> =
+    new MatTableDataSource<CompanyProjectInfo>([]);
+  readonly projectFilterForm: FormGroup;
 
   changeJobTitleForm: FormGroup = this.formBuilder.group({
     jobTitle: ['', Validators.required],
@@ -96,8 +109,10 @@ export class CompanyPageComponent implements OnInit {
     'actionMenu',
   ];
 
-  @ViewChild(MatSort, { static: false }) sort!: MatSort;
-  @ViewChild(MatPaginator, { static: false }) paginator!: MatPaginator;
+  displayedProjectsInfoColumns: string[] = ['id', 'name', 'code', 'actionMenu'];
+
+  @ViewChildren(MatSort) sort = new QueryList<MatSort>();
+  @ViewChildren(MatPaginator) paginator = new QueryList<MatPaginator>();
 
   constructor(
     private route: ActivatedRoute,
@@ -148,6 +163,17 @@ export class CompanyPageComponent implements OnInit {
       } as string;
       this.pendingUsersTableDataSource.filter = filter;
     });
+
+    this.projectFilterForm = formBuilder.group({
+      valueString: '',
+    });
+    this.projectFilterForm.valueChanges.subscribe((value) => {
+      const filter = {
+        ...value,
+        valueString: value.valueString.trim().toLocaleLowerCase(),
+      } as string;
+      this.projectsTableDataSource.filter = filter;
+    });
   }
 
   ngOnInit(): void {
@@ -184,6 +210,7 @@ export class CompanyPageComponent implements OnInit {
       forkJoin({
         users: this.apiService.getUsersInCompany(this.companyId),
         pendingUsers: this.apiService.getPendingUsersInCompany(this.companyId),
+        projects: this.apiService.getCompanyProjects(this.companyId),
       }).subscribe({
         next: (response) => {
           this.usersInCompany = response.users;
@@ -220,8 +247,8 @@ export class CompanyPageComponent implements OnInit {
                 (idFilter || usernameFilter || nameFilter || surnameFilter)
               );
             };
-            this.usersTableDataSource.sort = this.sort;
-            this.usersTableDataSource.paginator = this.paginator;
+            this.usersTableDataSource.sort = this.sort.toArray()[0];
+            this.usersTableDataSource.paginator = this.paginator.toArray()[0];
           });
 
           this.pendingUsers = response.pendingUsers;
@@ -245,8 +272,36 @@ export class CompanyPageComponent implements OnInit {
 
               return roleFilter && (idFilter || usernameFilter);
             };
-            this.pendingUsersTableDataSource.sort = this.sort;
-            this.pendingUsersTableDataSource.paginator = this.paginator;
+            this.pendingUsersTableDataSource.sort = this.sort.toArray()[1];
+            this.pendingUsersTableDataSource.paginator =
+              this.paginator.toArray()[1];
+          });
+
+          this.projects = response.projects;
+          this.projectsTableDataSource = new MatTableDataSource(this.projects);
+          setTimeout(() => {
+            this.projectsTableDataSource.filterPredicate = (
+              data,
+              filter: any
+            ) => {
+              const idFilter = data.id
+                .toLocaleLowerCase()
+                .includes(filter.valueString);
+              const nameFilter = data.name
+                .toLocaleLowerCase()
+                .trim()
+                .includes(filter.valueString);
+              const codeFilter = data.code
+                .toLocaleLowerCase()
+                .trim()
+                .includes(filter.valueString);
+
+              return idFilter || nameFilter || codeFilter;
+            };
+
+            this.projectsTableDataSource.sort = this.sort.toArray()[2];
+            this.projectsTableDataSource.paginator =
+              this.paginator.toArray()[2];
           });
         },
         error: () => {
@@ -255,8 +310,8 @@ export class CompanyPageComponent implements OnInit {
             this.usersInCompany
           );
           setTimeout(() => {
-            this.usersTableDataSource.sort = this.sort;
-            this.usersTableDataSource.paginator = this.paginator;
+            this.usersTableDataSource.sort = this.sort.toArray()[0];
+            this.usersTableDataSource.paginator = this.paginator.toArray()[0];
           });
 
           this.pendingUsers = [];
@@ -264,8 +319,17 @@ export class CompanyPageComponent implements OnInit {
             this.pendingUsers
           );
           setTimeout(() => {
-            this.pendingUsersTableDataSource.sort = this.sort;
-            this.pendingUsersTableDataSource.paginator = this.paginator;
+            this.pendingUsersTableDataSource.sort = this.sort.toArray()[1];
+            this.pendingUsersTableDataSource.paginator =
+              this.paginator.toArray()[1];
+          });
+
+          this.projects = [];
+          this.projectsTableDataSource = new MatTableDataSource(this.projects);
+          setTimeout(() => {
+            this.projectsTableDataSource.sort = this.sort.toArray()[2];
+            this.projectsTableDataSource.paginator =
+              this.paginator.toArray()[2];
           });
         },
       });
@@ -444,6 +508,29 @@ export class CompanyPageComponent implements OnInit {
           this.toastr.success(
             `Canceled invitation for user ${invitation.username}`,
             'Invitation canceled',
+            {
+              timeOut: 5000,
+              progressBar: true,
+            }
+          );
+          this.loadData();
+        },
+        error: () => {},
+      });
+  }
+
+  openNewProjectDialog() {}
+
+  editProject(project: CompanyProjectInfo) {}
+
+  deleteProject(project: CompanyProjectInfo) {
+    this.apiService
+      .deleteCompanyProject(this.companyId!, project.id)
+      .subscribe({
+        next: () => {
+          this.toastr.success(
+            `Project ${project.name} deleted`,
+            'Project deleted',
             {
               timeOut: 5000,
               progressBar: true,

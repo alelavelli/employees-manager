@@ -92,3 +92,9 @@ export interface InvitedUserInCompanyInfo {
   jobTitle: string;
   companyId: string;
 }
+
+export interface CompanyProjectInfo {
+  id: string;
+  name: string;
+  code: string;
+}

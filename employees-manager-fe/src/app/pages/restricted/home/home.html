@@ -2,8 +2,10 @@
   <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
 
   <ng-container *ngIf="!loading">
-    <div class="h1-title">Welcome {{userData?.name}}</div>
-    <div class="companies">
+    <div class="home-page-header">
+      <div class="h1-title">Welcome {{userData?.name}}</div>
+    </div>
+    <div class="companies section-container">
       <div class="h2-title">Companies</div>
       <div>
         <button mat-raised-button class="clickable primary-button" (click)="openCreateCompanyDialog()">

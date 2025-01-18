@@ -15,10 +15,11 @@ import {
   CreateCompanyParameters,
   UserToInvite,
   InvitedUserInCompanyInfo,
+  CompanyProjectInfo,
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -133,7 +134,7 @@ export class ApiService {
   getUnreadNotifications(): Observable<AppNotification[]> {
     return MOCKED
       ? buildMocked(
-          [...Array(5).keys()].map((i) => ({
+          [...Array(50).keys()].map((i) => ({
             id: `id-${i}`,
             notificationType:
               i % 2 == 0
@@ -182,7 +183,7 @@ export class ApiService {
   getUserCompanies(): Observable<CompanyInfo[]> {
     return MOCKED
       ? buildMocked(
-          [...Array(5).keys()].map((i) => ({
+          [...Array(50).keys()].map((i) => ({
             id: `id-${i}`,
             name: `company-${i}`,
             active: i % 3 === 0,
@@ -198,7 +199,7 @@ export class ApiService {
   getUsersInCompany(companyId: string): Observable<UserInCompanyInfo[]> {
     return MOCKED
       ? buildMocked(
-          [...Array(5).keys()].map((i) => ({
+          [...Array(50).keys()].map((i) => ({
             userId: `user-id-${i}`,
             userName: `name-${i}`,
             userSurname: `surname-${i}`,
@@ -220,7 +221,7 @@ export class ApiService {
   ): Observable<InvitedUserInCompanyInfo[]> {
     return MOCKED
       ? buildMocked(
-          [...Array(5).keys()].map((i) => ({
+          [...Array(50).keys()].map((i) => ({
             userId: `user-id-${i}`,
             notificationId: `notification-id-${i}`,
             username: `name-${i}`,
@@ -337,5 +338,40 @@ export class ApiService {
           API_URL + `/company/${companyId}/invite-user/${notificationId}`,
           {}
         );
+  }
+
+  getCompanyProjects(companyId: string): Observable<CompanyProjectInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(20).keys()].map((i) => ({
+            id: `project-${i}`,
+            name: `name-${i}`,
+            code: `code-${i}`,
+          }))
+        )
+      : this.httpClient.get<CompanyProjectInfo[]>(
+          API_URL + `/company/${companyId}/project`
+        );
+  }
+
+  deleteCompanyProject(companyId: string, projectId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/company/${companyId}/project/{${projectId}}`
+        );
+  }
+
+  createCompanyProject(
+    companyId: string,
+    name: string,
+    code: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(API_URL + `/company/${companyId}/project`, {
+          name: name,
+          code: code,
+        });
   }
 }

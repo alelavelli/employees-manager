@@ -1,5 +1,7 @@
 <div class="admin-page-container page-with-padding">
-  <div class="h1-title">Admin Panel</div>
+  <div class="admin-page-header">
+    <div class="h1-title">Admin Panel</div>
+  </div>
 
   <!-- case "it is loading stuff" -->
   <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
@@ -29,7 +31,7 @@
       </div>
     </div>
 
-    <div class="users">
+    <div class="users section-container">
       <div class="h2-title">Users</div>
       <div>
         <button mat-raised-button class="clickable primary-button" (click)="openCreateUserDialog()">
