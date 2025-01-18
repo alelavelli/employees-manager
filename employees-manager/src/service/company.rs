@@ -418,6 +418,20 @@ pub async fn get_pending_invited_users(
     .await?;
 
     #[derive(Serialize, Deserialize, Debug)]
+    struct NotificationQueryResult {
+        _id: DocumentId,
+        entity_id: DocumentId,
+    }
+
+    let notifications_map = db_entities::AppNotification::find_many_projection::<db_entities::AppNotification, NotificationQueryResult>(
+        doc! { "entity_id": {"$in": pending_invitations.iter().map(|doc| doc.get_id().expect("expecting object id after database read")).collect::<Vec<&DocumentId>>()} }, 
+        doc! {
+            "_id": 1,
+            "entity_id": 1
+        }
+    ).await?.iter().map(|doc| (doc.entity_id, doc._id)).collect::<HashMap<DocumentId, DocumentId>>();
+
+    #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         _id: DocumentId,
         username: String,
@@ -435,11 +449,15 @@ pub async fn get_pending_invited_users(
 
     for invitation in pending_invitations {
         if let Some(username) = usernames.get(&invitation.invited_user_id) {
+            let notification_id = *notifications_map
+                .get(
+                    invitation
+                        .get_id()
+                        .expect("id should exist from document retrieved from db"),
+                )
+                .expect("Expecting object id since it is read above");
             to_return.push(InvitedUserInCompanyInfo {
-                notification_id: invitation
-                    .get_id()
-                    .expect("id should exist from document retrieved from db")
-                    .to_hex(),
+                notification_id: notification_id.to_hex(),
                 user_id: invitation.invited_user_id.to_hex(),
                 username: username.clone(),
                 role: invitation.company_role,

@@ -165,13 +165,13 @@ pub async fn cancel_invite_user_to_company(notification_id: DocumentId) -> Resul
                 )))
             }
         } else {
-            Err(AppError::ManagedError(
-                "Notification with id {notification_id} does not exist".into(),
-            ))
+            Err(AppError::ManagedError(format!(
+                "Notification with id {notification_id} does not exist"
+            )))
         }
     } else {
-        Err(AppError::ManagedError(
-            "Notification with id {notification_id} does not exist".into(),
-        ))
+        Err(AppError::ManagedError(format!(
+            "Notification with id {notification_id} does not exist"
+        )))
     }
 }
