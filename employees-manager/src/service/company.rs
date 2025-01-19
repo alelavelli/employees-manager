@@ -4,6 +4,7 @@ use anyhow::anyhow;
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -538,6 +539,90 @@ pub async fn get_users_to_invite_in_company(
         .collect();
 
     Ok(to_return)
+}
+
+pub async fn get_company_projects(
+    company_id: DocumentId,
+) -> Result<Vec<db_entities::CompanyProject>, AppError> {
+    db_entities::CompanyProject::find_many::<db_entities::CompanyProject>(
+        doc! {"company_id": company_id},
+    )
+    .await
+}
+
+pub async fn create_project(
+    company_id: DocumentId,
+    name: String,
+    code: String,
+) -> Result<String, AppError> {
+    let company_projects = db_entities::CompanyProject::find_many::<db_entities::CompanyProject>(
+        doc! {"company_id": company_id},
+    )
+    .await?;
+
+    // project name and code must be unique
+    for project in company_projects {
+        if project.name == name || project.code == code {
+            return Err(AppError::ManagedError(format!(
+                "Project name and code must be unique got name: {} and code: {}",
+                name, code
+            )));
+        }
+    }
+
+    let mut new_project = db_entities::CompanyProject {
+        id: None,
+        company_id,
+        name,
+        code,
+    };
+
+    new_project.save(None).await
+}
+
+pub async fn edit_project(
+    company_id: DocumentId,
+    project_id: DocumentId,
+    name: String,
+    code: String,
+) -> Result<String, AppError> {
+    let company_project_query =
+        db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(
+            doc! {"_id": project_id, "company_id": company_id},
+        )
+        .await?;
+
+    if let Some(mut company_project) = company_project_query {
+        debug!("Name is {name}, Code is {code}");
+        company_project.name = name;
+        company_project.code = code;
+        company_project.save(None).await
+    } else {
+        Err(AppError::ManagedError(format!(
+            "Project with id {} does not exist",
+            project_id
+        )))
+    }
+}
+
+pub async fn delete_project(
+    company_id: DocumentId,
+    project_id: DocumentId,
+) -> Result<(), AppError> {
+    let company_project_query =
+        db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(
+            doc! {"_id": project_id, "company_id": company_id},
+        )
+        .await?;
+
+    if let Some(company_project) = company_project_query {
+        company_project.delete(None).await
+    } else {
+        Err(AppError::ManagedError(format!(
+            "Project with id {} does not exist",
+            project_id
+        )))
+    }
 }
 
 #[cfg(test)]

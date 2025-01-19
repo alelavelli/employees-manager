@@ -107,3 +107,11 @@ pub struct InvitedUserInCompanyInfo {
     pub job_title: String,
     pub company_id: String,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanyProjectInfo {
+    pub id: String,
+    pub name: String,
+    pub code: String,
+}

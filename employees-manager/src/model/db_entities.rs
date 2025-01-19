@@ -98,6 +98,15 @@ pub struct InviteAddCompany {
     pub answer: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CompanyProject {
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<DocumentId>,
+    pub name: String,
+    pub code: String,
+    pub company_id: DocumentId,
+}
+
 // Impl blocks
 
 impl DatabaseDocument for User {
@@ -229,6 +238,27 @@ impl DatabaseDocument for AppNotification {
 impl DatabaseDocument for InviteAddCompany {
     fn collection_name() -> &'static str {
         "invite_add_company"
+    }
+
+    fn get_id(&self) -> Option<&DocumentId> {
+        self.id.as_ref()
+    }
+
+    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
+        if self.id.is_some() {
+            Err(DatabaseError::DocumentHasAlreadyAnId)
+        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+            self.id = Some(parsed_id);
+            Ok(())
+        } else {
+            Err(DatabaseError::InvalidObjectId)
+        }
+    }
+}
+
+impl DatabaseDocument for CompanyProject {
+    fn collection_name() -> &'static str {
+        "company_project"
     }
 
     fn get_id(&self) -> Option<&DocumentId> {

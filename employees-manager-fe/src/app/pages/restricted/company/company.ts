@@ -14,6 +14,7 @@ import {
   CompanyProjectInfo,
   InvitedUserInCompanyInfo,
   InviteUserInCompany,
+  NewCompanyProject,
   UserData,
   UserInCompanyInfo,
 } from '../../../types/model';
@@ -42,6 +43,9 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ToastrService } from 'ngx-toastr';
 import { MatDialog } from '@angular/material/dialog';
 import { InviteUserInCompanyDialogComponent } from './invite-user/invite-user-modal';
+import { MatTabsModule } from '@angular/material/tabs';
+import { NewCompanyProjectDialogComponent } from './create-project/create-project-modal';
+
 @Component({
   selector: 'company-page',
   templateUrl: './company.html',
@@ -61,6 +65,7 @@ import { InviteUserInCompanyDialogComponent } from './invite-user/invite-user-mo
     ReactiveFormsModule,
     MatMenuModule,
     MatInputModule,
+    MatTabsModule,
   ],
 })
 export class CompanyPageComponent implements OnInit {
@@ -89,6 +94,12 @@ export class CompanyPageComponent implements OnInit {
   changeJobTitleForm: FormGroup = this.formBuilder.group({
     jobTitle: ['', Validators.required],
   });
+
+  editCompanyProjectForm: FormGroup = this.formBuilder.group({
+    name: ['', Validators.required],
+    code: ['', Validators.required],
+  });
+  projectUnderEdit: string | null = null;
 
   displayedUsersInfoColumns: string[] = [
     'id',
@@ -174,6 +185,11 @@ export class CompanyPageComponent implements OnInit {
       } as string;
       this.projectsTableDataSource.filter = filter;
     });
+
+    this.editCompanyProjectForm = this.formBuilder.group({
+      name: ['', Validators.required],
+      code: ['', Validators.required],
+    });
   }
 
   ngOnInit(): void {
@@ -185,6 +201,8 @@ export class CompanyPageComponent implements OnInit {
 
   loadData() {
     this.loading = true;
+
+    this.projectUnderEdit = null;
 
     forkJoin({
       userData: this.userService.fetchUserData(),
@@ -519,9 +537,73 @@ export class CompanyPageComponent implements OnInit {
       });
   }
 
-  openNewProjectDialog() {}
+  openNewProjectDialog() {
+    this.dialog
+      .open(NewCompanyProjectDialogComponent, {
+        width: '40rem',
+        data: {
+          companyId: this.companyId,
+        },
+      })
+      .afterClosed()
+      .subscribe({
+        next: (data: NewCompanyProject) => {
+          if (data !== undefined) {
+            this.apiService
+              .createCompanyProject(this.companyId!, data.name, data.code)
+              .subscribe({
+                next: () => {
+                  this.loadData();
+                  this.toastr.success('Project created', 'Success', {
+                    timeOut: 5000,
+                    progressBar: true,
+                  });
+                },
+              });
+          }
+        },
+      });
+  }
 
-  editProject(project: CompanyProjectInfo) {}
+  startEditProject(project: CompanyProjectInfo) {
+    this.projectUnderEdit = project.id;
+    this.editCompanyProjectForm.setValue({
+      name: project.name,
+      code: project.code,
+    });
+  }
+
+  confirmEditProject(project: CompanyProjectInfo) {
+    this.apiService
+      .editCompanyProject(
+        this.companyId!,
+        project.id,
+        this.editCompanyProjectForm.value['name'],
+        this.editCompanyProjectForm.value['code']
+      )
+      .subscribe({
+        next: () => {
+          this.toastr.success(
+            `Project ${project.name} updated`,
+            'Project updated',
+            {
+              timeOut: 5000,
+              progressBar: true,
+            }
+          );
+          this.loadData();
+        },
+        error: () => {},
+      });
+  }
+
+  cancelEditProject(project: CompanyProjectInfo) {
+    this.projectUnderEdit = null;
+    this.editCompanyProjectForm.setValue({
+      name: '',
+      code: '',
+    });
+  }
 
   deleteProject(project: CompanyProjectInfo) {
     this.apiService

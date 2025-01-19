@@ -62,3 +62,17 @@ pub struct InviteUserToCompany {
     pub role: CompanyRole,
     pub job_title: String,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateCompanyProject {
+    pub name: String,
+    pub code: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditCompanyProject {
+    pub name: String,
+    pub code: String,
+}

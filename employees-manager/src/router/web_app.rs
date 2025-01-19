@@ -48,6 +48,16 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         )
         .route("/company/{id}/invite-user", post(invite_user_to_company))
         .route("/company/{id}/user/{user_id}", delete(remove_company_user))
+        .route("/company/{id}/project", get(get_company_projects))
+        .route("/company/{id}/project", post(create_company_project))
+        .route(
+            "/company/{id}/project/{project_id}",
+            patch(edit_company_project),
+        )
+        .route(
+            "/company/{id}/project/{project_id}",
+            delete(delete_company_project),
+        )
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -181,6 +191,44 @@ async fn cancel_invite_user_to_company(
     Path((id, notification_id)): Path<(DocumentId, DocumentId)>,
 ) -> Result<AppJson<()>, AppError> {
     facade::cancel_invite_user_to_company(jwt_claim, notification_id, id)
+        .await
+        .map(AppJson)
+}
+
+async fn get_company_projects(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<Vec<web_app_response::CompanyProjectInfo>>, AppError> {
+    facade::get_company_projects(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
+async fn create_company_project(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+    Json(payload): Json<web_app_request::CreateCompanyProject>,
+) -> Result<AppJson<()>, AppError> {
+    facade::create_company_project(jwt_claim, id, payload)
+        .await
+        .map(AppJson)
+}
+
+async fn edit_company_project(
+    jwt_claim: JWTAuthClaim,
+    Path((id, project_id)): Path<(DocumentId, DocumentId)>,
+    Json(payload): Json<web_app_request::EditCompanyProject>,
+) -> Result<AppJson<()>, AppError> {
+    facade::edit_company_project(jwt_claim, id, project_id, payload)
+        .await
+        .map(AppJson)
+}
+
+async fn delete_company_project(
+    jwt_claim: JWTAuthClaim,
+    Path((id, project_id)): Path<(DocumentId, DocumentId)>,
+) -> Result<AppJson<()>, AppError> {
+    facade::delete_company_project(jwt_claim, id, project_id)
         .await
         .map(AppJson)
 }

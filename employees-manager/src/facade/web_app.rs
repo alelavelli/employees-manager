@@ -332,3 +332,67 @@ pub async fn cancel_invite_user_to_company(
         .await?;
     notification::cancel_invite_user_to_company(notification_id).await
 }
+
+pub async fn get_company_projects(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+) -> Result<Vec<web_app_response::CompanyProjectInfo>, AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .await?;
+
+    Ok(company::get_company_projects(company_id)
+        .await?
+        .into_iter()
+        .map(|elem| web_app_response::CompanyProjectInfo {
+            id: elem
+                .get_id()
+                .expect("Expecting document id from doc read from db")
+                .to_hex(),
+            name: elem.name,
+            code: elem.code,
+        })
+        .collect())
+}
+
+pub async fn create_company_project(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    payload: web_app_request::CreateCompanyProject,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::create_project(company_id, payload.name, payload.code).await?;
+    Ok(())
+}
+
+pub async fn edit_company_project(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    project_id: DocumentId,
+    payload: web_app_request::EditCompanyProject,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::edit_project(company_id, project_id, payload.name, payload.code).await?;
+    Ok(())
+}
+
+pub async fn delete_company_project(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    project_id: DocumentId,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+    company::delete_project(company_id, project_id).await
+}

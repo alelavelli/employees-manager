@@ -98,3 +98,8 @@ export interface CompanyProjectInfo {
   name: string;
   code: string;
 }
+
+export interface NewCompanyProject {
+  name: string;
+  code: string;
+}

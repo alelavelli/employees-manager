@@ -35,7 +35,7 @@ import { Observable, startWith, map, of } from 'rxjs';
 import { ApiService } from '../../../../service/api.service';
 
 @Component({
-  selector: 'new-company-modal',
+  selector: 'invite-user-modal',
   templateUrl: './invite-user-modal.html',
   styleUrls: ['./invite-user-modal.scss'],
   standalone: true,

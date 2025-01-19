@@ -19,7 +19,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = true;
+const MOCKED = false;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -358,7 +358,7 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.delete<void>(
-          API_URL + `/company/${companyId}/project/{${projectId}}`
+          API_URL + `/company/${companyId}/project/${projectId}`
         );
   }
 
@@ -373,5 +373,22 @@ export class ApiService {
           name: name,
           code: code,
         });
+  }
+
+  editCompanyProject(
+    companyId: string,
+    projectId: string,
+    name: string,
+    code: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/project/${projectId}`,
+          {
+            name: name,
+            code: code,
+          }
+        );
   }
 }
