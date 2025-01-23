@@ -193,15 +193,40 @@ pub async fn remove_user_from_company(
     user_id: &DocumentId,
     company_id: &DocumentId,
 ) -> Result<(), AppError> {
+    let db_service = get_database_service().await;
+    let mut transaction = db_service.new_transaction().await?;
+    transaction.start_transaction().await?;
+
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result =
         db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
             .await?;
     if let Some(assignment) = query_result {
-        assignment.delete(None).await
+        assignment.delete(Some(&mut transaction)).await?;
     } else {
-        Err(AppError::ManagedError("Failed to remove user {user_id} from company {company_id} because he does not belong to it.".into()))
+        transaction.abort_transaction().await?;
+        return Err(AppError::ManagedError("Failed to remove user {user_id} from company {company_id} because he does not belong to it.".into()));
     }
+
+    // if the user is in the management team, we remove him
+    if let Some(management_team) = db_entities::CompanyManagementTeam::find_one::<
+        db_entities::CompanyManagementTeam,
+    >(doc! { "company_id": company_id})
+    .await?
+    {
+        if management_team.user_ids.contains(user_id) {
+            let mut new_user_ids = management_team.user_ids.clone();
+            new_user_ids.retain(|id| id != user_id);
+            db_entities::CompanyManagementTeam::update_one(
+                doc! { "_id": management_team.get_id().expect("Expecting id from document retrieved from db")},
+                doc! {"$set": {"user_ids": new_user_ids}},
+                Some(&mut transaction),
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
 }
 
 /// Update user in the company by changing role or job title
