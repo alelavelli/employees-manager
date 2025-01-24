@@ -16,3 +16,9 @@ export enum CompanyRole {
   Admin = 'Admin',
   Owner = 'Owner',
 }
+
+export enum TimesheetDayWorkType {
+  Office = 'Office',
+  Remote = 'Remote',
+  Holiday = 'Holiday',
+}

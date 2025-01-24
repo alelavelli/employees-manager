@@ -1,4 +1,4 @@
-import { CompanyRole, NotificationType } from './enums';
+import { CompanyRole, NotificationType, TimesheetDayWorkType } from './enums';
 
 export interface LoginResponse {
   token: string;
@@ -77,6 +77,7 @@ export interface InviteUserInCompany {
   userId: string;
   role: CompanyRole;
   jobTitle: string;
+  projectIds: string[];
 }
 
 export interface UserToInvite {
@@ -97,9 +98,24 @@ export interface CompanyProjectInfo {
   id: string;
   name: string;
   code: string;
+  active: boolean;
 }
 
 export interface NewCompanyProject {
   name: string;
   code: string;
+}
+
+export interface TimesheetProjectHours {
+  project: CompanyProjectInfo;
+  hours: number;
+}
+
+export interface TimesheetDay {
+  date: Date;
+  active: boolean;
+  workHours: number;
+  permitHours: number;
+  projects: TimesheetProjectHours[];
+  dayType: TimesheetDayWorkType;
 }

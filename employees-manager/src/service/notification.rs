@@ -65,6 +65,7 @@ pub async fn answer_to_invite_add_company(
                     invite_add_company.company_id,
                     invite_add_company.company_role,
                     invite_add_company.job_title,
+                    invite_add_company.project_ids,
                 )
                 .await?;
             }

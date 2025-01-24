@@ -61,6 +61,7 @@ pub struct InviteUserToCompany {
     pub user_id: DocumentId,
     pub role: CompanyRole,
     pub job_title: String,
+    pub project_ids: Vec<DocumentId>,
 }
 
 #[derive(Deserialize)]
@@ -75,4 +76,5 @@ pub struct CreateCompanyProject {
 pub struct EditCompanyProject {
     pub name: String,
     pub code: String,
+    pub active: bool,
 }

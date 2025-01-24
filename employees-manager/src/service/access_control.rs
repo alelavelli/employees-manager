@@ -90,6 +90,7 @@ mod tests {
                 company_id: company.get_id().unwrap().clone(),
                 role,
                 job_title: "CEO".into(),
+                project_ids: vec![],
             };
             company_assignment.save(None).await.unwrap();
 

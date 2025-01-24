@@ -19,7 +19,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -314,7 +314,8 @@ export class ApiService {
     companyId: string,
     userId: string,
     role: CompanyRole,
-    jobTitle: string
+    jobTitle: string,
+    projectIds: string[]
   ): Observable<void> {
     return MOCKED
       ? buildMocked()
@@ -324,6 +325,7 @@ export class ApiService {
             userId: userId,
             role: role,
             jobTitle: jobTitle,
+            projectIds: projectIds,
           }
         );
   }
@@ -345,8 +347,9 @@ export class ApiService {
       ? buildMocked(
           [...Array(20).keys()].map((i) => ({
             id: `project-${i}`,
-            name: `name-${i}`,
+            name: `project-name-${i}`,
             code: `code-${i}`,
+            active: i % 2 === 0,
           }))
         )
       : this.httpClient.get<CompanyProjectInfo[]>(
@@ -379,7 +382,8 @@ export class ApiService {
     companyId: string,
     projectId: string,
     name: string,
-    code: string
+    code: string,
+    active: boolean
   ): Observable<void> {
     return MOCKED
       ? buildMocked()
@@ -388,6 +392,7 @@ export class ApiService {
           {
             name: name,
             code: code,
+            active: active,
           }
         );
   }

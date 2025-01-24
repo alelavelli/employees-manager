@@ -5,6 +5,11 @@ import {
   Input,
   OnInit,
   ViewEncapsulation,
+  ChangeDetectionStrategy,
+  computed,
+  inject,
+  model,
+  signal,
 } from '@angular/core';
 import {
   AbstractControl,
@@ -12,6 +17,7 @@ import {
   FormBuilder,
   FormControl,
   FormGroup,
+  FormsModule,
   ReactiveFormsModule,
   ValidationErrors,
   ValidatorFn,
@@ -25,14 +31,24 @@ import {
 } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { InviteUserInCompany, UserToInvite } from '../../../../types/model';
+import {
+  CompanyProjectInfo,
+  InviteUserInCompany,
+  UserToInvite,
+} from '../../../../types/model';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { CompanyRole } from '../../../../types/enums';
 import { AsyncPipe } from '@angular/common';
-import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import {
+  MatAutocompleteModule,
+  MatAutocompleteSelectedEvent,
+} from '@angular/material/autocomplete';
 import { Observable, startWith, map, of } from 'rxjs';
 import { ApiService } from '../../../../service/api.service';
+import { MatChipInputEvent, MatChipsModule } from '@angular/material/chips';
+import { COMMA, ENTER } from '@angular/cdk/keycodes';
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 
 @Component({
   selector: 'invite-user-modal',
@@ -49,9 +65,12 @@ import { ApiService } from '../../../../service/api.service';
     MatSelectModule,
     ReactiveFormsModule,
     MatAutocompleteModule,
+    MatChipsModule,
     AsyncPipe,
+    FormsModule,
   ],
   encapsulation: ViewEncapsulation.None,
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class InviteUserInCompanyDialogComponent implements OnInit {
   companyId: string | null;
@@ -63,6 +82,26 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
   });
   usersToInvite: UserToInvite[] = [];
   filteredUsers: Observable<UserToInvite[]>;
+
+  separatorKeysCodes: number[] = [ENTER, COMMA];
+  currentProject = model('');
+  projects = signal([] as string[]);
+  allProjects: CompanyProjectInfo[] = [];
+  filteredProjects = computed(() => {
+    const currentProject = this.currentProject().toLocaleLowerCase();
+    const selectedProjects = new Set(this.projects());
+    return currentProject
+      ? this.allProjects
+          .filter((project) =>
+            project.name.toLocaleLowerCase().includes(currentProject)
+          )
+          .filter((project) => !selectedProjects.has(project.name))
+      : this.allProjects
+          .slice()
+          .filter((project) => !selectedProjects.has(project.name));
+  });
+
+  announcer = inject(LiveAnnouncer);
 
   constructor(
     private formBuilder: FormBuilder,
@@ -101,6 +140,25 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
           : this.usersToInvite.slice();
       })
     );
+
+    this.apiService.getCompanyProjects(this.companyId!).subscribe({
+      next: (response) => {
+        this.allProjects = response.filter((project) => project.active);
+        this.filteredProjects = computed(() => {
+          const currentProject = this.currentProject().toLocaleLowerCase();
+          const selectedProjects = new Set(this.projects());
+          return currentProject
+            ? this.allProjects
+                .filter((project) =>
+                  project.name.toLocaleLowerCase().includes(currentProject)
+                )
+                .filter((project) => !selectedProjects.has(project.name))
+            : this.allProjects
+                .slice()
+                .filter((project) => !selectedProjects.has(project.name));
+        });
+      },
+    });
   }
 
   existUsernameValidator(usernames: string[]): ValidatorFn {
@@ -118,6 +176,34 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
     );
   }
 
+  add(event: MatChipInputEvent): void {
+    const value = (event.value || '').trim();
+    if (value) {
+      this.projects.update((projects) => [...projects, value]);
+    }
+
+    this.currentProject.set('');
+  }
+
+  remove(project: string): void {
+    this.projects.update((projects) => {
+      const index = projects.indexOf(project);
+      if (index < 0) {
+        return projects;
+      }
+
+      projects.splice(index, 1);
+      this.announcer.announce(`${project} removed`);
+      return [...projects];
+    });
+  }
+
+  selected(event: MatAutocompleteSelectedEvent): void {
+    this.projects.update((projects) => [...projects, event.option.viewValue]);
+    this.currentProject.set('');
+    event.option.deselect();
+  }
+
   onSubmit() {
     this.dialogRef.close({
       userId: this.usersToInvite.filter(
@@ -125,6 +211,9 @@ export class InviteUserInCompanyDialogComponent implements OnInit {
       )[0].userId,
       role: this.invitationForm.value['role'],
       jobTitle: this.invitationForm.value['jobTitle'],
+      projectIds: this.allProjects
+        .filter((project) => this.projects().includes(project.name))
+        .map((project) => project.id),
     });
   }
 }

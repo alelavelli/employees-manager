@@ -12,10 +12,12 @@
                 }
             </mat-autocomplete>
         </mat-form-field>
+
         <mat-form-field appearance="outline">
             <mat-label>Job Title</mat-label>
             <input matInput placeholder="Job Title" formControlName="jobTitle">
         </mat-form-field>
+
         <mat-form-field appearance="outline">
             <mat-label>Role</mat-label>
             <mat-select formControlName="role">
@@ -23,7 +25,31 @@
                 <mat-option [value]="CompanyRole.User">User</mat-option>
             </mat-select>
         </mat-form-field>
+
     </form>
+
+    <mat-form-field class="invite-user-project-chip-list" appearance="outline">
+        <mat-label>Projects</mat-label>
+        <mat-chip-grid #chipGrid aria-label="Project selection">
+            @for (project of projects(); track $index) {
+            <mat-chip-row (removed)="remove(project)">
+                {{project}}
+                <button matChipRemove [attr.aria-label]="'remove ' + project">
+                    <mat-icon>cancel</mat-icon>
+                </button>
+            </mat-chip-row>
+            }
+        </mat-chip-grid>
+        <input name="currentProject" placeholder="New Project..." #fruitInput [(ngModel)]="currentProject"
+            [matChipInputFor]="chipGrid" [matAutocomplete]="autoProject"
+            [matChipInputSeparatorKeyCodes]="separatorKeysCodes" (matChipInputTokenEnd)="add($event)" />
+        <mat-autocomplete #autoProject="matAutocomplete" (optionSelected)="selected($event)">
+            @for (project of filteredProjects(); track project) {
+            <mat-option [value]="project">{{project.name}}</mat-option>
+            }
+        </mat-autocomplete>
+    </mat-form-field>
+
     <div mat-dialog-actions align="end" class="action-buttons">
         <button mat-button (click)="dialogRef.close()">Cancel</button>
         <button mat-raised-button type="submit" [disabled]="invitationForm.invalid" color="primary"

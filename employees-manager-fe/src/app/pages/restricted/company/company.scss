@@ -11,6 +11,19 @@
   align-items: left;
   justify-content: center;
   //gap: 2rem;
+
+  .project-filter-component {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 1rem;
+
+    .project-filter-label {
+      color: $themePrimary;
+      font-size: 1rem;
+    }
+  }
 }
 
 .company-header {
@@ -76,6 +89,25 @@
   gap: 2rem;
   margin-top: 2rem;
   padding-bottom: 2rem;
+
+  .company-projects-content {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+
+    .company-projects-content-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .company-projects-content-right {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      width: 55%;
+    }
+  }
 
   .company-projects-filter-component {
     display: flex;

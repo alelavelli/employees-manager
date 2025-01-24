@@ -4,7 +4,6 @@ use anyhow::anyhow;
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -94,6 +93,7 @@ pub async fn create_company(
         company_id: company_id_object_id,
         role: CompanyRole::Owner,
         job_title,
+        project_ids: vec![],
     };
     // If for some reasons we fail to dump the assignment we need to rollback
     user_company_assignment.save(Some(&mut transaction)).await?;
@@ -168,6 +168,7 @@ pub async fn add_user_to_company(
     company_id: DocumentId,
     role: CompanyRole,
     job_title: String,
+    project_ids: Vec<DocumentId>,
 ) -> Result<(), AppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result =
@@ -180,6 +181,7 @@ pub async fn add_user_to_company(
             company_id,
             role,
             job_title,
+            project_ids,
         };
         new_assignment.save(None).await?;
         Ok(())
@@ -370,6 +372,7 @@ pub async fn invite_user(
     invited_user_id: DocumentId,
     role: CompanyRole,
     job_title: String,
+    project_ids: Vec<DocumentId>,
 ) -> Result<(), AppError> {
     /*
     Create InviteAddCompany document and AppNotification document
@@ -407,6 +410,7 @@ pub async fn invite_user(
         company_role: role,
         job_title,
         answer: None,
+        project_ids,
     };
     invite.save(Some(&mut transaction)).await?;
 
@@ -600,6 +604,7 @@ pub async fn create_project(
         company_id,
         name,
         code,
+        active: true,
     };
 
     new_project.save(None).await
@@ -610,6 +615,7 @@ pub async fn edit_project(
     project_id: DocumentId,
     name: String,
     code: String,
+    active: bool,
 ) -> Result<String, AppError> {
     let company_project_query =
         db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(
@@ -618,9 +624,9 @@ pub async fn edit_project(
         .await?;
 
     if let Some(mut company_project) = company_project_query {
-        debug!("Name is {name}, Code is {code}");
         company_project.name = name;
         company_project.code = code;
+        company_project.active = active;
         company_project.save(None).await
     } else {
         Err(AppError::ManagedError(format!(
@@ -731,6 +737,7 @@ mod tests {
             company_id,
             role: crate::enums::CompanyRole::Owner,
             job_title: "CEO".into(),
+            project_ids: vec![],
         };
         first_assignment.save(None).await.unwrap();
         let mut second_user = db_entities::User {
@@ -751,6 +758,7 @@ mod tests {
             company_id,
             role: crate::enums::CompanyRole::User,
             job_title: "Developer".into(),
+            project_ids: vec![],
         };
         second_assignment.save(None).await.unwrap();
 
@@ -788,8 +796,14 @@ mod tests {
         };
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
 
-        let result =
-            add_user_to_company(first_user_id, company_id, CompanyRole::User, "CTO".into()).await;
+        let result = add_user_to_company(
+            first_user_id,
+            company_id,
+            CompanyRole::User,
+            "CTO".into(),
+            vec![],
+        )
+        .await;
         assert!(result.is_ok());
 
         let assignment = db_entities::UserCompanyAssignment::find_one::<
@@ -832,6 +846,7 @@ mod tests {
             company_id,
             role: crate::enums::CompanyRole::Owner,
             job_title: "CEO".into(),
+            project_ids: vec![],
         };
         first_assignment.save(None).await.unwrap();
 
@@ -877,6 +892,7 @@ mod tests {
             company_id,
             role: crate::enums::CompanyRole::Owner,
             job_title: "CEO".into(),
+            project_ids: vec![],
         };
         first_assignment.save(None).await.unwrap();
 

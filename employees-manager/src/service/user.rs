@@ -617,6 +617,7 @@ mod tests {
             company_id: company_id.clone(),
             role: crate::enums::CompanyRole::Owner,
             job_title: "CEO".into(),
+            project_ids: vec![],
         };
         user_company_assignment.save(None).await.unwrap();
 
@@ -696,6 +697,7 @@ mod tests {
             company_id: company_id.clone(),
             role: crate::enums::CompanyRole::Owner,
             job_title: "CEO".into(),
+            project_ids: vec![],
         };
         user_company_assignment.save(None).await.unwrap();
 

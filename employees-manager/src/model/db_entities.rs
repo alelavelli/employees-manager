@@ -29,7 +29,9 @@ pub struct User {
 
 /// Assignment of a user to a company
 ///
-/// A User has a CompanyRole in the Company and a Job Title
+/// A User has a CompanyRole in the Company and a Job Title,
+/// the user has a list of projects that he is assigned to that
+/// he can select in the timesheet
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserCompanyAssignment {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
@@ -38,6 +40,7 @@ pub struct UserCompanyAssignment {
     pub company_id: DocumentId,
     pub role: CompanyRole,
     pub job_title: String,
+    pub project_ids: Vec<DocumentId>,
 }
 
 /// Management Team is a list of Company Employees that
@@ -95,6 +98,7 @@ pub struct InviteAddCompany {
     pub company_id: DocumentId,
     pub company_role: CompanyRole,
     pub job_title: String,
+    pub project_ids: Vec<DocumentId>,
     pub answer: Option<bool>,
 }
 
@@ -105,6 +109,7 @@ pub struct CompanyProject {
     pub name: String,
     pub code: String,
     pub company_id: DocumentId,
+    pub active: bool,
 }
 
 // Impl blocks

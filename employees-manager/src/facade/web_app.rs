@@ -152,6 +152,7 @@ pub async fn invite_user_to_company(
         payload.user_id,
         payload.role,
         payload.job_title,
+        payload.project_ids,
     )
     .await
 }
@@ -381,7 +382,14 @@ pub async fn edit_company_project(
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
-    company::edit_project(company_id, project_id, payload.name, payload.code).await?;
+    company::edit_project(
+        company_id,
+        project_id,
+        payload.name,
+        payload.code,
+        payload.active,
+    )
+    .await?;
     Ok(())
 }
 

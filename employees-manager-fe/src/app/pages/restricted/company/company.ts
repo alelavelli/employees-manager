@@ -98,6 +98,7 @@ export class CompanyPageComponent implements OnInit {
   editCompanyProjectForm: FormGroup = this.formBuilder.group({
     name: ['', Validators.required],
     code: ['', Validators.required],
+    active: [null, Validators.required],
   });
   projectUnderEdit: string | null = null;
 
@@ -120,7 +121,13 @@ export class CompanyPageComponent implements OnInit {
     'actionMenu',
   ];
 
-  displayedProjectsInfoColumns: string[] = ['id', 'name', 'code', 'actionMenu'];
+  displayedProjectsInfoColumns: string[] = [
+    'id',
+    'name',
+    'code',
+    'active',
+    'actionMenu',
+  ];
 
   @ViewChildren(MatSort) sort = new QueryList<MatSort>();
   @ViewChildren(MatPaginator) paginator = new QueryList<MatPaginator>();
@@ -177,11 +184,16 @@ export class CompanyPageComponent implements OnInit {
 
     this.projectFilterForm = formBuilder.group({
       valueString: '',
+      activeProject: null,
     });
     this.projectFilterForm.valueChanges.subscribe((value) => {
       const filter = {
         ...value,
         valueString: value.valueString.trim().toLocaleLowerCase(),
+        activeProject:
+          value.activeProject === null || value.activeProject.length === 0
+            ? null
+            : value.activeProject[value.activeProject.length - 1] === 'true',
       } as string;
       this.projectsTableDataSource.filter = filter;
     });
@@ -189,6 +201,7 @@ export class CompanyPageComponent implements OnInit {
     this.editCompanyProjectForm = this.formBuilder.group({
       name: ['', Validators.required],
       code: ['', Validators.required],
+      active: [null, Validators.required],
     });
   }
 
@@ -302,6 +315,10 @@ export class CompanyPageComponent implements OnInit {
               data,
               filter: any
             ) => {
+              const activeProjectFilter =
+                filter.activeProject === null
+                  ? true
+                  : data.active === filter.activeProject;
               const idFilter = data.id
                 .toLocaleLowerCase()
                 .includes(filter.valueString);
@@ -314,7 +331,9 @@ export class CompanyPageComponent implements OnInit {
                 .trim()
                 .includes(filter.valueString);
 
-              return idFilter || nameFilter || codeFilter;
+              return (
+                (idFilter || nameFilter || codeFilter) && activeProjectFilter
+              );
             };
 
             this.projectsTableDataSource.sort = this.sort.toArray()[2];
@@ -354,6 +373,13 @@ export class CompanyPageComponent implements OnInit {
     }
   }
 
+  onActiveProjectFilterChange(event: MatButtonToggleChange) {
+    const toggle = event.source;
+    if (toggle && event.value.some((item: string) => item === toggle.value)) {
+      toggle.buttonToggleGroup.value = [toggle.value];
+    }
+  }
+
   openInviteUserInCompanyDialog() {
     this.dialog
       .open(InviteUserInCompanyDialogComponent, {
@@ -374,7 +400,8 @@ export class CompanyPageComponent implements OnInit {
                 this.companyId!,
                 data.userId,
                 data.role,
-                data.jobTitle
+                data.jobTitle,
+                data.projectIds
               )
               .subscribe({
                 next: () => {
@@ -570,6 +597,7 @@ export class CompanyPageComponent implements OnInit {
     this.editCompanyProjectForm.setValue({
       name: project.name,
       code: project.code,
+      active: project.active,
     });
   }
 
@@ -579,7 +607,8 @@ export class CompanyPageComponent implements OnInit {
         this.companyId!,
         project.id,
         this.editCompanyProjectForm.value['name'],
-        this.editCompanyProjectForm.value['code']
+        this.editCompanyProjectForm.value['code'],
+        this.editCompanyProjectForm.value['active']
       )
       .subscribe({
         next: () => {
@@ -602,6 +631,7 @@ export class CompanyPageComponent implements OnInit {
     this.editCompanyProjectForm.setValue({
       name: '',
       code: '',
+      active: null,
     });
   }
 
