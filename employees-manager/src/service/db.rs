@@ -502,6 +502,20 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
         }
     }
 
+    fn count_documents<T>(
+        query: Document,
+    ) -> impl std::future::Future<Output = Result<u64, AppError>> + Send
+    where
+        T: DatabaseDocument + Send + DeserializeOwned,
+    {
+        async {
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<T>(T::collection_name());
+            let result: u64 = collection.count_documents(query).await?;
+            Ok(result)
+        }
+    }
+
     fn find_one_projection<T, P>(
         query: Document,
         projection: Document,

@@ -114,4 +114,5 @@ pub struct CompanyProjectInfo {
     pub id: String,
     pub name: String,
     pub code: String,
+    pub active: bool,
 }

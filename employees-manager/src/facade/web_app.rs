@@ -353,6 +353,7 @@ pub async fn get_company_projects(
                 .to_hex(),
             name: elem.name,
             code: elem.code,
+            active: elem.active,
         })
         .collect())
 }

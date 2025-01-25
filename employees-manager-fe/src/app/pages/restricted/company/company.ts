@@ -608,7 +608,7 @@ export class CompanyPageComponent implements OnInit {
         project.id,
         this.editCompanyProjectForm.value['name'],
         this.editCompanyProjectForm.value['code'],
-        this.editCompanyProjectForm.value['active']
+        this.editCompanyProjectForm.value['active'] === 'true'
       )
       .subscribe({
         next: () => {

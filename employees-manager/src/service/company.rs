@@ -4,6 +4,7 @@ use anyhow::anyhow;
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -624,6 +625,22 @@ pub async fn edit_project(
         .await?;
 
     if let Some(mut company_project) = company_project_query {
+        let company_projects =
+            db_entities::CompanyProject::find_many::<db_entities::CompanyProject>(
+                doc! {"company_id": company_id, "_id": {"$ne": project_id}},
+            )
+            .await?;
+
+        // project name and code must be unique
+        for project in company_projects {
+            if project.name == name || project.code == code {
+                return Err(AppError::ManagedError(format!(
+                    "Project name and code must be unique got name: {} and code: {}",
+                    name, code
+                )));
+            }
+        }
+
         company_project.name = name;
         company_project.code = code;
         company_project.active = active;
@@ -647,7 +664,23 @@ pub async fn delete_project(
         .await?;
 
     if let Some(company_project) = company_project_query {
-        company_project.delete(None).await
+        // a project can be deleted only if it has no users
+        let n_allocations = db_entities::UserCompanyAssignment::count_documents::<
+            db_entities::UserCompanyAssignment,
+        >(doc! {
+            "company_id": company_id,
+            "project_ids": project_id
+        })
+        .await?;
+        debug!("Retrieved {n_allocations} allocations");
+        if n_allocations == 0 {
+            company_project.delete(None).await
+        } else {
+            Err(AppError::ManagedError(format!(
+                "Project with id {} is used in your company and cannot  be deleted",
+                project_id
+            )))
+        }
     } else {
         Err(AppError::ManagedError(format!(
             "Project with id {} does not exist",
