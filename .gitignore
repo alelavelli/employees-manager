@@ -18,6 +18,5 @@ Cargo.lock
 
 /target
 
-.vscode
 .logs/
 *.DS_Store*
