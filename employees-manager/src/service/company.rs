@@ -20,7 +20,7 @@ use crate::{
 /// Returns the companies info for the admin panel
 pub async fn get_admin_panel_overview_companies_info(
 ) -> Result<AdminPanelOverviewCompanyInfo, AppError> {
-    let result = db_entities::Company::aggregate::<db_entities::Company>(vec![doc! {
+    let result = db_entities::Company::aggregate(vec![doc! {
         "$group": {
             "_id": null,
             "total_companies": { "$sum": 1 }
@@ -57,11 +57,8 @@ pub async fn create_company(
     }
 
     let companies =
-        db_entities::Company::find_many_projection::<db_entities::Company, QueryResult>(
-            doc! {},
-            doc! {"name": 1},
-        )
-        .await?;
+        db_entities::Company::find_many_projection::<QueryResult>(doc! {}, doc! {"name": 1})
+            .await?;
     for document in companies {
         if name.to_lowercase().trim() == document.name.to_lowercase().trim() {
             return Err(AppError::ManagedError(
@@ -111,17 +108,15 @@ pub async fn create_company(
 }
 
 pub async fn get_companies() -> Result<Vec<db_entities::Company>, AppError> {
-    db_entities::Company::find_many::<db_entities::Company>(doc! {}).await
+    db_entities::Company::find_many(doc! {}).await
 }
 
 /// Get all the Companies the User is in by looking at the UserCompanyAssignment
 pub async fn get_user_companies(
     user_id: &DocumentId,
 ) -> Result<Vec<db_entities::Company>, AppError> {
-    let query_result = db_entities::UserCompanyAssignment::find_many::<
-        db_entities::UserCompanyAssignment,
-    >(doc! { "user_id": user_id})
-    .await?;
+    let query_result =
+        db_entities::UserCompanyAssignment::find_many(doc! { "user_id": user_id}).await?;
 
     let mut company_ids = vec![];
     for doc in query_result {
@@ -142,13 +137,11 @@ pub async fn get_user_company(
     company_id: &DocumentId,
 ) -> Result<db_entities::Company, AppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result =
-        db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
-            .await?;
+    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
 
     if query_result.is_some() {
         let query = doc! {"_id": company_id};
-        let query_result = db_entities::Company::find_one::<db_entities::Company>(query).await?;
+        let query_result = db_entities::Company::find_one(query).await?;
         if let Some(company) = query_result {
             Ok(company)
         } else {
@@ -172,9 +165,7 @@ pub async fn add_user_to_company(
     project_ids: Vec<DocumentId>,
 ) -> Result<(), AppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result =
-        db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
-            .await?;
+    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if query_result.is_none() {
         let mut new_assignment = db_entities::UserCompanyAssignment {
             id: None,
@@ -201,9 +192,7 @@ pub async fn remove_user_from_company(
     transaction.start_transaction().await?;
 
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result =
-        db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
-            .await?;
+    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if let Some(assignment) = query_result {
         assignment.delete(Some(&mut transaction)).await?;
     } else {
@@ -212,10 +201,8 @@ pub async fn remove_user_from_company(
     }
 
     // if the user is in the management team, we remove him
-    if let Some(management_team) = db_entities::CompanyManagementTeam::find_one::<
-        db_entities::CompanyManagementTeam,
-    >(doc! { "company_id": company_id})
-    .await?
+    if let Some(management_team) =
+        db_entities::CompanyManagementTeam::find_one(doc! { "company_id": company_id}).await?
     {
         if management_team.user_ids.contains(user_id) {
             let mut new_user_ids = management_team.user_ids.clone();
@@ -228,8 +215,7 @@ pub async fn remove_user_from_company(
             .await?;
         }
     }
-
-    Ok(())
+    transaction.commit_transaction().await
 }
 
 /// Update user in the company by changing role or job title
@@ -240,9 +226,7 @@ pub async fn update_user_in_company(
     job_title: Option<String>,
 ) -> Result<(), AppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result =
-        db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
-            .await?;
+    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if let Some(assignment) = query_result {
         let mut update = doc! {};
         if let Some(role_obj) = role {
@@ -268,10 +252,8 @@ pub async fn change_user_company_manager(
     company_id: &DocumentId,
     manager: bool,
 ) -> Result<(), AppError> {
-    let query_result = db_entities::CompanyManagementTeam::find_one::<
-        db_entities::CompanyManagementTeam,
-    >(doc! { "company_id": company_id})
-    .await?;
+    let query_result =
+        db_entities::CompanyManagementTeam::find_one(doc! { "company_id": company_id}).await?;
 
     if let Some(mut management_team) = query_result {
         let mut user_index = None;
@@ -308,9 +290,7 @@ pub async fn get_user_company_role(
     company_id: &DocumentId,
 ) -> Result<db_entities::UserCompanyAssignment, AppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result =
-        db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(query)
-            .await?;
+    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if let Some(assignment) = query_result {
         Ok(assignment)
     } else {
@@ -325,25 +305,21 @@ pub async fn get_users_in_company(
     company_id: &DocumentId,
 ) -> Result<Vec<UserInCompanyInfo>, AppError> {
     let assignments: HashMap<DocumentId, db_entities::UserCompanyAssignment> =
-        db_entities::UserCompanyAssignment::find_many::<db_entities::UserCompanyAssignment>(
-            doc! { "company_id": company_id },
-        )
-        .await?
-        .into_iter()
-        .map(|doc| (doc.user_id, doc))
-        .collect();
+        db_entities::UserCompanyAssignment::find_many(doc! { "company_id": company_id })
+            .await?
+            .into_iter()
+            .map(|doc| (doc.user_id, doc))
+            .collect();
 
-    let management_team = db_entities::CompanyManagementTeam::find_one::<
-        db_entities::CompanyManagementTeam,
-    >(doc! {"company_id": company_id})
-    .await?;
+    let management_team =
+        db_entities::CompanyManagementTeam::find_one(doc! {"company_id": company_id}).await?;
 
     let user_ids: Vec<Bson> = assignments
         .iter()
         .map(|(&id, _)| Bson::ObjectId(id))
         .collect();
     let users: Vec<db_entities::User> =
-        db_entities::User::find_many::<db_entities::User>(doc! {"_id": {"$in": user_ids}}).await?;
+        db_entities::User::find_many(doc! {"_id": {"$in": user_ids}}).await?;
     let mut to_return = vec![];
     for user in users {
         let user_id = user
@@ -387,7 +363,6 @@ pub async fn invite_user(
         }
 
         let inviting_user_role = db_entities::UserCompanyAssignment::find_one_projection::<
-            db_entities::UserCompanyAssignment,
             QueryResult,
         >(doc! {"user_id": inviting_user_id}, doc! {"role": 1})
         .await?
@@ -415,8 +390,7 @@ pub async fn invite_user(
     };
     invite.save(Some(&mut transaction)).await?;
 
-    let query_result =
-        db_entities::Company::find_one::<db_entities::Company>(doc! {"_id": company_id}).await;
+    let query_result = db_entities::Company::find_one(doc! {"_id": company_id}).await;
     if let Ok(Some(company)) = query_result {
         let mut notification = db_entities::AppNotification {
             id: None,
@@ -443,10 +417,9 @@ pub async fn invite_user(
 pub async fn get_pending_invited_users(
     company_id: &DocumentId,
 ) -> Result<Vec<InvitedUserInCompanyInfo>, AppError> {
-    let pending_invitations = db_entities::InviteAddCompany::find_many::<
-        db_entities::InviteAddCompany,
-    >(doc! {"company_id": company_id, "answer": null})
-    .await?;
+    let pending_invitations =
+        db_entities::InviteAddCompany::find_many(doc! {"company_id": company_id, "answer": null})
+            .await?;
 
     #[derive(Serialize, Deserialize, Debug)]
     struct NotificationQueryResult {
@@ -454,7 +427,7 @@ pub async fn get_pending_invited_users(
         entity_id: DocumentId,
     }
 
-    let notifications_map = db_entities::AppNotification::find_many_projection::<db_entities::AppNotification, NotificationQueryResult>(
+    let notifications_map = db_entities::AppNotification::find_many_projection::<NotificationQueryResult>(
         doc! { "entity_id": {"$in": pending_invitations.iter().map(|doc| doc.get_id().expect("expecting object id after database read")).collect::<Vec<&DocumentId>>()} }, 
         doc! {
             "_id": 1,
@@ -467,7 +440,7 @@ pub async fn get_pending_invited_users(
         _id: DocumentId,
         username: String,
     }
-    let usernames = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
+    let usernames = db_entities::User::find_many_projection::<QueryResult>(
         doc! {"_id": {"$in": pending_invitations.iter().map(|doc| &doc.invited_user_id).collect::<Vec<&DocumentId>>()}},
         doc! {
             "username": 1,
@@ -516,10 +489,7 @@ pub async fn get_users_to_invite_in_company(
         invited_user_id: DocumentId,
     }
     let mut users_to_exclude: Vec<DocumentId> =
-        db_entities::InviteAddCompany::find_many_projection::<
-            db_entities::InviteAddCompany,
-            InvitedUsersQueryResult,
-        >(
+        db_entities::InviteAddCompany::find_many_projection::<InvitedUsersQueryResult>(
             doc! {"company_id": company_id, "answer": null},
             doc! {"invited_user_id": 1},
         )
@@ -533,10 +503,7 @@ pub async fn get_users_to_invite_in_company(
         user_id: DocumentId,
     }
     let mut users_in_company: Vec<DocumentId> =
-        db_entities::UserCompanyAssignment::find_many_projection::<
-            db_entities::UserCompanyAssignment,
-            QueryResult,
-        >(
+        db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
             doc! {"company_id": company_id},
             doc! {
                 "user_id": 1
@@ -556,7 +523,7 @@ pub async fn get_users_to_invite_in_company(
     users_to_exclude.append(&mut users_in_company);
 
     let to_return: Vec<(DocumentId, String)> =
-        db_entities::User::find_many_projection::<db_entities::User, UserQueryResult>(
+        db_entities::User::find_many_projection::<UserQueryResult>(
             doc! {"_id": {"$not": {"$in": users_to_exclude}}},
             doc! {
                 "_id": 1,
@@ -574,10 +541,7 @@ pub async fn get_users_to_invite_in_company(
 pub async fn get_company_projects(
     company_id: DocumentId,
 ) -> Result<Vec<db_entities::CompanyProject>, AppError> {
-    db_entities::CompanyProject::find_many::<db_entities::CompanyProject>(
-        doc! {"company_id": company_id},
-    )
-    .await
+    db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await
 }
 
 pub async fn get_company_project_allocations(
@@ -589,10 +553,7 @@ pub async fn get_company_project_allocations(
         project_ids: Vec<DocumentId>,
     }
 
-    let assignments = db_entities::UserCompanyAssignment::find_many_projection::<
-        db_entities::UserCompanyAssignment,
-        QueryResult,
-    >(
+    let assignments = db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
         doc! {"company_id": company_id},
         doc! {"user_id": 1, "project_ids": 1},
     )
@@ -616,10 +577,8 @@ pub async fn create_project(
     name: String,
     code: String,
 ) -> Result<String, AppError> {
-    let company_projects = db_entities::CompanyProject::find_many::<db_entities::CompanyProject>(
-        doc! {"company_id": company_id},
-    )
-    .await?;
+    let company_projects =
+        db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await?;
 
     // project name and code must be unique
     for project in company_projects {
@@ -650,17 +609,14 @@ pub async fn edit_project(
     active: bool,
 ) -> Result<String, AppError> {
     let company_project_query =
-        db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(
-            doc! {"_id": project_id, "company_id": company_id},
-        )
-        .await?;
+        db_entities::CompanyProject::find_one(doc! {"_id": project_id, "company_id": company_id})
+            .await?;
 
     if let Some(mut company_project) = company_project_query {
-        let company_projects =
-            db_entities::CompanyProject::find_many::<db_entities::CompanyProject>(
-                doc! {"company_id": company_id, "_id": {"$ne": project_id}},
-            )
-            .await?;
+        let company_projects = db_entities::CompanyProject::find_many(
+            doc! {"company_id": company_id, "_id": {"$ne": project_id}},
+        )
+        .await?;
 
         // project name and code must be unique
         for project in company_projects {
@@ -689,16 +645,12 @@ pub async fn delete_project(
     project_id: DocumentId,
 ) -> Result<(), AppError> {
     let company_project_query =
-        db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(
-            doc! {"_id": project_id, "company_id": company_id},
-        )
-        .await?;
+        db_entities::CompanyProject::find_one(doc! {"_id": project_id, "company_id": company_id})
+            .await?;
 
     if let Some(company_project) = company_project_query {
         // a project can be deleted only if it has no users
-        let n_allocations = db_entities::UserCompanyAssignment::count_documents::<
-            db_entities::UserCompanyAssignment,
-        >(doc! {
+        let n_allocations = db_entities::UserCompanyAssignment::count_documents(doc! {
             "company_id": company_id,
             "project_ids": project_id
         })
@@ -725,7 +677,7 @@ pub async fn edit_company_project_allocations(
     project_id: DocumentId,
     user_ids: Vec<DocumentId>,
 ) -> Result<(), AppError> {
-    let project = db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(doc! {
+    let project = db_entities::CompanyProject::find_one(doc! {
         "_id": project_id,
         "company_id": company_id,
     })
@@ -735,9 +687,9 @@ pub async fn edit_company_project_allocations(
         // for each assignment that contains the project_id but the user is not in user_ids
         // we remove the project id from the project_ids list of the assignment
 
-        let mut assignments = db_entities::UserCompanyAssignment::find_many::<
-            db_entities::UserCompanyAssignment,
-        >(doc! { "company_id": company_id, "project_ids": project_id})
+        let mut assignments = db_entities::UserCompanyAssignment::find_many(
+            doc! { "company_id": company_id, "project_ids": project_id},
+        )
         .await?;
 
         let db_service = get_database_service().await;
@@ -760,9 +712,7 @@ pub async fn edit_company_project_allocations(
 
         // For each user id in user_ids that is not in handled_users we retrieve the assignment and
         // add the project id to the project_ids list
-        let mut new_assignments = db_entities::UserCompanyAssignment::find_many::<
-            db_entities::UserCompanyAssignment,
-        >(doc! {
+        let mut new_assignments = db_entities::UserCompanyAssignment::find_many(doc! {
             "company_id": company_id,
             "user_ids": {"not": {"$in": handled_users}}
         })
@@ -823,16 +773,12 @@ mod tests {
         let result = create_company(&user_id, name.clone(), job_title).await;
         assert!(result.is_ok());
 
-        let assignment = db_entities::UserCompanyAssignment::find_one::<
-            db_entities::UserCompanyAssignment,
-        >(doc! {"user_id": user_id})
-        .await
-        .unwrap();
-        assert!(assignment.is_some());
-
-        let companies = db_entities::Company::find_many::<db_entities::Company>(doc! {})
+        let assignment = db_entities::UserCompanyAssignment::find_one(doc! {"user_id": user_id})
             .await
             .unwrap();
+        assert!(assignment.is_some());
+
+        let companies = db_entities::Company::find_many(doc! {}).await.unwrap();
         assert!(companies.get(0).unwrap().name == name);
 
         let drop_result = get_database_service().await.db.drop().await;
@@ -934,12 +880,10 @@ mod tests {
         .await;
         assert!(result.is_ok());
 
-        let assignment = db_entities::UserCompanyAssignment::find_one::<
-            db_entities::UserCompanyAssignment,
-        >(doc! {})
-        .await
-        .unwrap()
-        .unwrap();
+        let assignment = db_entities::UserCompanyAssignment::find_one(doc! {})
+            .await
+            .unwrap()
+            .unwrap();
 
         assert_eq!(assignment.company_id, company_id);
         assert_eq!(assignment.user_id, first_user_id);
@@ -981,14 +925,10 @@ mod tests {
         let result = remove_user_from_company(&first_user_id, &company_id).await;
         assert!(result.is_ok());
 
-        assert!(
-            db_entities::UserCompanyAssignment::find_one::<db_entities::UserCompanyAssignment>(
-                doc! {}
-            )
+        assert!(db_entities::UserCompanyAssignment::find_one(doc! {})
             .await
             .unwrap()
-            .is_none()
-        );
+            .is_none());
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
@@ -1034,12 +974,10 @@ mod tests {
         .await;
         assert!(result.is_ok());
 
-        let assignment = db_entities::UserCompanyAssignment::find_one::<
-            db_entities::UserCompanyAssignment,
-        >(doc! {})
-        .await
-        .unwrap()
-        .unwrap();
+        let assignment = db_entities::UserCompanyAssignment::find_one(doc! {})
+            .await
+            .unwrap()
+            .unwrap();
 
         assert_eq!(assignment.company_id, company_id);
         assert_eq!(assignment.user_id, first_user_id);

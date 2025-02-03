@@ -49,7 +49,7 @@ pub async fn get_admin_panel_users_info() -> Result<Vec<AdminPanelUserInfo>, App
         active: bool,
     }
 
-    let users = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
+    let users = db_entities::User::find_many_projection::<QueryResult>(
         doc! {},
         doc! {
             "_id": 1,
@@ -81,7 +81,7 @@ pub async fn get_admin_panel_users_info() -> Result<Vec<AdminPanelUserInfo>, App
 }
 
 pub async fn get_admin_panel_overview_users_info() -> Result<AdminPanelOverviewUserInfo, AppError> {
-    let result = db_entities::User::aggregate::<db_entities::User>(vec![doc! {"$group": {
+    let result = db_entities::User::aggregate(vec![doc! {"$group": {
         "_id": null,
         "total_users": {"$sum": 1},
         "total_admins": {"$sum": {"$cond": [{"$eq": ["$platform_admin", true]}, 1, 0]}},
@@ -151,7 +151,7 @@ pub async fn create_user(
         email: String,
     }
 
-    let usernames = db_entities::User::find_many_projection::<db_entities::User, QueryResult>(
+    let usernames = db_entities::User::find_many_projection::<QueryResult>(
         doc! {},
         doc! {"username": 1, "email": 1},
     )
@@ -196,7 +196,7 @@ pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
     struct UserQueryResult {
         active: bool,
     }
-    let user = db_entities::User::find_one_projection::<db_entities::User, UserQueryResult>(
+    let user = db_entities::User::find_one_projection::<UserQueryResult>(
         doc! {"_id": user_id},
         doc! { "active": 1 },
     )
@@ -208,10 +208,7 @@ pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
                 company_id: ObjectId,
             }
             let companies: Vec<ObjectId> =
-                db_entities::UserCompanyAssignment::find_many_projection::<
-                    db_entities::UserCompanyAssignment,
-                    QueryResult,
-                >(
+                db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
                     doc! {"user_id": user_id, "role": CompanyRole::Owner},
                     doc! {"company_id": 1},
                 )
@@ -269,7 +266,7 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
     struct UserQueryResult {
         active: bool,
     }
-    let user = db_entities::User::find_one_projection::<db_entities::User, UserQueryResult>(
+    let user = db_entities::User::find_one_projection::<UserQueryResult>(
         doc! {"_id": user_id},
         doc! { "active": 1 },
     )
@@ -281,10 +278,7 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
                 company_id: ObjectId,
             }
             let companies: Vec<ObjectId> =
-                db_entities::UserCompanyAssignment::find_many_projection::<
-                    db_entities::UserCompanyAssignment,
-                    QueryResult,
-                >(
+                db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
                     doc! {"user_id": user_id, "role": CompanyRole::Owner},
                     doc! {"company_id": 1},
                 )
@@ -341,23 +335,21 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
 ///
 /// This operation is not reversible.
 pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
-    let user = db_entities::User::find_one::<db_entities::User>(doc! {"_id": user_id}).await?;
+    let user = db_entities::User::find_one(doc! {"_id": user_id}).await?;
     if let Some(user) = user {
         #[derive(Serialize, Deserialize, Debug)]
         struct QueryResult {
             company_id: ObjectId,
         }
-        let companies: Vec<ObjectId> = db_entities::UserCompanyAssignment::find_many_projection::<
-            db_entities::UserCompanyAssignment,
-            QueryResult,
-        >(
-            doc! {"user_id": user_id, "role": CompanyRole::Owner},
-            doc! {"company_id": 1},
-        )
-        .await?
-        .iter()
-        .map(|doc| doc.company_id)
-        .collect::<Vec<ObjectId>>();
+        let companies: Vec<ObjectId> =
+            db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
+                doc! {"user_id": user_id, "role": CompanyRole::Owner},
+                doc! {"company_id": 1},
+            )
+            .await?
+            .iter()
+            .map(|doc| doc.company_id)
+            .collect::<Vec<ObjectId>>();
 
         if !companies.is_empty() {
             let db_service = get_database_service().await;
@@ -377,10 +369,7 @@ pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
                 user_id: ObjectId,
             }
             let other_assignments: Vec<ObjectId> =
-                db_entities::UserCompanyAssignment::find_many_projection::<
-                    db_entities::UserCompanyAssignment,
-                    QueryResult,
-                >(
+                db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
                     doc! {"company_id": {"$in": &companies}},
                     doc! {"company_id": 1},
                 )

@@ -21,10 +21,7 @@ pub async fn get_unread_notifications(
 pub async fn get_notification(
     notification_id: &DocumentId,
 ) -> Result<Option<db_entities::AppNotification>, AppError> {
-    db_entities::AppNotification::find_one::<db_entities::AppNotification>(
-        doc! {"_id": notification_id},
-    )
-    .await
+    db_entities::AppNotification::find_one(doc! {"_id": notification_id}).await
 }
 
 pub async fn set_notification_as_read(
@@ -54,10 +51,8 @@ pub async fn answer_to_invite_add_company(
         )
         .await?;
 
-        let invite_add_company_doc_result = db_entities::InviteAddCompany::find_one::<
-            db_entities::InviteAddCompany,
-        >(doc! {"_id": notification.entity_id})
-        .await?;
+        let invite_add_company_doc_result =
+            db_entities::InviteAddCompany::find_one(doc! {"_id": notification.entity_id}).await?;
         if let Some(invite_add_company) = invite_add_company_doc_result {
             if answer {
                 company::add_user_to_company(
@@ -75,22 +70,18 @@ pub async fn answer_to_invite_add_company(
             struct UserQueryResult {
                 username: String,
             }
-            let invited_username =
-                db_entities::User::find_one_projection::<db_entities::User, UserQueryResult>(
-                    doc! {"_id": invite_add_company.invited_user_id},
-                    doc! {"username": 1},
-                )
-                .await?
-                .expect("excepted user in database")
-                .username;
+            let invited_username = db_entities::User::find_one_projection::<UserQueryResult>(
+                doc! {"_id": invite_add_company.invited_user_id},
+                doc! {"username": 1},
+            )
+            .await?
+            .expect("excepted user in database")
+            .username;
             #[derive(Serialize, Deserialize, Debug)]
             struct CompanyQueryResult {
                 name: String,
             }
-            let company_name = db_entities::Company::find_one_projection::<
-                db_entities::Company,
-                CompanyQueryResult,
-            >(
+            let company_name = db_entities::Company::find_one_projection::<CompanyQueryResult>(
                 doc! {"_id": invite_add_company.company_id},
                 doc! {"name": 1},
             )
@@ -138,17 +129,13 @@ pub async fn answer_to_invite_add_company(
 
 pub async fn cancel_invite_user_to_company(notification_id: DocumentId) -> Result<(), AppError> {
     if let Some(notification) =
-        db_entities::AppNotification::find_one::<db_entities::AppNotification>(
-            doc! {"_id": notification_id},
-        )
-        .await?
+        db_entities::AppNotification::find_one(doc! {"_id": notification_id}).await?
     {
         if let Some(entity_id) = notification.entity_id {
-            if let Some(invitation) =
-                db_entities::InviteAddCompany::find_one::<db_entities::InviteAddCompany>(doc! {
-                    "_id": entity_id
-                })
-                .await?
+            if let Some(invitation) = db_entities::InviteAddCompany::find_one(doc! {
+                "_id": entity_id
+            })
+            .await?
             {
                 let db_service = get_database_service().await;
                 let mut transaction = db_service.new_transaction().await?;

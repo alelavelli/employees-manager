@@ -474,59 +474,49 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
         }
     }
 
-    fn find_one<T>(
+    fn find_one(
         query: Document,
-    ) -> impl std::future::Future<Output = Result<Option<T>, AppError>> + Send
-    where
-        T: DatabaseDocument + Send + DeserializeOwned,
-    {
+    ) -> impl std::future::Future<Output = Result<Option<Self>, AppError>> + Send {
         async {
             let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<T>(T::collection_name());
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
             let result = collection.find_one(query).await?;
             Ok(result)
         }
     }
 
-    fn find_many<T>(
+    fn find_many(
         query: Document,
-    ) -> impl std::future::Future<Output = Result<Vec<T>, AppError>> + Send
-    where
-        T: DatabaseDocument + Send + DeserializeOwned,
-    {
+    ) -> impl std::future::Future<Output = Result<Vec<Self>, AppError>> + Send {
         async {
             let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<T>(T::collection_name());
-            let result: Vec<T> = collection.find(query).await?.try_collect().await?;
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
+            let result: Vec<Self> = collection.find(query).await?.try_collect().await?;
             Ok(result)
         }
     }
 
-    fn count_documents<T>(
+    fn count_documents(
         query: Document,
-    ) -> impl std::future::Future<Output = Result<u64, AppError>> + Send
-    where
-        T: DatabaseDocument + Send + DeserializeOwned,
-    {
+    ) -> impl std::future::Future<Output = Result<u64, AppError>> + Send {
         async {
             let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<T>(T::collection_name());
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
             let result: u64 = collection.count_documents(query).await?;
             Ok(result)
         }
     }
 
-    fn find_one_projection<T, P>(
+    fn find_one_projection<P>(
         query: Document,
         projection: Document,
     ) -> impl std::future::Future<Output = Result<Option<P>, AppError>> + Send
     where
-        T: DatabaseDocument + Send + DeserializeOwned,
         P: Send + Sync + Serialize + DeserializeOwned,
     {
         async {
             let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<T>(T::collection_name());
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
             let query_options = FindOneOptions::builder().projection(projection).build();
             let result: Option<P> = collection
                 .clone_with_type::<P>()
@@ -537,17 +527,16 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
         }
     }
 
-    fn find_many_projection<T, P>(
+    fn find_many_projection<P>(
         query: Document,
         projection: Document,
     ) -> impl std::future::Future<Output = Result<Vec<P>, AppError>> + Send
     where
-        T: DatabaseDocument + Send + DeserializeOwned,
         P: Send + Sync + Serialize + DeserializeOwned,
     {
         async {
             let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<T>(T::collection_name());
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
             let query_options = FindOptions::builder().projection(projection).build();
             let result: Vec<P> = collection
                 .clone_with_type::<P>()
@@ -634,15 +623,13 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
         }
     }
 
-    fn aggregate<T>(
+    fn aggregate(
         pipeline: Vec<Document>,
     ) -> impl std::future::Future<Output = Result<Vec<Document>, AppError>> + Send
-    where
-        T: DatabaseDocument + Send + DeserializeOwned,
-    {
+where {
         async {
             let db_service = get_database_service().await;
-            let collection = db_service.db.collection::<T>(T::collection_name());
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
             let result = collection.aggregate(pipeline).await?.try_collect().await?;
             Ok(result)
         }

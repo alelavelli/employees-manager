@@ -194,9 +194,9 @@ pub async fn remove_company_user(
             "You cannot remove yourself from the company".into(),
         ));
     }
-    let company_assignment = db_entities::UserCompanyAssignment::find_one::<
-        db_entities::UserCompanyAssignment,
-    >(doc! {"company_id": company_id, "user_id": user_id})
+    let company_assignment = db_entities::UserCompanyAssignment::find_one(
+        doc! {"company_id": company_id, "user_id": user_id},
+    )
     .await?;
     if let Some(company_assignment) = company_assignment {
         company_assignment.delete(None).await?;
