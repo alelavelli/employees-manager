@@ -1,5 +1,5 @@
 build-mongo:
-	docker build -t mongodb-replicaset:latest . 
+	docker build -t mongodb-replicaset:latest -f Dockerfile-database . 
 
 start-mongo:
 	docker run --rm -d -p 27117:27017 --name mongo mongodb-replicaset && \
