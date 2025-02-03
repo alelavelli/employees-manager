@@ -580,6 +580,37 @@ pub async fn get_company_projects(
     .await
 }
 
+pub async fn get_company_project_allocations(
+    company_id: DocumentId,
+) -> Result<HashMap<DocumentId, Vec<DocumentId>>, AppError> {
+    #[derive(Serialize, Deserialize)]
+    struct QueryResult {
+        user_id: DocumentId,
+        project_ids: Vec<DocumentId>,
+    }
+
+    let assignments = db_entities::UserCompanyAssignment::find_many_projection::<
+        db_entities::UserCompanyAssignment,
+        QueryResult,
+    >(
+        doc! {"company_id": company_id},
+        doc! {"user_id": 1, "project_ids": 1},
+    )
+    .await?;
+
+    let mut to_return = HashMap::new();
+    for assignment in assignments {
+        for project_id in assignment.project_ids {
+            to_return
+                .entry(project_id)
+                .or_insert_with(Vec::new)
+                .push(assignment.user_id);
+        }
+    }
+
+    Ok(to_return)
+}
+
 pub async fn create_project(
     company_id: DocumentId,
     name: String,
@@ -686,6 +717,70 @@ pub async fn delete_project(
             "Project with id {} does not exist",
             project_id
         )))
+    }
+}
+
+pub async fn edit_company_project_allocations(
+    company_id: DocumentId,
+    project_id: DocumentId,
+    user_ids: Vec<DocumentId>,
+) -> Result<(), AppError> {
+    let project = db_entities::CompanyProject::find_one::<db_entities::CompanyProject>(doc! {
+        "_id": project_id,
+        "company_id": company_id,
+    })
+    .await?;
+
+    if project.is_some() {
+        // for each assignment that contains the project_id but the user is not in user_ids
+        // we remove the project id from the project_ids list of the assignment
+
+        let mut assignments = db_entities::UserCompanyAssignment::find_many::<
+            db_entities::UserCompanyAssignment,
+        >(doc! { "company_id": company_id, "project_ids": project_id})
+        .await?;
+
+        let db_service = get_database_service().await;
+        let mut transaction = db_service.new_transaction().await?;
+        transaction.start_transaction().await?;
+
+        let mut handled_users = vec![];
+
+        for assignment in assignments.iter_mut() {
+            if !user_ids.contains(&assignment.user_id) {
+                assignment.project_ids.retain(|id| id != &project_id);
+                assignment.save(Some(&mut transaction)).await?;
+            } else {
+                // we store the users in the list that are already in the project
+                // to ignore them in the next step in which we add the project id
+                // to the user assignments
+                handled_users.push(assignment.user_id);
+            }
+        }
+
+        // For each user id in user_ids that is not in handled_users we retrieve the assignment and
+        // add the project id to the project_ids list
+        let mut new_assignments = db_entities::UserCompanyAssignment::find_many::<
+            db_entities::UserCompanyAssignment,
+        >(doc! {
+            "company_id": company_id,
+            "user_ids": {"not": {"$in": handled_users}}
+        })
+        .await?;
+
+        for assignment in new_assignments.iter_mut() {
+            assignment.project_ids.push(project_id);
+            assignment.save(Some(&mut transaction)).await?;
+        }
+
+        transaction.commit_transaction().await?;
+
+        Ok(())
+    } else {
+        return Err(AppError::ManagedError(format!(
+            "Project with id {} does not exist",
+            project_id
+        )));
     }
 }
 

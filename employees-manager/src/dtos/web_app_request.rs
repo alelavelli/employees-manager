@@ -78,3 +78,9 @@ pub struct EditCompanyProject {
     pub code: String,
     pub active: bool,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeProjectAllocations {
+    pub user_ids: Vec<DocumentId>,
+}

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     auth::JWTAuthClaim,
     dtos::{
@@ -49,6 +51,14 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/company/{id}/invite-user", post(invite_user_to_company))
         .route("/company/{id}/user/{user_id}", delete(remove_company_user))
         .route("/company/{id}/project", get(get_company_projects))
+        .route(
+            "/company/{id}/project-allocation",
+            get(get_company_project_allocations),
+        )
+        .route(
+            "/company/{id}/project-allocation/{project_id}",
+            patch(edit_company_project_allocations),
+        )
         .route("/company/{id}/project", post(create_company_project))
         .route(
             "/company/{id}/project/{project_id}",
@@ -204,6 +214,15 @@ async fn get_company_projects(
         .map(AppJson)
 }
 
+async fn get_company_project_allocations(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<HashMap<String, Vec<String>>>, AppError> {
+    facade::get_company_project_allocations(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
 async fn create_company_project(
     jwt_claim: JWTAuthClaim,
     Path(id): Path<DocumentId>,
@@ -229,6 +248,16 @@ async fn delete_company_project(
     Path((id, project_id)): Path<(DocumentId, DocumentId)>,
 ) -> Result<AppJson<()>, AppError> {
     facade::delete_company_project(jwt_claim, id, project_id)
+        .await
+        .map(AppJson)
+}
+
+async fn edit_company_project_allocations(
+    jwt_claim: JWTAuthClaim,
+    Path((id, project_id)): Path<(DocumentId, DocumentId)>,
+    Json(payload): Json<web_app_request::ChangeProjectAllocations>,
+) -> Result<AppJson<()>, AppError> {
+    facade::edit_company_project_allocations(jwt_claim, id, project_id, payload)
         .await
         .map(AppJson)
 }

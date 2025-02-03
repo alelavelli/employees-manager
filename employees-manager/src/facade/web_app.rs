@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use jsonwebtoken::Header;
 use mongodb::bson::doc;
 
@@ -340,7 +342,7 @@ pub async fn get_company_projects(
 ) -> Result<Vec<web_app_response::CompanyProjectInfo>, AppError> {
     AccessControl::new(auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
     Ok(company::get_company_projects(company_id)
@@ -354,6 +356,26 @@ pub async fn get_company_projects(
             name: elem.name,
             code: elem.code,
             active: elem.active,
+        })
+        .collect())
+}
+
+pub async fn get_company_project_allocations(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+) -> Result<HashMap<String, Vec<String>>, AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    Ok(company::get_company_project_allocations(company_id)
+        .await?
+        .into_iter()
+        .map(|(project_id, user_ids)| {
+            let project_id = project_id.to_hex();
+            let user_ids = user_ids.into_iter().map(|id| id.to_hex()).collect();
+            (project_id, user_ids)
         })
         .collect())
 }
@@ -404,4 +426,18 @@ pub async fn delete_company_project(
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
     company::delete_project(company_id, project_id).await
+}
+
+pub async fn edit_company_project_allocations(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    project_id: DocumentId,
+    payload: web_app_request::ChangeProjectAllocations,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::edit_company_project_allocations(company_id, project_id, payload.user_ids).await
 }
