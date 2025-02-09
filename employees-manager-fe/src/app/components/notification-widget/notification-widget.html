@@ -1,0 +1,32 @@
+<div class="notification-widget-container">
+  <mat-icon class="notification-icon" [matMenuTriggerFor]="notificationWidgetMenu" #menuTrigger="matMenuTrigger"
+    *ngIf="notifications.length == 0">notifications</mat-icon>
+  <mat-icon class="notification-icon" [matMenuTriggerFor]="notificationWidgetMenu" #menuTrigger="matMenuTrigger"
+    *ngIf="notifications.length > 0" matBadge="{{notifications.length}}">notifications</mat-icon>
+  <mat-menu #notificationWidgetMenu="matMenu" class="notification-widget-menu">
+    <div class="notification-info-list-container">
+      <div *ngIf="notifications.length == 0">
+        There are no notifications.
+      </div>
+      <div *ngFor="let notification of notifications.slice(0, maxNotifications); let i = index"
+        class="notification-info">
+        <div *ngIf="i < maxNotifications">
+          <div class="notification-info-container mat-elevation-z1" [routerLink]="'/notifications'"
+            [queryParams]="{notificationId: notification.id}">
+            <div class=" notification-info-title">
+              <mat-icon>
+                {{notificationTypeToIcon(notification.notificationType)}}
+              </mat-icon>
+              {{notificationTypeToTitle(notification.notificationType)}}
+            </div>
+            <div class="notification-info-message">
+              {{notification.message}}
+            </div>
+          </div>
+          <hr *ngIf="i < maxNotifications - 1" class="notification-separator" />
+        </div>
+      </div>
+      <button mat-button color="primary" [routerLink]="'/notifications'">See all notifications</button>
+    </div>
+  </mat-menu>
+</div>

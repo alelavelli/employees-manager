@@ -1,0 +1,64 @@
+<div class="timesheet-page-container page-with-padding">
+  <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+  <ng-container *ngIf="!loading">
+    <div class="timesheet-header">
+      <mat-form-field appearance="outline">
+        <mat-label>Select a company</mat-label>
+        <mat-select [(value)]="companyId" (selectionChange)="loadData()">
+          <mat-option *ngFor="let company of companies" [value]="company.id">{{company.name}}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Select a month</mat-label>
+        <mat-select [(value)]="selectedMonth" (selectionChange)="loadData()">
+          <mat-option *ngFor="let month of months" [value]="month">{{month}}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <div class="timesheet-header-days">
+      <div *ngFor="let day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']">
+        {{day}}
+      </div>
+    </div>
+    <div class="timesheet-grid">
+      <div *ngFor="let i of values" class="timesheet-day"
+        [ngClass]="{'timesheet-disabled-day': (i+1) % 7 == 0 || (i+2) % 7 == 0}">
+        <div class="timesheet-day-header">
+          <div class="timesheet-day-header-label">
+            {{i}}
+          </div>
+          <div class="timesheet-day-header-icon">
+            REMOTE
+          </div>
+        </div>
+        <div class="timesheet-day-body">
+          <div class="timesheet-day-body-content">
+            <div class="timesheet-day-body-content-label">
+              Working
+            </div>
+            <div class="timesheet-day-body-content-value">
+              5
+            </div>
+          </div>
+          <div class="timesheet-day-body-content">
+            <div class="timesheet-day-body-content-label">
+              Permit
+            </div>
+            <div class="timesheet-day-body-content-value">
+              3
+            </div>
+          </div>
+
+          <div class="timesheet-day-body-content">
+            <div class="timesheet-day-body-content-label">
+              Projects
+            </div>
+            <div class="timesheet-day-body-content-value">
+              1
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

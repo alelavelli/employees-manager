@@ -1,0 +1,60 @@
+<h1 mat-dialog-title>Invite user</h1>
+
+<div mat-dialog-content class="modal-container">
+    <form [formGroup]="invitationForm" (ngSubmit)="onSubmit()" class="form-container">
+        <mat-form-field appearance="outline">
+            <mat-label>User</mat-label>
+            <input matInput type="text" placeholder="Select a user" formControlName="username" [matAutocomplete]="auto">
+
+            <mat-autocomplete #auto="matAutocomplete">
+                @for (user of filteredUsers | async; track user) {
+                <mat-option [value]="user.username">{{user.username}}</mat-option>
+                }
+            </mat-autocomplete>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+            <mat-label>Job Title</mat-label>
+            <input matInput placeholder="Job Title" formControlName="jobTitle">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+            <mat-label>Role</mat-label>
+            <mat-select formControlName="role">
+                <mat-option [value]="CompanyRole.Admin" *ngIf="data.role === CompanyRole.Owner">Admin</mat-option>
+                <mat-option [value]="CompanyRole.User">User</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+    </form>
+
+    <mat-form-field class="invite-user-project-chip-list" appearance="outline">
+        <mat-label>Projects</mat-label>
+        <mat-chip-grid #chipGrid aria-label="Project selection">
+            @for (project of projects(); track $index) {
+            <mat-chip-row (removed)="remove(project)">
+                {{project}}
+                <button matChipRemove [attr.aria-label]="'remove ' + project">
+                    <mat-icon>cancel</mat-icon>
+                </button>
+            </mat-chip-row>
+            }
+        </mat-chip-grid>
+        <input name="currentProject" placeholder="New Project..." #fruitInput [(ngModel)]="currentProject"
+            [matChipInputFor]="chipGrid" [matAutocomplete]="autoProject"
+            [matChipInputSeparatorKeyCodes]="separatorKeysCodes" (matChipInputTokenEnd)="add($event)" />
+        <mat-autocomplete #autoProject="matAutocomplete" (optionSelected)="selected($event)">
+            @for (project of filteredProjects(); track project) {
+            <mat-option [value]="project">{{project.name}}</mat-option>
+            }
+        </mat-autocomplete>
+    </mat-form-field>
+
+    <div mat-dialog-actions align="end" class="action-buttons">
+        <button mat-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-raised-button type="submit" [disabled]="invitationForm.invalid" color="primary"
+            (click)="onSubmit()">
+            Create
+        </button>
+    </div>
+</div>

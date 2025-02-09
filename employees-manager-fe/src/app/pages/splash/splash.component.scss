@@ -1,0 +1,26 @@
+@keyframes scaleUp {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  75% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.splash-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  img {
+    max-width: 20rem;
+    transform-origin: center;
+    animation: scaleUp 3.5s ease-in-out 0s forwards;
+  }
+}

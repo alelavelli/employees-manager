@@ -1,0 +1,19 @@
+<ng-template #pageContent>
+  <router-outlet></router-outlet>
+</ng-template>
+
+<splash-layout *ngIf="layoutType === LayoutType.Splash">
+  <ng-container *ngTemplateOutlet="pageContent"></ng-container>
+</splash-layout>
+<restricted-layout *ngIf="layoutType === LayoutType.Restricted">
+  <ng-container *ngTemplateOutlet="pageContent"></ng-container>
+</restricted-layout>
+<guest-layout *ngIf="layoutType === LayoutType.Guest">
+  <ng-container *ngTemplateOutlet="pageContent"></ng-container>
+</guest-layout>
+<empty-layout *ngIf="layoutType === LayoutType.Empty">
+  <ng-container *ngTemplateOutlet="pageContent"></ng-container>
+</empty-layout>
+<maintenance-layout *ngIf="layoutType === LayoutType.Maintenance">
+  <ng-container *ngTemplateOutlet="pageContent"></ng-container>
+</maintenance-layout>

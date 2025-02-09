@@ -1,0 +1,115 @@
+//see color utils to generate palette
+$green50: #e5f4e7;
+$green100: #bfe3c3;
+$green200: #94d19c;
+$green300: #69be74;
+$green400: #48b056;
+$green500: #28a238;
+$green600: #249a32;
+$green700: #1e902b;
+$green800: #188624;
+$green900: #0f7517;
+$greenA100: #a8ffae;
+$greenA200: #75ff7e;
+$greenA400: #42ff4e;
+$greenA700: #29ff36;
+
+$gray50: #ececed;
+$gray100: #d0d1d1;
+$gray200: #b1b2b2;
+$gray300: #929393;
+$gray400: #7a7b7c;
+$gray500: #636465;
+$gray600: #5b5c5d;
+$gray700: #515253;
+$gray800: #474849;
+$gray900: #353637;
+$grayA100: #99c7f5;
+$grayA200: #6aadf1;
+$grayA400: #2994ff;
+$grayA700: #0f87ff;
+
+$lightblue50: #eaf7f8;
+$lightblue100: #caebed;
+$lightblue200: #a7dee1;
+$lightblue300: #83d1d5;
+$lightblue400: #69c7cc;
+$lightblue500: #4ebdc3;
+$lightblue600: #47b7bd;
+$lightblue700: #3eaeb5;
+$lightblue800: #35a6ae;
+$lightblue900: #2598a1;
+$lightblueA100: #dffdff;
+$lightblueA200: #acf9ff;
+$lightblueA400: #79f5ff;
+$lightblueA700: #5ff4ff;
+
+$black50: #e4e4e4;
+$black100: #bcbcbb;
+$black200: #8f8f8e;
+$black300: #626260;
+$black400: #40403e;
+$black500: #1e1e1c;
+$black600: #1a1a19;
+$black700: #161615;
+$black800: #121211;
+$black900: #0a0a09;
+$blackA100: #e07171;
+$blackA200: #d74747;
+$blackA400: #eb0000;
+$blackA700: #d10000;
+
+$blue50: #eef0f2;
+$blue100: #d4d8dd;
+$blue200: #b8bfc7;
+$blue300: #9ca5b1;
+$blue400: #8691a0;
+$blue500: #717e8f;
+$blue600: #697687;
+$blue700: #5e6b7c;
+$blue800: #546172;
+$blue900: #424e60;
+$blueA100: #bbd6ff;
+$blueA200: #88b8ff;
+$blueA400: #5599ff;
+$blueA700: #3b8aff;
+
+$red50: #fceae2;
+$red100: #f8cab7;
+$red200: #f4a787;
+$red300: #ef8357;
+$red400: #eb6933;
+$red500: #e84e0f;
+$red600: #e5470d;
+$red700: #e23e0b;
+$red800: #de3508;
+$red900: #d82504;
+$redA100: #ffffff;
+$redA200: #ffd2cd;
+$redA400: #ffa59a;
+$redA700: #ff8e80;
+
+$yellow50: #fff7e0;
+$yellow100: #feeab3;
+$yellow200: #fddd80;
+$yellow300: #fccf4d;
+$yellow400: #fcc426;
+$yellow500: #fbba00;
+$yellow600: #fab300;
+$yellow700: #faab00;
+$yellow800: #f9a300;
+$yellow900: #f89400;
+$yellowA100: #ffffff;
+$yellowA200: #fff6eb;
+$yellowA400: #ffdfb8;
+$yellowA700: #ffd39f;
+
+$white: #ffffff;
+
+$granata: #800000;
+$granata-brown: #995c4e;
+//angular material theme colors
+$themePrimary: $granata;
+$themeAccent: $granata-brown;
+$themeAccentSecondary: #fff7f3;
+$themeWarn: $red500;

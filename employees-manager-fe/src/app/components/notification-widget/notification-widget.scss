@@ -1,0 +1,46 @@
+@import "colors.scss";
+
+.notification-widget-container {
+  .notification-icon {
+    cursor: pointer;
+    transition: all 0.25s ease-in-out;
+    &:hover {
+      scale: 1.2;
+    }
+  }
+}
+.notification-widget-menu {
+  max-width: none !important;
+  padding: 0.5rem 1rem;
+  .notification-separator {
+    border: none;
+    height: 0.1rem;
+    background-color: $granata-brown;
+    margin-top: 0.5rem;
+    margin-bottom: 0rem;
+    margin-right: 2rem;
+    margin-left: 2rem;
+  }
+  .notification-info-list-container {
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    //align-items: center;
+    gap: 0.5rem;
+
+    .notification-info-container {
+      padding: 1rem;
+      cursor: pointer;
+    }
+
+    .notification-info-title {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+
+      font-weight: bold;
+    }
+  }
+}
