@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use jsonwebtoken::Header;
 use mongodb::bson::doc;
 
@@ -360,24 +358,43 @@ pub async fn get_company_projects(
         .collect())
 }
 
-pub async fn get_company_project_allocations(
+pub async fn get_company_project_allocations_by_project(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
-) -> Result<HashMap<String, Vec<String>>, AppError> {
+    project_id: DocumentId,
+) -> Result<Vec<String>, AppError> {
     AccessControl::new(auth_info)
         .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
-    Ok(company::get_company_project_allocations(company_id)
+    let allocation: Vec<String> = company::get_company_project_allocations(company_id)
         .await?
         .into_iter()
-        .map(|(project_id, user_ids)| {
-            let project_id = project_id.to_hex();
-            let user_ids = user_ids.into_iter().map(|id| id.to_hex()).collect();
-            (project_id, user_ids)
-        })
-        .collect())
+        .filter(|(p, _)| p == &project_id)
+        .map(|(_, user_ids)| user_ids.into_iter().map(|id| id.to_hex()).collect())
+        .collect();
+    Ok(allocation)
+}
+
+pub async fn get_company_project_allocations_by_user(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    user_id: DocumentId,
+) -> Result<Vec<String>, AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    let allocation: Vec<String> = company::get_company_project_allocations(company_id)
+        .await?
+        .into_iter()
+        .filter(|(_, user_ids)| user_ids.contains(&user_id))
+        .map(|(project_id, _)| project_id.to_hex())
+        .collect();
+
+    Ok(allocation)
 }
 
 pub async fn create_company_project(
@@ -428,7 +445,7 @@ pub async fn delete_company_project(
     company::delete_project(company_id, project_id).await
 }
 
-pub async fn edit_company_project_allocations(
+pub async fn edit_company_project_allocations_by_project(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
     project_id: DocumentId,
@@ -440,4 +457,19 @@ pub async fn edit_company_project_allocations(
         .await?;
 
     company::edit_company_project_allocations(company_id, project_id, payload.user_ids).await
+}
+
+pub async fn edit_company_project_allocations_by_user(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    user_id: DocumentId,
+    payload: web_app_request::ChangeProjectAllocationsForUser,
+) -> Result<(), AppError> {
+    AccessControl::new(auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::edit_company_project_allocations_for_user(company_id, user_id, payload.project_ids)
+        .await
 }

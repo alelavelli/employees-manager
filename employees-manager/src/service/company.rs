@@ -734,6 +734,26 @@ pub async fn edit_company_project_allocations(
     }
 }
 
+pub async fn edit_company_project_allocations_for_user(
+    company_id: DocumentId,
+    user_id: DocumentId,
+    project_ids: Vec<DocumentId>,
+) -> Result<(), AppError> {
+    let assignment = db_entities::UserCompanyAssignment::find_one(
+        doc! { "company_id": company_id, "user_id": user_id},
+    )
+    .await?;
+    if let Some(mut assignment) = assignment {
+        assignment.project_ids = project_ids;
+        assignment.save(None).await?;
+        Ok(())
+    } else {
+        Err(AppError::ManagedError(format!(
+            "User with id {user_id} is not in the company with id {company_id}"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;

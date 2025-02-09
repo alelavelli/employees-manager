@@ -19,7 +19,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -203,7 +203,7 @@ export class ApiService {
             userId: `user-id-${i}`,
             userName: `name-${i}`,
             userSurname: `surname-${i}`,
-            userUsername: `username-${1}`,
+            userUsername: `username-${i}`,
             companyId: `company-id-${i}`,
             jobTitle: `job-title-${i}`,
             role: i % 3 === 0 ? CompanyRole.Admin : CompanyRole.User,
@@ -394,6 +394,54 @@ export class ApiService {
             code: code,
             active: active,
           }
+        );
+  }
+
+  getCompanyProjectAllocationsByProject(
+    companyId: string,
+    projectId: string
+  ): Observable<string[]> {
+    return MOCKED
+      ? buildMocked([...Array(5).keys()].map((i) => `user-id-${i}`))
+      : this.httpClient.get<string[]>(
+          API_URL + `/company/${companyId}/project-allocation/${projectId}`
+        );
+  }
+
+  getCompanyProjectAllocationsByUser(
+    companyId: string,
+    userId: string
+  ): Observable<string[]> {
+    return MOCKED
+      ? buildMocked([...Array(5).keys()].map((i) => `project-${i}`))
+      : this.httpClient.get<string[]>(
+          API_URL + `/company/${companyId}/user-allocation/${userId}`
+        );
+  }
+
+  updateCompanyProjectAllocationsByProject(
+    companyId: string,
+    projectId: string,
+    userIds: string[]
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/project-allocation/${projectId}`,
+          { userIds: userIds }
+        );
+  }
+
+  updateCompanyProjectAllocationsByUser(
+    companyId: string,
+    userId: string,
+    projectIds: string[]
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/user-allocation/${userId}`,
+          { userIds: projectIds }
         );
   }
 }

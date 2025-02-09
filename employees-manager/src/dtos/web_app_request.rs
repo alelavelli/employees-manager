@@ -84,3 +84,9 @@ pub struct EditCompanyProject {
 pub struct ChangeProjectAllocations {
     pub user_ids: Vec<DocumentId>,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeProjectAllocationsForUser {
+    pub project_ids: Vec<DocumentId>,
+}
