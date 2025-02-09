@@ -727,10 +727,10 @@ pub async fn edit_company_project_allocations(
 
         Ok(())
     } else {
-        return Err(AppError::ManagedError(format!(
+        Err(AppError::ManagedError(format!(
             "Project with id {} does not exist",
             project_id
-        )));
+        )))
     }
 }
 
