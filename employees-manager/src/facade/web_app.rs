@@ -368,13 +368,18 @@ pub async fn get_company_project_allocations_by_project(
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
-    let allocation: Vec<String> = company::get_company_project_allocations(company_id)
+    let allocation: Option<Vec<String>> = company::get_company_project_allocations(company_id)
         .await?
         .into_iter()
         .filter(|(p, _)| p == &project_id)
-        .map(|(_, user_ids)| user_ids.into_iter().map(|id| id.to_hex()).collect())
-        .collect();
-    Ok(allocation)
+        .map(|(_, user_ids)| {
+            user_ids
+                .into_iter()
+                .map(|id| id.to_hex())
+                .collect::<Vec<String>>()
+        })
+        .next();
+    Ok(allocation.unwrap_or_default())
 }
 
 pub async fn get_company_project_allocations_by_user(

@@ -4,7 +4,6 @@ use anyhow::anyhow;
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -655,7 +654,7 @@ pub async fn delete_project(
             "project_ids": project_id
         })
         .await?;
-        debug!("Retrieved {n_allocations} allocations");
+
         if n_allocations == 0 {
             company_project.delete(None).await
         } else {
@@ -712,9 +711,13 @@ pub async fn edit_company_project_allocations(
 
         // For each user id in user_ids that is not in handled_users we retrieve the assignment and
         // add the project id to the project_ids list
+        let remaining_users: Vec<ObjectId> = user_ids
+            .into_iter()
+            .filter(|user| !handled_users.contains(user))
+            .collect();
         let mut new_assignments = db_entities::UserCompanyAssignment::find_many(doc! {
             "company_id": company_id,
-            "user_ids": {"not": {"$in": handled_users}}
+            "user_id": {"$in": remaining_users.into_iter().map(Bson::ObjectId).collect::<Vec<Bson>>()} 
         })
         .await?;
 

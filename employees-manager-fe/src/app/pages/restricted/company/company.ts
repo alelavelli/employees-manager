@@ -749,7 +749,9 @@ export class CompanyPageComponent implements OnInit {
         this.apiService
           .getCompanyProjectAllocationsByProject(
             this.companyId!,
-            this.currentAllocationProject!
+            this.projects
+              .filter((p) => p.name === this.currentAllocationProject!)
+              .map((p) => p.id)[0]
           )
           .subscribe({
             next: (users: string[]) => {
@@ -778,7 +780,9 @@ export class CompanyPageComponent implements OnInit {
         this.apiService
           .getCompanyProjectAllocationsByUser(
             this.companyId!,
-            this.currentAllocationUser!
+            this.usersInCompany
+              .filter((u) => u.userUsername === this.currentAllocationUser!)
+              .map((u) => u.userId)[0]
           )
           .subscribe({
             next: (projects: string[]) => {
@@ -824,10 +828,26 @@ export class CompanyPageComponent implements OnInit {
   confirmEditAllocation() {
     this.allocationModeUnderEdit = false;
     if (this.allocationViewMode === AllocationViewMode.PROJECT) {
+      console.log(
+        'Sending update for project ',
+        this.projects
+          .filter((p) => p.name === this.currentAllocationProject!)
+          .map((p) => p.id)[0],
+        'with users ',
+        this.usersInCompany
+          .filter((u) =>
+            this.allocationsForProjectForm.value['usernames']!.includes(
+              u.userUsername
+            )
+          )
+          .map((u) => u.userId)
+      );
       this.apiService
         .updateCompanyProjectAllocationsByProject(
           this.companyId!,
-          this.currentAllocationProject!,
+          this.projects
+            .filter((p) => p.name === this.currentAllocationProject!)
+            .map((p) => p.id)[0],
           this.usersInCompany
             .filter((u) =>
               this.allocationsForProjectForm.value['usernames']!.includes(
@@ -853,7 +873,9 @@ export class CompanyPageComponent implements OnInit {
       this.apiService
         .updateCompanyProjectAllocationsByUser(
           this.companyId!,
-          this.currentAllocationUser!,
+          this.usersInCompany
+            .filter((u) => u.userUsername === this.currentAllocationUser!)
+            .map((u) => u.userId)[0],
           this.projects
             .filter((p) =>
               this.allocationsForUserForm.value['projects']!.includes(p.name)

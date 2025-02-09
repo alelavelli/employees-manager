@@ -19,7 +19,7 @@ import {
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = true;
+const MOCKED = false;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -441,7 +441,7 @@ export class ApiService {
       ? buildMocked()
       : this.httpClient.patch<void>(
           API_URL + `/company/${companyId}/user-allocation/${userId}`,
-          { userIds: projectIds }
+          { projectIds: projectIds }
         );
   }
 }
