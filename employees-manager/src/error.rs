@@ -7,7 +7,7 @@ use axum::{
 use serde::Serialize;
 use tracing::error;
 
-use crate::dtos::AppJson;
+use crate::dtos::{web_app_response, AppJson};
 
 /// AppError enumeration of different error typologies that the application
 /// can return to clients.
@@ -33,6 +33,8 @@ pub enum AppError {
     /// error to the client that is due to wrong parameters or
     /// something that cannot be done
     ManagedError(String),
+    /// Error when an attribute is missing from an entity
+    MissingAttribute(String),
 }
 
 // Tell axum how to convert `AppError` into a response.
@@ -60,6 +62,7 @@ impl IntoResponse for AppError {
                 "Not sufficient permissions".into(),
             ),
             AppError::ManagedError(message) => (StatusCode::BAD_REQUEST, message.clone()),
+            AppError::MissingAttribute(message) => (StatusCode::BAD_REQUEST, message.clone()),
         };
         (status, AppJson(ErrorResponse { message })).into_response()
     }
@@ -111,6 +114,19 @@ impl From<DatabaseError> for AppError {
             )),
             DatabaseError::InvalidObjectId => {
                 AppError::InternalServerError(anyhow!("Invalid object id"))
+            }
+        }
+    }
+}
+
+impl From<web_app_response::CompanyInfoBuilderError> for AppError {
+    fn from(value: web_app_response::CompanyInfoBuilderError) -> Self {
+        match value {
+            web_app_response::CompanyInfoBuilderError::UninitializedField(message) => {
+                AppError::InternalServerError(anyhow!(message))
+            }
+            web_app_response::CompanyInfoBuilderError::ValidationError(message) => {
+                AppError::InternalServerError(anyhow!(message))
             }
         }
     }

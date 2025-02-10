@@ -35,18 +35,7 @@ pub async fn get_auth_user_data(
 ) -> Result<web_app_response::AuthUserData, AppError> {
     AccessControl::new(auth_info.clone()).await?;
     let user_model = user::get_user(auth_info.user_id()).await?;
-    Ok(web_app_response::AuthUserData {
-        id: user_model
-            .id
-            .expect("field id should exist since the model comes from a db query")
-            .to_hex(),
-        username: user_model.username,
-        email: user_model.email,
-        name: user_model.name,
-        surname: user_model.surname,
-        platform_admin: user_model.platform_admin,
-        active: user_model.active,
-    })
+    web_app_response::AuthUserData::try_from(user_model)
 }
 
 pub async fn get_unread_notifications(
@@ -55,16 +44,11 @@ pub async fn get_unread_notifications(
     AccessControl::new(auth_info.clone()).await?;
     let notifications: Vec<db_entities::AppNotification> =
         notification::get_unread_notifications(auth_info.user_id()).await?;
+    // flat_map filters out entities that are not Ok(), since this conversion should not fail
+    // because the documents are read from the database we are safe
     Ok(notifications
-        .iter()
-        .map(|doc| web_app_response::AppNotification {
-            id: (*doc
-                .get_id()
-                .expect("expected document id for document read from database"))
-            .to_hex(),
-            notification_type: doc.notification_type,
-            message: doc.message.clone(),
-        })
+        .into_iter()
+        .flat_map(web_app_response::AppNotification::try_from)
         .collect())
 }
 
@@ -169,12 +153,7 @@ pub async fn get_users_to_invite_in_company(
     Ok(company::get_users_to_invite_in_company(company_id)
         .await?
         .into_iter()
-        .map(
-            |(user_id, username)| web_app_response::UserToInviteInCompany {
-                username,
-                user_id: user_id.to_hex(),
-            },
-        )
+        .map(|(user_id, username)| web_app_response::UserToInviteInCompany::new(user_id, username))
         .collect())
 }
 
@@ -217,15 +196,20 @@ pub async fn get_companies_of_user(
         let id = *doc
             .get_id()
             .expect("expecting document id since it has been loaded from db.");
-        to_return.push(web_app_response::CompanyInfo {
-            id: id.to_hex(),
-            name: doc.name,
-            active: doc.active,
-            total_users: company::get_users_in_company(&id).await?.len() as u16,
-            role: company::get_user_company_role(auth_info.user_id(), &id)
-                .await?
-                .role,
-        })
+        to_return.push(
+            web_app_response::CompanyInfoBuilder::default()
+                .id(id.to_string())
+                .name(doc.name)
+                .active(doc.active)
+                .total_users(company::get_users_in_company(&id).await?.len() as u16)
+                .role(
+                    company::get_user_company_role(auth_info.user_id(), &id)
+                        .await?
+                        .role,
+                )
+                .build()
+                .map_err(Into::<AppError>::into)?,
+        );
     }
     Ok(to_return)
 }
@@ -241,17 +225,8 @@ pub async fn get_users_in_company(
 
     Ok(company::get_users_in_company(&company_id)
         .await?
-        .iter()
-        .map(|doc| web_app_response::UserInCompanyInfo {
-            user_id: doc.user_id.to_hex(),
-            company_id: doc.company_id.to_hex(),
-            role: doc.role,
-            user_surname: doc.surname.clone(),
-            user_name: doc.name.clone(),
-            user_username: doc.username.clone(),
-            job_title: doc.job_title.clone(),
-            management_team: doc.management_team,
-        })
+        .into_iter()
+        .map(web_app_response::UserInCompanyInfo::from)
         .collect())
 }
 
@@ -311,14 +286,7 @@ pub async fn get_pending_invited_users_in_company(
     Ok(company::get_pending_invited_users(&company_id)
         .await?
         .into_iter()
-        .map(|elem| web_app_response::InvitedUserInCompanyInfo {
-            notification_id: elem.notification_id,
-            user_id: elem.user_id,
-            username: elem.username,
-            role: elem.role,
-            job_title: elem.job_title,
-            company_id: elem.company_id,
-        })
+        .map(web_app_response::InvitedUserInCompanyInfo::from)
         .collect())
 }
 
@@ -346,15 +314,7 @@ pub async fn get_company_projects(
     Ok(company::get_company_projects(company_id)
         .await?
         .into_iter()
-        .map(|elem| web_app_response::CompanyProjectInfo {
-            id: elem
-                .get_id()
-                .expect("Expecting document id from doc read from db")
-                .to_hex(),
-            name: elem.name,
-            code: elem.code,
-            active: elem.active,
-        })
+        .flat_map(web_app_response::CompanyProjectInfo::try_from)
         .collect())
 }
 
@@ -375,7 +335,7 @@ pub async fn get_company_project_allocations_by_project(
         .map(|(_, user_ids)| {
             user_ids
                 .into_iter()
-                .map(|id| id.to_hex())
+                .map(|id| id.to_string())
                 .collect::<Vec<String>>()
         })
         .next();
@@ -396,7 +356,7 @@ pub async fn get_company_project_allocations_by_user(
         .await?
         .into_iter()
         .filter(|(_, user_ids)| user_ids.contains(&user_id))
-        .map(|(project_id, _)| project_id.to_hex())
+        .map(|(project_id, _)| project_id.to_string())
         .collect();
 
     Ok(allocation)

@@ -115,12 +115,7 @@ pub async fn get_admin_panel_overview_users_info() -> Result<AdminPanelOverviewU
                 .unwrap() as u16,
         })
     } else {
-        Ok(AdminPanelOverviewUserInfo {
-            total_users: 0,
-            total_admins: 0,
-            total_active_users: 0,
-            total_inactive_users: 0,
-        })
+        Ok(AdminPanelOverviewUserInfo::default())
     }
 }
 

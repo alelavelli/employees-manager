@@ -1,7 +1,7 @@
 use crate::{enums::CompanyRole, DocumentId};
 
 /// Internal data type returned by the user service to the facade for the admin panel overview
-#[derive(Debug)]
+#[derive(Default)]
 pub struct AdminPanelOverviewUserInfo {
     pub total_users: u16,
     pub total_admins: u16,
