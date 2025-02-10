@@ -241,10 +241,10 @@ impl From<internal::InvitedUserInCompanyInfo> for InvitedUserInCompanyInfo {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompanyProjectInfo {
-    pub id: String,
-    pub name: String,
-    pub code: String,
-    pub active: bool,
+    id: String,
+    name: String,
+    code: String,
+    active: bool,
 }
 
 impl TryFrom<db_entities::CompanyProject> for CompanyProjectInfo {
