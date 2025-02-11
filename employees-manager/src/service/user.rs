@@ -1,10 +1,9 @@
-use anyhow::anyhow;
 use mongodb::bson::{doc, oid::ObjectId};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     enums::CompanyRole,
-    error::{AppError, AuthError},
+    error::{AppError, AuthError, ServiceAppError},
     model::{
         db_entities,
         internal::{AdminPanelOverviewUserInfo, AdminPanelUserInfo},
@@ -16,13 +15,13 @@ use super::db::{get_database_service, DatabaseDocument};
 
 pub async fn login(username: &str, password: &str) -> Result<db_entities::User, AppError> {
     let query_result: Option<db_entities::User> =
-        db_entities::User::find_one(doc! {"username": username}).await?;
+        db_entities::User::find_one(doc! {"username": username})
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
     if let Some(user_document) = query_result {
         if bcrypt::verify(password, &user_document.password_hash).map_err(|e| {
-            AppError::InternalServerError(anyhow!(format!(
-                "Error in password hash verification. Got {e}"
-            )))
+            AppError::InternalServerError(format!("Error in password hash verification. Got {e}"))
         })? {
             if user_document.active {
                 Ok(user_document)
@@ -37,7 +36,7 @@ pub async fn login(username: &str, password: &str) -> Result<db_entities::User, 
     }
 }
 
-pub async fn get_admin_panel_users_info() -> Result<Vec<AdminPanelUserInfo>, AppError> {
+pub async fn get_admin_panel_users_info() -> Result<Vec<AdminPanelUserInfo>, ServiceAppError> {
     #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         _id: DocumentId,
@@ -80,7 +79,8 @@ pub async fn get_admin_panel_users_info() -> Result<Vec<AdminPanelUserInfo>, App
     Ok(users)
 }
 
-pub async fn get_admin_panel_overview_users_info() -> Result<AdminPanelOverviewUserInfo, AppError> {
+pub async fn get_admin_panel_overview_users_info(
+) -> Result<AdminPanelOverviewUserInfo, ServiceAppError> {
     let result = db_entities::User::aggregate(vec![doc! {"$group": {
         "_id": null,
         "total_users": {"$sum": 1},
@@ -115,22 +115,17 @@ pub async fn get_admin_panel_overview_users_info() -> Result<AdminPanelOverviewU
                 .unwrap() as u16,
         })
     } else {
-        Ok(AdminPanelOverviewUserInfo {
-            total_users: 0,
-            total_admins: 0,
-            total_active_users: 0,
-            total_inactive_users: 0,
-        })
+        Ok(AdminPanelOverviewUserInfo::default())
     }
 }
 
-pub async fn get_user(user_id: &DocumentId) -> Result<db_entities::User, AppError> {
+pub async fn get_user(user_id: &DocumentId) -> Result<db_entities::User, ServiceAppError> {
     let query_result: Option<db_entities::User> =
         db_entities::User::find_one(doc! {"_id": user_id}).await?;
     if let Some(user_document) = query_result {
         Ok(user_document)
     } else {
-        Err(AppError::DoesNotExist(anyhow!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "User with id {user_id} does not exist"
         )))
     }
@@ -144,7 +139,7 @@ pub async fn create_user(
     email: String,
     name: String,
     surname: String,
-) -> Result<String, AppError> {
+) -> Result<String, ServiceAppError> {
     #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         username: String,
@@ -159,13 +154,13 @@ pub async fn create_user(
 
     for document in usernames {
         if username.to_lowercase().trim() == document.username.to_lowercase().trim() {
-            return Err(AppError::ManagedError(format!(
+            return Err(ServiceAppError::InvalidRequest(format!(
                 "Username {} already exists.",
                 username
             )));
         }
         if email.to_lowercase().trim() == document.email.to_lowercase().trim() {
-            return Err(AppError::ManagedError(format!(
+            return Err(ServiceAppError::InvalidRequest(format!(
                 "Email {} already exists.",
                 email
             )));
@@ -191,7 +186,7 @@ pub async fn create_user(
 /// but he still exist in the database and can be activated by admins.
 /// Deactivating a user determine the deactivation of all companies for which he is owner.
 /// It returns an error if the user is already not active
-pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
+pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), ServiceAppError> {
     #[derive(Serialize, Deserialize, Debug)]
     struct UserQueryResult {
         active: bool,
@@ -247,12 +242,12 @@ pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
             }
             Ok(())
         } else {
-            Err(AppError::ManagedError(
+            Err(ServiceAppError::InvalidRequest(
                 "The user with id {user_id} not active.".to_string(),
             ))
         }
     } else {
-        Err(AppError::DoesNotExist(anyhow!(
+        Err(ServiceAppError::InvalidRequest(format!(
             "User with id {user_id} does not exist"
         )))
     }
@@ -261,7 +256,7 @@ pub async fn deactivate_user(user_id: &DocumentId) -> Result<(), AppError> {
 /// Activate user
 ///
 /// Activate a deactivated User. It returns a ManagedError if the user is not active
-pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
+pub async fn activate_user(user_id: &DocumentId) -> Result<(), ServiceAppError> {
     #[derive(Serialize, Deserialize, Debug)]
     struct UserQueryResult {
         active: bool,
@@ -318,12 +313,12 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
             }
             Ok(())
         } else {
-            Err(AppError::ManagedError(
-                "The user with id {user_id} active.".to_string(),
-            ))
+            Err(ServiceAppError::InvalidRequest(format!(
+                "The user with id {user_id} active."
+            )))
         }
     } else {
-        Err(AppError::DoesNotExist(anyhow!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "User with id {user_id} does not exist"
         )))
     }
@@ -334,7 +329,7 @@ pub async fn activate_user(user_id: &DocumentId) -> Result<(), AppError> {
 /// Each Company the User is owner is deleted as well.
 ///
 /// This operation is not reversible.
-pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
+pub async fn delete_user(user_id: &DocumentId) -> Result<(), ServiceAppError> {
     let user = db_entities::User::find_one(doc! {"_id": user_id}).await?;
     if let Some(user) = user {
         #[derive(Serialize, Deserialize, Debug)]
@@ -391,7 +386,7 @@ pub async fn delete_user(user_id: &DocumentId) -> Result<(), AppError> {
         }
         Ok(())
     } else {
-        Err(AppError::DoesNotExist(anyhow!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "User with id {user_id} does not exist"
         )))
     }
@@ -403,7 +398,7 @@ pub async fn update_user(
     password: Option<String>,
     name: Option<String>,
     surname: Option<String>,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let mut update = doc! {};
     if let Some(email_str) = email {
         update.insert("email", email_str);
@@ -421,7 +416,7 @@ pub async fn update_user(
     db_entities::User::update_one(doc! {"_id": user_id}, update, None).await
 }
 
-pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
+pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), ServiceAppError> {
     db_entities::User::update_one(
         doc! {"_id": user_id},
         doc! {"$set": doc! { "platform_admin": true }},
@@ -430,7 +425,7 @@ pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
     .await
 }
 
-pub async fn unset_platform_admin(user_id: &DocumentId) -> Result<(), AppError> {
+pub async fn unset_platform_admin(user_id: &DocumentId) -> Result<(), ServiceAppError> {
     db_entities::User::update_one(
         doc! {"_id": user_id},
         doc! {"$set": doc! { "platform_admin": false }},
@@ -439,9 +434,9 @@ pub async fn unset_platform_admin(user_id: &DocumentId) -> Result<(), AppError> 
     .await
 }
 
-fn hash_password(password: &str) -> Result<String, AppError> {
+fn hash_password(password: &str) -> Result<String, ServiceAppError> {
     bcrypt::hash(password, bcrypt::DEFAULT_COST).map_err(|e| {
-        AppError::InternalServerError(anyhow!(format!("Error in hashing password. Got {e}")))
+        ServiceAppError::InternalServerError(format!("Error in hashing password. Got {e}"))
     })
 }
 

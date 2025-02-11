@@ -1,33 +1,49 @@
 use crate::{
-    auth::AuthInfo, enums::CompanyRole, error::AppError, service::user::get_user, DocumentId,
+    auth::AuthInfo,
+    enums::CompanyRole,
+    error::{AppError, ServiceAppError},
+    service::user::get_user,
+    DocumentId,
 };
 
 use super::company::get_user_company_role;
 
 /// Access control struct that validate and verify the
 /// role of the user
-pub struct AccessControl<T: AuthInfo> {
-    auth_info: T,
+pub struct AccessControl<'a, T: AuthInfo> {
+    auth_info: &'a T,
 }
 
-impl<T: AuthInfo> AccessControl<T> {
-    pub async fn new(auth_info: T) -> Result<AccessControl<T>, AppError> {
-        let user = get_user(auth_info.user_id()).await?;
+impl<'a, T: AuthInfo> AccessControl<'a, T> {
+    pub async fn new(auth_info: &T) -> Result<AccessControl<T>, AppError> {
+        let user = get_user(auth_info.user_id()).await.map_err(|e| match e {
+            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })?;
         if user.active {
             Ok(AccessControl { auth_info })
         } else {
-            Err(AppError::AccessControlError)
+            Err(AppError::AccessControlError(
+                "You are not allowed to do this operation".into(),
+            ))
         }
     }
 
     /// Verify that the user has ADMIN role, otherwise it
     /// returns AccessControlError
     pub async fn is_platform_admin(self) -> Result<Self, AppError> {
-        let user = get_user(self.auth_info.user_id()).await?;
+        let user = get_user(self.auth_info.user_id())
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })?;
         if user.platform_admin {
             Ok(self)
         } else {
-            Err(AppError::AccessControlError)
+            Err(AppError::AccessControlError(
+                "You are not allowed to do this operation".into(),
+            ))
         }
     }
 
@@ -39,11 +55,15 @@ impl<T: AuthInfo> AccessControl<T> {
     ) -> Result<Self, AppError> {
         let assignment = get_user_company_role(self.auth_info.user_id(), company_id)
             .await
-            .map_err(|_| AppError::AccessControlError)?;
+            .map_err(|_| {
+                AppError::AccessControlError("You are not allowed to do this operation".into())
+            })?;
         if assignment.role >= role {
             Ok(self)
         } else {
-            Err(AppError::AccessControlError)
+            Err(AppError::AccessControlError(
+                "You are not allowed to do this operation".into(),
+            ))
         }
     }
 }
@@ -95,7 +115,7 @@ mod tests {
             company_assignment.save(None).await.unwrap();
 
             let auth_info = AccessControl {
-                auth_info: APIKeyAuthClaim {
+                auth_info: &APIKeyAuthClaim {
                     key: "api_key".into(),
                     user_id: user_id.clone(),
                 },

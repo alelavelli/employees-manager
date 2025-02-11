@@ -55,7 +55,7 @@
                           {{element.name}}
                         </div>
                         <div *ngIf="projectUnderEdit === element.id">
-                          <mat-form-field style="width: 50%; margin-top: 1rem;" appearance="outline">
+                          <mat-form-field style="margin-top: 1rem;" appearance="outline">
                             <input matInput placeholder="{{element.name}}" formControlName="name" #input>
                           </mat-form-field>
                         </div>
@@ -68,7 +68,7 @@
                           {{element.code}}
                         </div>
                         <div *ngIf="projectUnderEdit === element.id">
-                          <mat-form-field style="width: 50%; margin-top: 1rem;" appearance="outline">
+                          <mat-form-field style="margin-top: 1rem;" appearance="outline">
                             <input matInput placeholder="{{element.code}}" formControlName="code" #input>
                           </mat-form-field>
                         </div>

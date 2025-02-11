@@ -51,11 +51,13 @@ regex = "1.10.4"
 # endcoding
 base64ct = { version = "1.6.0", features = ["alloc"] }
 # queue rabbitmq
-amqprs = "1.5.4"
+#amqprs = "1.5.4"
 uuid = { version = "1.8.0", features = ["v4"] }
 # password hashing
 bcrypt = "0.15.1"
 
+derive_builder = "0.20.2"
+
 [dev-dependencies]
-mockall = "0.12.1"
-mockall_double = "0.3.1"
+#mockall = "0.12.1"
+#mockall_double = "0.3.1"
