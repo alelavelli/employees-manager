@@ -1,10 +1,9 @@
-use anyhow::anyhow;
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     enums::NotificationType,
-    error::AppError,
+    error::ServiceAppError,
     model::db_entities,
     service::{company, db::get_database_service},
     DocumentId,
@@ -14,19 +13,19 @@ use super::db::DatabaseDocument;
 
 pub async fn get_unread_notifications(
     user_id: &DocumentId,
-) -> Result<Vec<db_entities::AppNotification>, AppError> {
+) -> Result<Vec<db_entities::AppNotification>, ServiceAppError> {
     db_entities::AppNotification::find_many(doc! {"user_id": user_id, "read": false}).await
 }
 
 pub async fn get_notification(
     notification_id: &DocumentId,
-) -> Result<Option<db_entities::AppNotification>, AppError> {
+) -> Result<Option<db_entities::AppNotification>, ServiceAppError> {
     db_entities::AppNotification::find_one(doc! {"_id": notification_id}).await
 }
 
 pub async fn set_notification_as_read(
     mut notification: db_entities::AppNotification,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     notification.read = true;
     notification.save(None).await?;
     Ok(())
@@ -35,7 +34,7 @@ pub async fn set_notification_as_read(
 pub async fn answer_to_invite_add_company(
     mut notification: db_entities::AppNotification,
     answer: bool,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let db_service = get_database_service().await;
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
@@ -110,24 +109,26 @@ pub async fn answer_to_invite_add_company(
             answer_notification.save(Some(&mut transaction)).await?;
         } else {
             transaction.abort_transaction().await?;
-            return Err(AppError::InternalServerError(anyhow!(format!(
+            return Err(ServiceAppError::InternalServerError(format!(
                     "Error in adding user to company for notification with id {:?}, InviteAddCompany document not found",
                     notification.get_id()
-                ))));
+                )));
         }
     } else {
         transaction.abort_transaction().await?;
-        return Err(AppError::InternalServerError(anyhow!(format!(
+        return Err(ServiceAppError::InternalServerError(format!(
             "Notification with id {:?} does not not contain entity id",
             notification.get_id()
-        ))));
+        )));
     }
 
     transaction.commit_transaction().await?;
     Ok(())
 }
 
-pub async fn cancel_invite_user_to_company(notification_id: DocumentId) -> Result<(), AppError> {
+pub async fn cancel_invite_user_to_company(
+    notification_id: DocumentId,
+) -> Result<(), ServiceAppError> {
     if let Some(notification) =
         db_entities::AppNotification::find_one(doc! {"_id": notification_id}).await?
     {
@@ -148,17 +149,17 @@ pub async fn cancel_invite_user_to_company(notification_id: DocumentId) -> Resul
 
                 Ok(())
             } else {
-                Err(AppError::InternalServerError(anyhow!(
+                Err(ServiceAppError::InternalServerError(format!(
                     "InviteAddCompany with id {entity_id} does not exist"
                 )))
             }
         } else {
-            Err(AppError::ManagedError(format!(
+            Err(ServiceAppError::EntityDoesNotExist(format!(
                 "Notification with id {notification_id} does not exist"
             )))
         }
     } else {
-        Err(AppError::ManagedError(format!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "Notification with id {notification_id} does not exist"
         )))
     }

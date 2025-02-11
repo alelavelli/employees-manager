@@ -1,14 +1,12 @@
 use std::{collections::HashMap, str::FromStr};
 
-use anyhow::anyhow;
-
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
     enums::{CompanyRole, NotificationType},
-    error::AppError,
+    error::ServiceAppError,
     model::{
         db_entities,
         internal::{AdminPanelOverviewCompanyInfo, InvitedUserInCompanyInfo, UserInCompanyInfo},
@@ -18,7 +16,7 @@ use crate::{
 
 /// Returns the companies info for the admin panel
 pub async fn get_admin_panel_overview_companies_info(
-) -> Result<AdminPanelOverviewCompanyInfo, AppError> {
+) -> Result<AdminPanelOverviewCompanyInfo, ServiceAppError> {
     let result = db_entities::Company::aggregate(vec![doc! {
         "$group": {
             "_id": null,
@@ -48,7 +46,7 @@ pub async fn create_company(
     user_id: &DocumentId,
     name: String,
     job_title: String,
-) -> Result<String, AppError> {
+) -> Result<String, ServiceAppError> {
     // check if a company with the same name already exists
     #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
@@ -60,7 +58,7 @@ pub async fn create_company(
             .await?;
     for document in companies {
         if name.to_lowercase().trim() == document.name.to_lowercase().trim() {
-            return Err(AppError::ManagedError(
+            return Err(ServiceAppError::InvalidRequest(
                 "A Company with name {name} already exists.".into(),
             ));
         }
@@ -79,9 +77,9 @@ pub async fn create_company(
     let company_id_object_id = ObjectId::from_str(&company_id);
     if company_id_object_id.is_err() {
         transaction.abort_transaction().await?;
-        return Err(AppError::InternalServerError(anyhow!(
-            "Unexpected failed conversion of ObjectId"
-        )));
+        return Err(ServiceAppError::InternalServerError(
+            "Unexpected failed conversion of ObjectId".into(),
+        ));
     }
     let company_id_object_id = company_id_object_id.unwrap();
     let mut user_company_assignment = db_entities::UserCompanyAssignment {
@@ -106,14 +104,14 @@ pub async fn create_company(
     Ok(company_id)
 }
 
-pub async fn get_companies() -> Result<Vec<db_entities::Company>, AppError> {
+pub async fn get_companies() -> Result<Vec<db_entities::Company>, ServiceAppError> {
     db_entities::Company::find_many(doc! {}).await
 }
 
 /// Get all the Companies the User is in by looking at the UserCompanyAssignment
 pub async fn get_user_companies(
     user_id: &DocumentId,
-) -> Result<Vec<db_entities::Company>, AppError> {
+) -> Result<Vec<db_entities::Company>, ServiceAppError> {
     let query_result =
         db_entities::UserCompanyAssignment::find_many(doc! { "user_id": user_id}).await?;
 
@@ -134,7 +132,7 @@ pub async fn get_user_companies(
 pub async fn get_user_company(
     user_id: &DocumentId,
     company_id: &DocumentId,
-) -> Result<db_entities::Company, AppError> {
+) -> Result<db_entities::Company, ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
 
@@ -144,12 +142,12 @@ pub async fn get_user_company(
         if let Some(company) = query_result {
             Ok(company)
         } else {
-            Err(AppError::InternalServerError(anyhow!(
-                "Something went wrong in retrieving company {company_id} for user {user_id}"
-            )))
+            Err(ServiceAppError::InternalServerError(
+                format!("Company with id {company_id} should exist because it is retrieved from UserCompanyAssignment for user {user_id}")
+            ))
         }
     } else {
-        Err(AppError::DoesNotExist(anyhow!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "There is no company with id {company_id} for user {user_id}"
         )))
     }
@@ -162,10 +160,12 @@ pub async fn add_user_to_company(
     role: CompanyRole,
     job_title: String,
     project_ids: Vec<DocumentId>,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
-    if query_result.is_none() {
+    if let Some(assignment) = query_result {
+        Err(ServiceAppError::InvalidRequest(format!("Failed to add user {user_id} to company {company_id} with role {role} because it is already in the Company with role {}", assignment.role)))
+    } else {
         let mut new_assignment = db_entities::UserCompanyAssignment {
             id: None,
             user_id,
@@ -176,8 +176,6 @@ pub async fn add_user_to_company(
         };
         new_assignment.save(None).await?;
         Ok(())
-    } else {
-        Err(AppError::ManagedError(format!("Failed to add user {user_id} to company {company_id} with role {role} because it is already in the Company with role {}", query_result.unwrap().role)))
     }
 }
 
@@ -185,7 +183,7 @@ pub async fn add_user_to_company(
 pub async fn remove_user_from_company(
     user_id: &DocumentId,
     company_id: &DocumentId,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let db_service = get_database_service().await;
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
@@ -196,7 +194,7 @@ pub async fn remove_user_from_company(
         assignment.delete(Some(&mut transaction)).await?;
     } else {
         transaction.abort_transaction().await?;
-        return Err(AppError::ManagedError("Failed to remove user {user_id} from company {company_id} because he does not belong to it.".into()));
+        return Err(ServiceAppError::InvalidRequest(format!("Failed to remove user {user_id} from company {company_id} because he does not belong to it.")));
     }
 
     // if the user is in the management team, we remove him
@@ -223,7 +221,7 @@ pub async fn update_user_in_company(
     company_id: &DocumentId,
     role: Option<CompanyRole>,
     job_title: Option<String>,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if let Some(assignment) = query_result {
@@ -241,7 +239,7 @@ pub async fn update_user_in_company(
         )
         .await
     } else {
-        Err(AppError::ManagedError("Failed to remove user {user_id} from company {company_id} because he does not belong to it.".into()))
+        Err(ServiceAppError::InvalidRequest(format!("Failed to remove user {user_id} from company {company_id} because he does not belong to it.")))
     }
 }
 
@@ -250,7 +248,7 @@ pub async fn change_user_company_manager(
     user_id: &DocumentId,
     company_id: &DocumentId,
     manager: bool,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let query_result =
         db_entities::CompanyManagementTeam::find_one(doc! { "company_id": company_id}).await?;
 
@@ -276,10 +274,10 @@ pub async fn change_user_company_manager(
         // or he is a manager and we want to add him
         Ok(())
     } else {
-        Err(AppError::InternalServerError(anyhow!(format!(
+        Err(ServiceAppError::InternalServerError(format!(
             "Missing management team for company {}",
             company_id
-        ))))
+        )))
     }
 }
 
@@ -287,13 +285,13 @@ pub async fn change_user_company_manager(
 pub async fn get_user_company_role(
     user_id: &DocumentId,
     company_id: &DocumentId,
-) -> Result<db_entities::UserCompanyAssignment, AppError> {
+) -> Result<db_entities::UserCompanyAssignment, ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if let Some(assignment) = query_result {
         Ok(assignment)
     } else {
-        Err(AppError::DoesNotExist(anyhow!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "User with id {user_id} does not have a role in Company with id {company_id}.",
         )))
     }
@@ -302,7 +300,7 @@ pub async fn get_user_company_role(
 /// Returns the users inside a company
 pub async fn get_users_in_company(
     company_id: &DocumentId,
-) -> Result<Vec<UserInCompanyInfo>, AppError> {
+) -> Result<Vec<UserInCompanyInfo>, ServiceAppError> {
     let assignments: HashMap<DocumentId, db_entities::UserCompanyAssignment> =
         db_entities::UserCompanyAssignment::find_many(doc! { "company_id": company_id })
             .await?
@@ -349,7 +347,7 @@ pub async fn invite_user(
     role: CompanyRole,
     job_title: String,
     project_ids: Vec<DocumentId>,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     /*
     Create InviteAddCompany document and AppNotification document
     */
@@ -369,7 +367,7 @@ pub async fn invite_user(
         .role;
 
         if inviting_user_role == CompanyRole::Admin {
-            return Err(AppError::ManagedError("You don't have Admin role in Company {company_id}, hence, you cannot assign Admin role to other users".into()));
+            return Err(ServiceAppError::AccessControlError(format!("You don't have Admin role in Company {company_id}, hence, you cannot assign Admin role to other users")));
         }
     }
 
@@ -406,7 +404,7 @@ pub async fn invite_user(
         Ok(())
     } else {
         transaction.abort_transaction().await?;
-        Err(AppError::ManagedError(format!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "Company with id {} does not exist",
             company_id
         )))
@@ -415,7 +413,7 @@ pub async fn invite_user(
 
 pub async fn get_pending_invited_users(
     company_id: &DocumentId,
-) -> Result<Vec<InvitedUserInCompanyInfo>, AppError> {
+) -> Result<Vec<InvitedUserInCompanyInfo>, ServiceAppError> {
     let pending_invitations =
         db_entities::InviteAddCompany::find_many(doc! {"company_id": company_id, "answer": null})
             .await?;
@@ -468,10 +466,10 @@ pub async fn get_pending_invited_users(
                 company_id: invitation.company_id.to_hex(),
             });
         } else {
-            return Err(AppError::InternalServerError(anyhow!(format!(
+            return Err(ServiceAppError::InternalServerError(format!(
                 "User {} should exist",
                 invitation.invited_user_id.to_hex()
-            ))));
+            )));
         }
     }
 
@@ -480,7 +478,7 @@ pub async fn get_pending_invited_users(
 
 pub async fn get_users_to_invite_in_company(
     company_id: DocumentId,
-) -> Result<Vec<(DocumentId, String)>, AppError> {
+) -> Result<Vec<(DocumentId, String)>, ServiceAppError> {
     // Users can be invited to a company if they are not already in it and if there is no pending invitation
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -539,13 +537,13 @@ pub async fn get_users_to_invite_in_company(
 
 pub async fn get_company_projects(
     company_id: DocumentId,
-) -> Result<Vec<db_entities::CompanyProject>, AppError> {
+) -> Result<Vec<db_entities::CompanyProject>, ServiceAppError> {
     db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await
 }
 
 pub async fn get_company_project_allocations(
     company_id: DocumentId,
-) -> Result<HashMap<DocumentId, Vec<DocumentId>>, AppError> {
+) -> Result<HashMap<DocumentId, Vec<DocumentId>>, ServiceAppError> {
     #[derive(Serialize, Deserialize)]
     struct QueryResult {
         user_id: DocumentId,
@@ -575,14 +573,14 @@ pub async fn create_project(
     company_id: DocumentId,
     name: String,
     code: String,
-) -> Result<String, AppError> {
+) -> Result<String, ServiceAppError> {
     let company_projects =
         db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await?;
 
     // project name and code must be unique
     for project in company_projects {
         if project.name == name || project.code == code {
-            return Err(AppError::ManagedError(format!(
+            return Err(ServiceAppError::InvalidRequest(format!(
                 "Project name and code must be unique got name: {} and code: {}",
                 name, code
             )));
@@ -606,7 +604,7 @@ pub async fn edit_project(
     name: String,
     code: String,
     active: bool,
-) -> Result<String, AppError> {
+) -> Result<String, ServiceAppError> {
     let company_project_query =
         db_entities::CompanyProject::find_one(doc! {"_id": project_id, "company_id": company_id})
             .await?;
@@ -620,7 +618,7 @@ pub async fn edit_project(
         // project name and code must be unique
         for project in company_projects {
             if project.name == name || project.code == code {
-                return Err(AppError::ManagedError(format!(
+                return Err(ServiceAppError::InvalidRequest(format!(
                     "Project name and code must be unique got name: {} and code: {}",
                     name, code
                 )));
@@ -632,7 +630,7 @@ pub async fn edit_project(
         company_project.active = active;
         company_project.save(None).await
     } else {
-        Err(AppError::ManagedError(format!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "Project with id {} does not exist",
             project_id
         )))
@@ -642,7 +640,7 @@ pub async fn edit_project(
 pub async fn delete_project(
     company_id: DocumentId,
     project_id: DocumentId,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let company_project_query =
         db_entities::CompanyProject::find_one(doc! {"_id": project_id, "company_id": company_id})
             .await?;
@@ -658,13 +656,13 @@ pub async fn delete_project(
         if n_allocations == 0 {
             company_project.delete(None).await
         } else {
-            Err(AppError::ManagedError(format!(
+            Err(ServiceAppError::InvalidRequest(format!(
                 "Project with id {} is used in your company and cannot  be deleted",
                 project_id
             )))
         }
     } else {
-        Err(AppError::ManagedError(format!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "Project with id {} does not exist",
             project_id
         )))
@@ -675,7 +673,7 @@ pub async fn edit_company_project_allocations(
     company_id: DocumentId,
     project_id: DocumentId,
     user_ids: Vec<DocumentId>,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let project = db_entities::CompanyProject::find_one(doc! {
         "_id": project_id,
         "company_id": company_id,
@@ -730,7 +728,7 @@ pub async fn edit_company_project_allocations(
 
         Ok(())
     } else {
-        Err(AppError::ManagedError(format!(
+        Err(ServiceAppError::EntityDoesNotExist(format!(
             "Project with id {} does not exist",
             project_id
         )))
@@ -741,7 +739,7 @@ pub async fn edit_company_project_allocations_for_user(
     company_id: DocumentId,
     user_id: DocumentId,
     project_ids: Vec<DocumentId>,
-) -> Result<(), AppError> {
+) -> Result<(), ServiceAppError> {
     let assignment = db_entities::UserCompanyAssignment::find_one(
         doc! { "company_id": company_id, "user_id": user_id},
     )
@@ -751,7 +749,7 @@ pub async fn edit_company_project_allocations_for_user(
         assignment.save(None).await?;
         Ok(())
     } else {
-        Err(AppError::ManagedError(format!(
+        Err(ServiceAppError::InvalidRequest(format!(
             "User with id {user_id} is not in the company with id {company_id}"
         )))
     }

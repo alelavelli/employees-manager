@@ -3,9 +3,8 @@ use tracing::debug;
 use crate::{
     auth::AuthInfo,
     dtos::{sdk_request, sdk_response},
-    error::AppError,
-    service::access_control::AccessControl,
-    service::user,
+    error::{AppError, ServiceAppError},
+    service::{access_control::AccessControl, user},
     DocumentId,
 };
 
@@ -18,11 +17,14 @@ pub async fn get_user(
         "Making access control for auth_info with user {}",
         auth_info.user_id()
     );
-    AccessControl::new(auth_info)
+    AccessControl::new(&auth_info)
         .await?
         .is_platform_admin()
         .await?;
-    let user_model = user::get_user(&user_id).await?;
+    let user_model = user::get_user(&user_id).await.map_err(|e| match e {
+        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+        _ => AppError::InternalServerError(e.to_string()),
+    })?;
     Ok(sdk_response::User {
         id: user_model
             .id
@@ -40,7 +42,7 @@ pub async fn create_user(
         "Making access control for auth_info with user {}",
         auth_info.user_id()
     );
-    AccessControl::new(auth_info)
+    AccessControl::new(&auth_info)
         .await?
         .is_platform_admin()
         .await?;
@@ -52,4 +54,8 @@ pub async fn create_user(
         payload.surname,
     )
     .await
+    .map_err(|e| match e {
+        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+        _ => AppError::InternalServerError(e.to_string()),
+    })
 }

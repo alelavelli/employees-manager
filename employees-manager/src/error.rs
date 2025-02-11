@@ -1,4 +1,5 @@
-use anyhow::anyhow;
+use std::fmt::Display;
+
 use axum::{
     extract::rejection::JsonRejection,
     http::StatusCode,
@@ -11,30 +12,27 @@ use crate::dtos::{web_app_response, AppJson};
 
 /// AppError enumeration of different error typologies that the application
 /// can return to clients.
+/// This enumerator differs from the `ServiceAppError` because any error is
+/// returned to the client, while `ServiceAppError` is translated to AppError
+/// according to the context.
 ///
 /// It implements the trait `IntoResponse` to translate the error into a response
 /// composed of status and message.
 ///
-/// Moreover, it implements several `From<T>` trait to automatically translate
-/// internal errors to AppError using `?`
 #[derive(Debug)]
 pub enum AppError {
-    /// The request body contained invalid JSON
+    /// The request body contained invalid JSON aka 422
     JsonRejection(JsonRejection),
-    /// Internal error
-    InternalServerError(anyhow::Error),
-    /// Authorization error
+    /// Internal error aka 500
+    InternalServerError(String),
+    /// Authorization error aka 401
     AuthorizationError(AuthError),
-    /// Entity does not exist
-    DoesNotExist(anyhow::Error),
-    /// The user does not have role to perform the operation
-    AccessControlError,
-    /// ManagedError that is created when the web app returns an
-    /// error to the client that is due to wrong parameters or
-    /// something that cannot be done
-    ManagedError(String),
-    /// Error when an attribute is missing from an entity
-    MissingAttribute(String),
+    /// Entity does not exist aka 404
+    DoesNotExist(String),
+    /// The user does not have role to perform the operation aka 403
+    AccessControlError(String),
+    /// When the request is not valid due to one of its parameters aka 400
+    InvalidRequest(String),
 }
 
 // Tell axum how to convert `AppError` into a response.
@@ -53,16 +51,12 @@ impl IntoResponse for AppError {
             }
             AppError::InternalServerError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Something went wrong".into(),
+                "Internal Server Error".into(),
             ),
             AppError::AuthorizationError(auth_error) => auth_error.to_status_message(),
-            AppError::DoesNotExist(_) => (StatusCode::NOT_FOUND, "Entity not found".into()),
-            AppError::AccessControlError => (
-                StatusCode::UNAUTHORIZED,
-                "Not sufficient permissions".into(),
-            ),
-            AppError::ManagedError(message) => (StatusCode::BAD_REQUEST, message.clone()),
-            AppError::MissingAttribute(message) => (StatusCode::BAD_REQUEST, message.clone()),
+            AppError::DoesNotExist(message) => (StatusCode::NOT_FOUND, message),
+            AppError::AccessControlError(message) => (StatusCode::FORBIDDEN, message),
+            AppError::InvalidRequest(message) => (StatusCode::BAD_REQUEST, message),
         };
         (status, AppJson(ErrorResponse { message })).into_response()
     }
@@ -74,59 +68,101 @@ impl From<JsonRejection> for AppError {
     }
 }
 
-impl From<anyhow::Error> for AppError {
-    fn from(value: anyhow::Error) -> Self {
-        Self::InternalServerError(value)
-    }
-}
-
 impl From<AuthError> for AppError {
     fn from(value: AuthError) -> Self {
         Self::AuthorizationError(value)
     }
 }
 
-impl From<mongodb::error::Error> for AppError {
-    fn from(value: mongodb::error::Error) -> Self {
-        error!("MongoDB error: {:?}", value);
-        Self::InternalServerError(anyhow::Error::new(value))
+/// Error enumeration used by services that specifies all the different
+/// error kinds that the application backend can encounter.
+///
+/// It is different from the AppError because it must be translated into it.
+/// The translation depends on the context of the trace, for instance, a DoesNotExist
+/// database error can be translated into 404 if the client is requesting a non existing entity
+/// or into 500 if another service requires an entity and it should be present in the database.
+///
+/// Moreover, it implements several `From<T>` trait to automatically translate
+/// internal errors to AppError using `?`
+#[derive(Debug)]
+pub enum ServiceAppError {
+    /// Authorization error aka 401
+    AuthorizationError(AuthError),
+    /// AccessControl error aka 403
+    AccessControlError(String),
+    /// Error that can occur in the `mongodb` crate
+    MongoDBBaseAPIError(String),
+    /// Error that can occur in the ´database´ service
+    DatabaseError(String),
+    /// Error that can occur during the build of a response
+    ResponseBuildError(String),
+    /// Error that can occur when an entity is requested but it does not exist in database
+    EntityDoesNotExist(String),
+    /// Error that can occur when a request contains parameters that are not valid or the
+    /// request cannot be done
+    InvalidRequest(String),
+    /// InternalServerError
+    InternalServerError(String),
+}
+
+impl Display for ServiceAppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::AuthorizationError(auth_error) => format!("AuthorizationError: {auth_error}"),
+                Self::DatabaseError(message) => format!("DatabaseError: {message}"),
+                Self::EntityDoesNotExist(message) => format!("EntityDoesNotExist: {message}"),
+                Self::InvalidRequest(message) => format!("InvalidRequest: {message}"),
+                Self::MongoDBBaseAPIError(message) => format!("MongoDBBaseAPIError: {message}"),
+                Self::ResponseBuildError(message) => format!("ResponseBuildError: {message}"),
+                Self::InternalServerError(message) => format!("InternalServerError: {message}"),
+                Self::AccessControlError(message) => format!("AccessControlError: {message}"),
+            }
+        )
     }
 }
 
-impl From<DatabaseError> for AppError {
+impl From<mongodb::error::Error> for ServiceAppError {
+    fn from(value: mongodb::error::Error) -> Self {
+        // It is translated into a InternalServerError
+        error!("MongoDB error: {:?}", value);
+        Self::MongoDBBaseAPIError(value.kind.to_string())
+    }
+}
+
+impl From<DatabaseError> for ServiceAppError {
     fn from(value: DatabaseError) -> Self {
         error!("Database error: {:?}", value);
         match value {
             DatabaseError::TransactionNotStarted => {
-                AppError::InternalServerError(anyhow!("Transaction not started"))
+                ServiceAppError::DatabaseError("Transaction not started".into())
             }
             DatabaseError::TransactionClosed => {
-                AppError::InternalServerError(anyhow!("Transaction already committed"))
+                ServiceAppError::DatabaseError("Transaction already committed".into())
             }
             DatabaseError::TransactionError => {
-                AppError::InternalServerError(anyhow!("Transaction operation encountered an error"))
+                ServiceAppError::DatabaseError("Transaction operation encountered an error".into())
             }
-            DatabaseError::DocumentDoesNotExist => {
-                AppError::InternalServerError(anyhow!("Document not found"))
-            }
-            DatabaseError::DocumentHasAlreadyAnId => AppError::InternalServerError(anyhow!(
-                "Document cannot be inserted in database because it has already an id"
-            )),
+            DatabaseError::DocumentHasAlreadyAnId => ServiceAppError::DatabaseError(
+                "Document cannot be inserted in database because it has already an id".into(),
+            ),
             DatabaseError::InvalidObjectId => {
-                AppError::InternalServerError(anyhow!("Invalid object id"))
+                ServiceAppError::DatabaseError("Invalid object id".into())
             }
         }
     }
 }
 
-impl From<web_app_response::CompanyInfoBuilderError> for AppError {
+impl From<web_app_response::CompanyInfoBuilderError> for ServiceAppError {
     fn from(value: web_app_response::CompanyInfoBuilderError) -> Self {
         match value {
             web_app_response::CompanyInfoBuilderError::UninitializedField(message) => {
-                AppError::InternalServerError(anyhow!(message))
+                ServiceAppError::ResponseBuildError(message.into())
             }
             web_app_response::CompanyInfoBuilderError::ValidationError(message) => {
-                AppError::InternalServerError(anyhow!(message))
+                ServiceAppError::ResponseBuildError(message)
             }
         }
     }
@@ -147,21 +183,35 @@ pub enum AuthError {
 impl AuthError {
     fn to_status_message(&self) -> (StatusCode, String) {
         let (status, message) = match self {
-            AuthError::WrongCredentials => {
-                (StatusCode::UNAUTHORIZED, "Wrong credentials".to_string())
-            }
-            AuthError::InvalidApiKey => (StatusCode::UNAUTHORIZED, "Wrong credentials".to_string()),
+            AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials".into()),
+            AuthError::InvalidApiKey => (StatusCode::UNAUTHORIZED, "Wrong credentials".into()),
 
             AuthError::MissingCredentials => {
-                (StatusCode::BAD_REQUEST, "Missing credentials".to_string())
+                (StatusCode::BAD_REQUEST, "Missing credentials".into())
             }
             AuthError::TokenCreation => (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "Token creation error".to_string(),
+                "Token creation error".into(),
             ),
-            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".to_string()),
+            AuthError::InvalidToken => (StatusCode::BAD_REQUEST, "Invalid token".into()),
         };
         (status, message)
+    }
+}
+
+impl Display for AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                AuthError::WrongCredentials => "WrongCredentials",
+                AuthError::MissingCredentials => "MissingCredentials",
+                AuthError::TokenCreation => "TokenCreation",
+                AuthError::InvalidToken => "InvalidToken",
+                AuthError::InvalidApiKey => "InvalidApiKey",
+            }
+        )
     }
 }
 
@@ -173,7 +223,6 @@ pub enum DatabaseError {
     TransactionClosed,
     /// When an operation over a transaction fails
     TransactionError,
-    DocumentDoesNotExist,
     DocumentHasAlreadyAnId,
     InvalidObjectId,
 }

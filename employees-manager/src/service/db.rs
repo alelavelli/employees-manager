@@ -11,12 +11,11 @@ use tracing::debug;
 use uuid::Uuid;
 
 use crate::{
-    error::{AppError, DatabaseError},
+    error::{DatabaseError, ServiceAppError},
     service::environment::ENVIRONMENT,
     DocumentId,
 };
 
-use anyhow::anyhow;
 use mongodb::bson::oid::ObjectId;
 use mongodb::bson::serde_helpers::serialize_object_id_as_hex_string;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
@@ -78,7 +77,7 @@ pub struct DatabaseService {
 }
 
 impl DatabaseService {
-    async fn new() -> Result<DatabaseService, AppError> {
+    async fn new() -> Result<DatabaseService, ServiceAppError> {
         if cfg!(test) {
             let id = Uuid::new_v4().to_string();
             let mut db_name = String::from("app-test-db-");
@@ -107,7 +106,7 @@ impl DatabaseService {
     }
 
     /// Create new session from the client to start a new transaction and returns DatabaseTransaction instance
-    pub async fn new_transaction(&self) -> Result<DatabaseTransaction, AppError> {
+    pub async fn new_transaction(&self) -> Result<DatabaseTransaction, ServiceAppError> {
         Ok(DatabaseTransaction::new(self.client.start_session().await?))
     }
 }
@@ -131,13 +130,13 @@ impl DatabaseTransaction {
         }
     }
 
-    pub async fn start_transaction(&mut self) -> Result<(), AppError> {
+    pub async fn start_transaction(&mut self) -> Result<(), ServiceAppError> {
         self.session.start_transaction().await?;
         self.transaction_started = true;
         Ok(())
     }
 
-    pub async fn abort_transaction(&mut self) -> Result<(), AppError> {
+    pub async fn abort_transaction(&mut self) -> Result<(), ServiceAppError> {
         if self.transaction_started {
             self.session.abort_transaction().await?;
             self.transaction_closed = true;
@@ -145,7 +144,7 @@ impl DatabaseTransaction {
         Ok(())
     }
 
-    pub async fn commit_transaction(&mut self) -> Result<(), AppError> {
+    pub async fn commit_transaction(&mut self) -> Result<(), ServiceAppError> {
         if self.transaction_started {
             self.session.commit_transaction().await?;
             self.transaction_closed = true;
@@ -153,7 +152,7 @@ impl DatabaseTransaction {
         Ok(())
     }
 
-    pub async fn insert_one<T>(&mut self, document: &T) -> Result<String, AppError>
+    pub async fn insert_one<T>(&mut self, document: &T) -> Result<String, ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
@@ -181,7 +180,7 @@ impl DatabaseTransaction {
         }
     }
 
-    pub async fn insert_many<T>(&mut self, documents: Vec<&T>) -> Result<(), AppError>
+    pub async fn insert_many<T>(&mut self, documents: Vec<&T>) -> Result<(), ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
@@ -209,7 +208,11 @@ impl DatabaseTransaction {
         }
     }
 
-    pub async fn update_one<T>(&mut self, query: Document, update: Document) -> Result<(), AppError>
+    pub async fn update_one<T>(
+        &mut self,
+        query: Document,
+        update: Document,
+    ) -> Result<(), ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
@@ -241,7 +244,7 @@ impl DatabaseTransaction {
         &mut self,
         query: Document,
         update: Document,
-    ) -> Result<(), AppError>
+    ) -> Result<(), ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
@@ -269,7 +272,11 @@ impl DatabaseTransaction {
         }
     }
 
-    pub async fn replace_one<T>(&mut self, query: Document, replacement: &T) -> Result<(), AppError>
+    pub async fn replace_one<T>(
+        &mut self,
+        query: Document,
+        replacement: &T,
+    ) -> Result<(), ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize + Borrow<T>,
     {
@@ -297,7 +304,7 @@ impl DatabaseTransaction {
         }
     }
 
-    pub async fn delete_one<T>(&mut self, filter: Document) -> Result<(), AppError>
+    pub async fn delete_one<T>(&mut self, filter: Document) -> Result<(), ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
@@ -325,7 +332,7 @@ impl DatabaseTransaction {
         }
     }
 
-    pub async fn delete_many<T>(&mut self, filter: Document) -> Result<(), AppError>
+    pub async fn delete_many<T>(&mut self, filter: Document) -> Result<(), ServiceAppError>
     where
         T: DatabaseDocument + Send + Sync + Serialize,
     {
@@ -366,7 +373,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn collection_name() -> &'static str;
 
     /// Reload the document from the database
-    fn reload(&mut self) -> impl std::future::Future<Output = Result<(), AppError>> {
+    fn reload(&mut self) -> impl std::future::Future<Output = Result<(), ServiceAppError>> {
         async {
             if let Some(document_id) = self.get_id() {
                 let query = doc! {"_id": document_id};
@@ -378,17 +385,17 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
                         *self = document;
                         Ok(())
                     }
-                    None => Err(AppError::DoesNotExist(anyhow!(format!(
+                    None => Err(ServiceAppError::EntityDoesNotExist(format!(
                         "Document with id {} not found in collection {}",
                         document_id,
                         Self::collection_name()
-                    )))),
+                    ))),
                 }
             } else {
-                Err(AppError::DoesNotExist(anyhow!(format!(
+                Err(ServiceAppError::EntityDoesNotExist(format!(
                 "Something went wrong when reloading collection {} because there is not ObjectId",
                 Self::collection_name()
-            ))))
+            )))
             }
         }
     }
@@ -400,7 +407,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn save(
         &mut self,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> impl std::future::Future<Output = Result<String, AppError>> + Send
+    ) -> impl std::future::Future<Output = Result<String, ServiceAppError>> + Send
     where
         Self: Sized + Serialize + Send + Clone,
     {
@@ -442,7 +449,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn delete(
         &self,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send
+    ) -> impl std::future::Future<Output = Result<(), ServiceAppError>> + Send
     where
         Self: Sized + Serialize + Send,
     {
@@ -458,25 +465,25 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
                     if result.deleted_count >= 1 {
                         Ok(())
                     } else {
-                        Err(AppError::InternalServerError(anyhow!(format!(
+                        Err(ServiceAppError::DatabaseError(format!(
                         "Something went wrong when deleting document with id {} for collection {}",
                         document_id,
                         Self::collection_name()
-                    ))))
+                    )))
                     }
                 }
             } else {
-                Err(AppError::InternalServerError(anyhow!(format!(
+                Err(ServiceAppError::DatabaseError(format!(
                 "Something went wrong when deleting collection {} because there is not ObjectId",
                 Self::collection_name()
-            ))))
+            )))
             }
         }
     }
 
     fn find_one(
         query: Document,
-    ) -> impl std::future::Future<Output = Result<Option<Self>, AppError>> + Send {
+    ) -> impl std::future::Future<Output = Result<Option<Self>, ServiceAppError>> + Send {
         async {
             let db_service = get_database_service().await;
             let collection = db_service.db.collection::<Self>(Self::collection_name());
@@ -487,7 +494,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
 
     fn find_many(
         query: Document,
-    ) -> impl std::future::Future<Output = Result<Vec<Self>, AppError>> + Send {
+    ) -> impl std::future::Future<Output = Result<Vec<Self>, ServiceAppError>> + Send {
         async {
             let db_service = get_database_service().await;
             let collection = db_service.db.collection::<Self>(Self::collection_name());
@@ -498,7 +505,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
 
     fn count_documents(
         query: Document,
-    ) -> impl std::future::Future<Output = Result<u64, AppError>> + Send {
+    ) -> impl std::future::Future<Output = Result<u64, ServiceAppError>> + Send {
         async {
             let db_service = get_database_service().await;
             let collection = db_service.db.collection::<Self>(Self::collection_name());
@@ -510,7 +517,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn find_one_projection<P>(
         query: Document,
         projection: Document,
-    ) -> impl std::future::Future<Output = Result<Option<P>, AppError>> + Send
+    ) -> impl std::future::Future<Output = Result<Option<P>, ServiceAppError>> + Send
     where
         P: Send + Sync + Serialize + DeserializeOwned,
     {
@@ -530,7 +537,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn find_many_projection<P>(
         query: Document,
         projection: Document,
-    ) -> impl std::future::Future<Output = Result<Vec<P>, AppError>> + Send
+    ) -> impl std::future::Future<Output = Result<Vec<P>, ServiceAppError>> + Send
     where
         P: Send + Sync + Serialize + DeserializeOwned,
     {
@@ -553,7 +560,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
         query: Document,
         update: Document,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send {
+    ) -> impl std::future::Future<Output = Result<(), ServiceAppError>> + Send {
         async {
             if let Some(transaction) = transaction {
                 transaction.update_one::<Self>(query, update).await
@@ -564,11 +571,11 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
                 if result.matched_count == result.modified_count {
                     Ok(())
                 } else {
-                    Err(AppError::InternalServerError(anyhow!(format!(
+                    Err(ServiceAppError::DatabaseError(format!(
                     "Something went wrong when updating document with filter {} for collection {}",
                     query,
                     Self::collection_name()
-                ))))
+                )))
                 }
             }
         }
@@ -578,7 +585,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
         query: Document,
         update: Document,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send {
+    ) -> impl std::future::Future<Output = Result<(), ServiceAppError>> + Send {
         async {
             if let Some(transaction) = transaction {
                 transaction.update_many::<Self>(query, update).await
@@ -589,11 +596,11 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
                 if result.matched_count == result.modified_count {
                     Ok(())
                 } else {
-                    Err(AppError::InternalServerError(anyhow!(format!(
+                    Err(ServiceAppError::DatabaseError(format!(
                     "Something went wrong when updating documents with filter {} for collection {}",
                     query,
                     Self::collection_name()
-                ))))
+                )))
                 }
             }
         }
@@ -602,7 +609,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn delete_many(
         query: Document,
         transaction: Option<&mut DatabaseTransaction>,
-    ) -> impl std::future::Future<Output = Result<(), AppError>> + Send {
+    ) -> impl std::future::Future<Output = Result<(), ServiceAppError>> + Send {
         async {
             if let Some(transaction) = transaction {
                 transaction.delete_many::<Self>(query).await
@@ -613,11 +620,11 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
                 if result.deleted_count >= 1 {
                     Ok(())
                 } else {
-                    Err(AppError::InternalServerError(anyhow!(format!(
+                    Err(ServiceAppError::DatabaseError(format!(
                     "Something went wrong when deleting documents with query {} for collection {}",
                     query,
                     Self::collection_name()
-                ))))
+                )))
                 }
             }
         }
@@ -625,7 +632,7 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
 
     fn aggregate(
         pipeline: Vec<Document>,
-    ) -> impl std::future::Future<Output = Result<Vec<Document>, AppError>> + Send
+    ) -> impl std::future::Future<Output = Result<Vec<Document>, ServiceAppError>> + Send
 where {
         async {
             let db_service = get_database_service().await;

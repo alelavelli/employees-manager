@@ -19,10 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{AppError, AuthError},
     model::db_entities::User,
-    service::{
-        db::{get_database_service, DatabaseDocument},
-        environment::ENVIRONMENT,
-    },
+    service::{db::DatabaseDocument, environment::ENVIRONMENT},
     DocumentId,
 };
 
@@ -103,10 +100,9 @@ where
             .await
             .map_err(|_| AuthError::InvalidToken)?;
 
-        let db = &get_database_service().await.db;
-        let collection = db.collection::<User>(User::collection_name());
-        let filter = doc! { "api_key": api_key.key() };
-        let query_result = collection.find_one(filter).await?;
+        let query_result = User::find_one(doc! { "api_key": api_key.key() })
+            .await
+            .map_err(|_| AppError::AuthorizationError(AuthError::InvalidApiKey))?;
         if let Some(user_document) = query_result {
             let auth_data = APIKeyAuthClaim {
                 user_id: user_document

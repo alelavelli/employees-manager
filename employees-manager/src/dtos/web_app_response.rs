@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::{
     enums::{CompanyRole, NotificationType},
-    error::AppError,
+    error::ServiceAppError,
     model::{db_entities, internal},
 };
 
@@ -84,7 +84,7 @@ pub struct User {
 }
 
 impl TryFrom<db_entities::User> for User {
-    type Error = AppError;
+    type Error = ServiceAppError;
 
     fn try_from(value: db_entities::User) -> Result<Self, Self::Error> {
         if let Some(id) = value.id {
@@ -93,7 +93,7 @@ impl TryFrom<db_entities::User> for User {
                 username: value.username,
             })
         } else {
-            Err(AppError::MissingAttribute(
+            Err(ServiceAppError::ResponseBuildError(
                 "Document Id should exist for User".into(),
             ))
         }
@@ -113,7 +113,7 @@ pub struct AuthUserData {
 }
 
 impl TryFrom<db_entities::User> for AuthUserData {
-    type Error = AppError;
+    type Error = ServiceAppError;
 
     fn try_from(value: db_entities::User) -> Result<Self, Self::Error> {
         if let Some(id) = value.id {
@@ -127,7 +127,7 @@ impl TryFrom<db_entities::User> for AuthUserData {
                 active: value.active,
             })
         } else {
-            Err(AppError::MissingAttribute(
+            Err(ServiceAppError::ResponseBuildError(
                 "Document Id should exist for User".into(),
             ))
         }
@@ -143,7 +143,7 @@ pub struct AppNotification {
 }
 
 impl TryFrom<db_entities::AppNotification> for AppNotification {
-    type Error = AppError;
+    type Error = ServiceAppError;
 
     fn try_from(value: db_entities::AppNotification) -> Result<Self, Self::Error> {
         if let Some(id) = value.id {
@@ -153,7 +153,7 @@ impl TryFrom<db_entities::AppNotification> for AppNotification {
                 message: value.message,
             })
         } else {
-            Err(AppError::MissingAttribute(
+            Err(ServiceAppError::ResponseBuildError(
                 "Document Id should exist for User".into(),
             ))
         }
@@ -248,7 +248,7 @@ pub struct CompanyProjectInfo {
 }
 
 impl TryFrom<db_entities::CompanyProject> for CompanyProjectInfo {
-    type Error = AppError;
+    type Error = ServiceAppError;
 
     fn try_from(value: db_entities::CompanyProject) -> Result<Self, Self::Error> {
         if let Some(id) = value.id {
@@ -259,7 +259,7 @@ impl TryFrom<db_entities::CompanyProject> for CompanyProjectInfo {
                 active: value.active,
             })
         } else {
-            Err(AppError::MissingAttribute(
+            Err(ServiceAppError::ResponseBuildError(
                 "Document Id should exist for User".into(),
             ))
         }
