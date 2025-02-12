@@ -8,8 +8,8 @@ rust-version.workspace = true
 
 [dependencies]
 # error handling
-anyhow = "1.0"
-thiserror = "1.0"
+# anyhow = "1.0"
+# thiserror = "1.0"
 # logging
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3", features = ["std", "env-filter"] }
