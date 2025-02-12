@@ -66,14 +66,6 @@ macro_rules! database_document {
     };
 }
 
-database_document!(MyDoc, &"my_doc", name: String, age: u32);
-
-pub fn prova() {
-    let mut doc = MyDoc::new("Ale".into(), 12);
-    doc.set_age(2);
-    println!("Name: {}, Age: {}", doc.name(), doc.age())
-}
-
 database_document!(
     #[doc = "User inside the Platform"]
     #[doc = ""]
