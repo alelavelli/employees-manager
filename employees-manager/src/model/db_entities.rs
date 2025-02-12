@@ -1,7 +1,7 @@
-use std::str::FromStr;
-
 use mongodb::bson::oid::ObjectId;
+use paste::paste;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 use crate::{
     enums::{CompanyRole, EmployeeRequest, NotificationType},
@@ -10,274 +10,156 @@ use crate::{
     DocumentId,
 };
 
-/// Struct representing user model
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct User {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub email: String,
-    pub username: String,
-    pub password_hash: String,
-    pub name: String,
-    pub surname: String,
-    pub api_key: Option<String>,
-    /// if the user is global platform administrator
-    pub platform_admin: bool,
-    /// if the user is active and can operate on application
-    pub active: bool,
-}
-
-/// Assignment of a user to a company
-///
-/// A User has a CompanyRole in the Company and a Job Title,
-/// the user has a list of projects that he is assigned to that
-/// he can select in the timesheet
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct UserCompanyAssignment {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub user_id: DocumentId,
-    pub company_id: DocumentId,
-    pub role: CompanyRole,
-    pub job_title: String,
-    pub project_ids: Vec<DocumentId>,
-}
-
-/// Management Team is a list of Company Employees that
-/// has special permissions
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CompanyManagementTeam {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub company_id: DocumentId,
-    pub user_ids: Vec<DocumentId>,
-}
-
-/// Struct representing a company that has some employees
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Company {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub name: String,
-    /// If the company is active, it is automatically deactivated when the
-    /// owner is deactivated
-    pub active: bool,
-}
-
-/// Employee request in a company
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CompanyEmployeeRequest {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub user_id: DocumentId,
-    pub company_id: DocumentId,
-    pub request: EmployeeRequest,
-}
-
-/// Generic notification for the user in the app
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AppNotification {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub user_id: DocumentId,
-    pub notification_type: NotificationType,
-    pub message: String,
-    pub read: bool,
-    /// key of another entity that is linked to this notification
-    /// For InviteAddCompany notification type it is InviteAddCompany document
-    pub entity_id: Option<DocumentId>,
-}
-
-/// Invite for the user in the app
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct InviteAddCompany {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub inviting_user_id: DocumentId,
-    pub invited_user_id: DocumentId,
-    pub company_id: DocumentId,
-    pub company_role: CompanyRole,
-    pub job_title: String,
-    pub project_ids: Vec<DocumentId>,
-    pub answer: Option<bool>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CompanyProject {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<DocumentId>,
-    pub name: String,
-    pub code: String,
-    pub company_id: DocumentId,
-    pub active: bool,
-}
-
-// Impl blocks
-
-impl DatabaseDocument for User {
-    fn collection_name() -> &'static str {
-        "user"
-    }
-
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
-
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
+macro_rules! database_document {
+    ( $(#[doc = $doc:expr])* $struct_name:ident, $collection_name:expr, $ ( $field_name:ident : $field_type:ty ),* ) => {
+        $( #[doc = $doc] )*
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct $struct_name {
+            #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+            id: Option<DocumentId>,
+            $ ($field_name: $field_type, )*
         }
-    }
-}
 
-impl DatabaseDocument for UserCompanyAssignment {
-    fn collection_name() -> &'static str {
-        "user_company_assignment"
-    }
+        impl $struct_name {
+            pub fn new($($field_name: $field_type),*) -> Self {
+                Self { id: None, $($field_name),*}
+            }
 
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
+            paste!{
+                $(
+                    pub fn $field_name(&self) -> &$field_type {
+                        &self.$field_name
+                    }
 
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
+                    pub fn [<$field_name _mut>](&mut self) -> &mut $field_type {
+                        &mut self.$field_name
+                    }
+
+                    pub fn [<set_ $field_name>](&mut self, value: $field_type) {
+                        self.$field_name = value;
+                    }
+                )*
+            }
         }
-    }
-}
 
-impl DatabaseDocument for CompanyManagementTeam {
-    fn collection_name() -> &'static str {
-        "company_management_team"
-    }
 
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
+        impl DatabaseDocument for $struct_name {
+            fn collection_name() -> &'static str {
+                $collection_name
+            }
 
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
+            fn get_id(&self) -> Option<&DocumentId> {
+                self.id.as_ref()
+            }
+
+            fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
+                if self.id.is_some() {
+                    Err(DatabaseError::DocumentHasAlreadyAnId)
+                } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
+                    self.id = Some(parsed_id);
+                    Ok(())
+                } else {
+                    Err(DatabaseError::InvalidObjectId)
+                }
+            }
         }
-    }
+    };
 }
 
-impl DatabaseDocument for Company {
-    fn collection_name() -> &'static str {
-        "company"
-    }
+database_document!(MyDoc, &"my_doc", name: String, age: u32);
 
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
-
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
-        }
-    }
+pub fn prova() {
+    let mut doc = MyDoc::new("Ale".into(), 12);
+    doc.set_age(2);
+    println!("Name: {}, Age: {}", doc.name(), doc.age())
 }
 
-impl DatabaseDocument for CompanyEmployeeRequest {
-    fn collection_name() -> &'static str {
-        "company_employee_request"
-    }
+database_document!(
+    #[doc = "User inside the Platform"]
+    #[doc = ""]
+    #[doc = "It must have unique username and email"]
+    User,
+    "user",
+    email: String,
+    username: String,
+    password_hash: String,
+    name: String,
+    surname: String,
+    api_key: Option<String>,
+    platform_admin: bool,
+    active: bool
+);
 
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
+database_document!(
+    #[doc = "Assignment of a user to a company"]
+    #[doc = ""]
+    #[doc = "A User has a CompanyRole in the Company and a Job Title"]
+    #[doc = "the user has a list of projects that he is assigned to that"]
+    #[doc = "he can select in the timesheet"]
+    UserCompanyAssignment,
+    "user_company_assignment",
+    user_id: DocumentId,
+    company_id: DocumentId,
+    role: CompanyRole,
+    job_title: String,
+    project_ids: Vec<DocumentId>
+);
 
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
-        }
-    }
-}
+database_document!(
+    #[doc = "Management Team is a list of Company Employees that has special permissions"]
+    CompanyManagementTeam,
+    "company_management_team",
+    company_id: DocumentId,
+    user_ids: Vec<DocumentId>
+);
 
-impl DatabaseDocument for AppNotification {
-    fn collection_name() -> &'static str {
-        "app_notification"
-    }
+database_document!(
+    #[doc = "Struct representing a company that has some employees"]
+    Company,
+    "company",
+    name: String,
+    active: bool
+);
 
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
+database_document!(
+    #[doc = "Employee request in a company"]
+    CompanyEmployeeRequest,
+    "company_employee_request",
+    user_id: DocumentId,
+    company_id: DocumentId,
+    request: EmployeeRequest
+);
 
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
-        }
-    }
-}
+database_document!(
+    #[doc = "Generic notification for the user in the app"]
+    AppNotification,
+    "app_notification",
+    user_id: DocumentId,
+    notification_type: NotificationType,
+    message: String,
+    read: bool,
+    entity_id: Option<DocumentId>
+);
 
-impl DatabaseDocument for InviteAddCompany {
-    fn collection_name() -> &'static str {
-        "invite_add_company"
-    }
+database_document!(
+    #[doc = "Invite for the user in the app"]
+    InviteAddCompany,
+    "invite_add_company",
+    inviting_user_id: DocumentId,
+    invited_user_id: DocumentId,
+    company_id: DocumentId,
+    company_role: CompanyRole,
+    job_title: String,
+    project_ids: Vec<DocumentId>,
+    answer: Option<bool>
+);
 
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
-
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
-        }
-    }
-}
-
-impl DatabaseDocument for CompanyProject {
-    fn collection_name() -> &'static str {
-        "company_project"
-    }
-
-    fn get_id(&self) -> Option<&DocumentId> {
-        self.id.as_ref()
-    }
-
-    fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError> {
-        if self.id.is_some() {
-            Err(DatabaseError::DocumentHasAlreadyAnId)
-        } else if let Ok(parsed_id) = ObjectId::from_str(document_id) {
-            self.id = Some(parsed_id);
-            Ok(())
-        } else {
-            Err(DatabaseError::InvalidObjectId)
-        }
-    }
-}
+database_document!(
+    #[doc = "Project inside the company"]
+    CompanyProject,
+    "company_project",
+    name: String,
+    code: String,
+    company_id: DocumentId,
+    active: bool
+);
