@@ -19,8 +19,8 @@ pub async fn authenticate_user(
 
     let claims = JWTAuthClaim {
         exp: 2000000000,
-        user_id: user_model.id.expect("User id must be not missing"),
-        username: user_model.username,
+        user_id: *user_model.get_id().expect("User id must be not missing"),
+        username: user_model.username().clone(),
     };
     let token = claims.build_token(&Header::default())?;
 
@@ -70,7 +70,7 @@ pub async fn set_notification_as_read(
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
     {
-        if notification.user_id != *auth_info.user_id() {
+        if *notification.user_id() != *auth_info.user_id() {
             Err(AppError::DoesNotExist(format!(
                 "Notification with id {} does not exist",
                 notification_id
@@ -98,12 +98,12 @@ pub async fn answer_to_invite_add_company(
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
     {
-        if notification.user_id != *auth_info.user_id() {
+        if *notification.user_id() != *auth_info.user_id() {
             Err(AppError::DoesNotExist(format!(
                 "Notification with id {} does not exist",
                 notification_id
             )))
-        } else if notification.notification_type != NotificationType::InviteAddCompany {
+        } else if *notification.notification_type() != NotificationType::InviteAddCompany {
             Err(AppError::DoesNotExist(format!(
                 "Notification with id {} is not of type Invite Add Company",
                 notification_id
@@ -227,8 +227,8 @@ pub async fn get_companies_of_user(
         to_return.push(
             web_app_response::CompanyInfoBuilder::default()
                 .id(id.to_string())
-                .name(doc.name)
-                .active(doc.active)
+                .name(doc.name().clone())
+                .active(*doc.active())
                 .total_users(
                     company::get_users_in_company(&id)
                         .await
@@ -236,7 +236,7 @@ pub async fn get_companies_of_user(
                         .len() as u16,
                 )
                 .role(
-                    company::get_user_company_role(auth_info.user_id(), &id)
+                    *company::get_user_company_role(auth_info.user_id(), &id)
                         .await
                         .map_err(|e| match e {
                             ServiceAppError::EntityDoesNotExist(message) => {
@@ -244,7 +244,7 @@ pub async fn get_companies_of_user(
                             }
                             _ => AppError::InternalServerError(e.to_string()),
                         })?
-                        .role,
+                        .role(),
                 )
                 .build()
                 .map_err(|_| {

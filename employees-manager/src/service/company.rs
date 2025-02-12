@@ -68,11 +68,7 @@ pub async fn create_company(
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
 
-    let mut company_model = db_entities::Company {
-        id: None,
-        name: name.trim().into(),
-        active: true,
-    };
+    let mut company_model = db_entities::Company::new(name.trim().into(), true);
     let company_id = company_model.save(Some(&mut transaction)).await?;
     let company_id_object_id = ObjectId::from_str(&company_id);
     if company_id_object_id.is_err() {
@@ -82,22 +78,18 @@ pub async fn create_company(
         ));
     }
     let company_id_object_id = company_id_object_id.unwrap();
-    let mut user_company_assignment = db_entities::UserCompanyAssignment {
-        id: None,
-        user_id: *user_id,
-        company_id: company_id_object_id,
-        role: CompanyRole::Owner,
+    let mut user_company_assignment = db_entities::UserCompanyAssignment::new(
+        *user_id,
+        company_id_object_id,
+        CompanyRole::Owner,
         job_title,
-        project_ids: vec![],
-    };
+        vec![],
+    );
     // If for some reasons we fail to dump the assignment we need to rollback
     user_company_assignment.save(Some(&mut transaction)).await?;
 
-    let mut company_management_team = db_entities::CompanyManagementTeam {
-        id: None,
-        company_id: company_id_object_id,
-        user_ids: vec![],
-    };
+    let mut company_management_team =
+        db_entities::CompanyManagementTeam::new(company_id_object_id, vec![]);
     company_management_team.save(Some(&mut transaction)).await?;
 
     transaction.commit_transaction().await?;
@@ -117,7 +109,7 @@ pub async fn get_user_companies(
 
     let mut company_ids = vec![];
     for doc in query_result {
-        company_ids.push(Bson::ObjectId(doc.company_id));
+        company_ids.push(Bson::ObjectId(*doc.company_id()));
     }
     if company_ids.is_empty() {
         return Ok(vec![]);
@@ -164,16 +156,15 @@ pub async fn add_user_to_company(
     let query = doc! { "user_id": user_id, "company_id": company_id};
     let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
     if let Some(assignment) = query_result {
-        Err(ServiceAppError::InvalidRequest(format!("Failed to add user {user_id} to company {company_id} with role {role} because it is already in the Company with role {}", assignment.role)))
+        Err(ServiceAppError::InvalidRequest(format!("Failed to add user {user_id} to company {company_id} with role {role} because it is already in the Company with role {}", assignment.role())))
     } else {
-        let mut new_assignment = db_entities::UserCompanyAssignment {
-            id: None,
+        let mut new_assignment = db_entities::UserCompanyAssignment::new(
             user_id,
             company_id,
             role,
             job_title,
             project_ids,
-        };
+        );
         new_assignment.save(None).await?;
         Ok(())
     }
@@ -201,8 +192,8 @@ pub async fn remove_user_from_company(
     if let Some(management_team) =
         db_entities::CompanyManagementTeam::find_one(doc! { "company_id": company_id}).await?
     {
-        if management_team.user_ids.contains(user_id) {
-            let mut new_user_ids = management_team.user_ids.clone();
+        if management_team.user_ids().contains(user_id) {
+            let mut new_user_ids = management_team.user_ids().clone();
             new_user_ids.retain(|id| id != user_id);
             db_entities::CompanyManagementTeam::update_one(
                 doc! { "_id": management_team.get_id().expect("Expecting id from document retrieved from db")},
@@ -254,7 +245,7 @@ pub async fn change_user_company_manager(
 
     if let Some(mut management_team) = query_result {
         let mut user_index = None;
-        for (i, i_user_id) in management_team.user_ids.iter().enumerate() {
+        for (i, i_user_id) in management_team.user_ids().iter().enumerate() {
             if i_user_id == user_id {
                 user_index = Some(i);
                 break;
@@ -263,11 +254,11 @@ pub async fn change_user_company_manager(
         let is_user_a_manager = user_index.is_some();
         if is_user_a_manager & !manager {
             // we remove the user to the management team
-            management_team.user_ids.remove(user_index.unwrap());
+            management_team.user_ids_mut().remove(user_index.unwrap());
             management_team.save(None).await?;
         } else if !is_user_a_manager & manager {
             // we add the user to the management team
-            management_team.user_ids.push(*user_id);
+            management_team.user_ids_mut().push(*user_id);
             management_team.save(None).await?;
         }
         // otherwise the user is either not a manager and we want to remove him
@@ -305,7 +296,7 @@ pub async fn get_users_in_company(
         db_entities::UserCompanyAssignment::find_many(doc! { "company_id": company_id })
             .await?
             .into_iter()
-            .map(|doc| (doc.user_id, doc))
+            .map(|doc| (*doc.user_id(), doc))
             .collect();
 
     let management_team =
@@ -326,14 +317,14 @@ pub async fn get_users_in_company(
             to_return.push(UserInCompanyInfo {
                 user_id: *user_id,
                 company_id: *company_id,
-                role: user_assignment.role,
-                username: user.username.clone(),
-                surname: user.surname.clone(),
-                name: user.name.clone(),
-                job_title: user_assignment.job_title.clone(),
+                role: *user_assignment.role(),
+                username: user.username().clone(),
+                surname: user.surname().clone(),
+                name: user.name().clone(),
+                job_title: user_assignment.job_title().clone(),
                 management_team: management_team
                     .as_ref()
-                    .is_some_and(|doc| doc.user_ids.contains(user_id)),
+                    .is_some_and(|doc| doc.user_ids().contains(user_id)),
             });
         }
     }
@@ -375,28 +366,26 @@ pub async fn invite_user(
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
 
-    let mut invite = db_entities::InviteAddCompany {
-        id: None,
+    let mut invite = db_entities::InviteAddCompany::new(
         inviting_user_id,
         invited_user_id,
         company_id,
-        company_role: role,
+        role,
         job_title,
-        answer: None,
         project_ids,
-    };
+        None,
+    );
     invite.save(Some(&mut transaction)).await?;
 
     let query_result = db_entities::Company::find_one(doc! {"_id": company_id}).await;
     if let Ok(Some(company)) = query_result {
-        let mut notification = db_entities::AppNotification {
-            id: None,
-            user_id: invited_user_id,
-            notification_type: NotificationType::InviteAddCompany,
-            message: format!("You has been invited to Company {}", company.name),
-            read: false,
-            entity_id: invite.get_id().cloned(),
-        };
+        let mut notification = db_entities::AppNotification::new(
+            invited_user_id,
+            NotificationType::InviteAddCompany,
+            format!("You has been invited to Company {}", company.name()),
+            false,
+            invite.get_id().cloned(),
+        );
         notification.save(Some(&mut transaction)).await?;
 
         transaction.commit_transaction().await?;
@@ -438,7 +427,7 @@ pub async fn get_pending_invited_users(
         username: String,
     }
     let usernames = db_entities::User::find_many_projection::<QueryResult>(
-        doc! {"_id": {"$in": pending_invitations.iter().map(|doc| &doc.invited_user_id).collect::<Vec<&DocumentId>>()}},
+        doc! {"_id": {"$in": pending_invitations.iter().map(|doc| doc.invited_user_id()).collect::<Vec<&DocumentId>>()}},
         doc! {
             "username": 1,
             "_id": 1
@@ -449,7 +438,7 @@ pub async fn get_pending_invited_users(
     let mut to_return = vec![];
 
     for invitation in pending_invitations {
-        if let Some(username) = usernames.get(&invitation.invited_user_id) {
+        if let Some(username) = usernames.get(invitation.invited_user_id()) {
             let notification_id = *notifications_map
                 .get(
                     invitation
@@ -459,16 +448,16 @@ pub async fn get_pending_invited_users(
                 .expect("Expecting object id since it is read above");
             to_return.push(InvitedUserInCompanyInfo {
                 notification_id: notification_id.to_hex(),
-                user_id: invitation.invited_user_id.to_hex(),
+                user_id: invitation.invited_user_id().to_hex(),
                 username: username.clone(),
-                role: invitation.company_role,
-                job_title: invitation.job_title,
-                company_id: invitation.company_id.to_hex(),
+                role: *invitation.company_role(),
+                job_title: invitation.job_title().clone(),
+                company_id: invitation.company_id().to_hex(),
             });
         } else {
             return Err(ServiceAppError::InternalServerError(format!(
                 "User {} should exist",
-                invitation.invited_user_id.to_hex()
+                invitation.invited_user_id().to_hex()
             )));
         }
     }
@@ -579,7 +568,7 @@ pub async fn create_project(
 
     // project name and code must be unique
     for project in company_projects {
-        if project.name == name || project.code == code {
+        if *project.name() == name || *project.code() == code {
             return Err(ServiceAppError::InvalidRequest(format!(
                 "Project name and code must be unique got name: {} and code: {}",
                 name, code
@@ -587,13 +576,7 @@ pub async fn create_project(
         }
     }
 
-    let mut new_project = db_entities::CompanyProject {
-        id: None,
-        company_id,
-        name,
-        code,
-        active: true,
-    };
+    let mut new_project = db_entities::CompanyProject::new(name, code, company_id, true);
 
     new_project.save(None).await
 }
@@ -617,7 +600,7 @@ pub async fn edit_project(
 
         // project name and code must be unique
         for project in company_projects {
-            if project.name == name || project.code == code {
+            if *project.name() == name || *project.code() == code {
                 return Err(ServiceAppError::InvalidRequest(format!(
                     "Project name and code must be unique got name: {} and code: {}",
                     name, code
@@ -625,9 +608,9 @@ pub async fn edit_project(
             }
         }
 
-        company_project.name = name;
-        company_project.code = code;
-        company_project.active = active;
+        company_project.set_name(name);
+        company_project.set_code(code);
+        company_project.set_active(active);
         company_project.save(None).await
     } else {
         Err(ServiceAppError::EntityDoesNotExist(format!(
@@ -696,14 +679,14 @@ pub async fn edit_company_project_allocations(
         let mut handled_users = vec![];
 
         for assignment in assignments.iter_mut() {
-            if !user_ids.contains(&assignment.user_id) {
-                assignment.project_ids.retain(|id| id != &project_id);
+            if !user_ids.contains(assignment.user_id()) {
+                assignment.project_ids_mut().retain(|id| id != &project_id);
                 assignment.save(Some(&mut transaction)).await?;
             } else {
                 // we store the users in the list that are already in the project
                 // to ignore them in the next step in which we add the project id
                 // to the user assignments
-                handled_users.push(assignment.user_id);
+                handled_users.push(assignment.user_id());
             }
         }
 
@@ -711,7 +694,7 @@ pub async fn edit_company_project_allocations(
         // add the project id to the project_ids list
         let remaining_users: Vec<ObjectId> = user_ids
             .into_iter()
-            .filter(|user| !handled_users.contains(user))
+            .filter(|user| !handled_users.contains(&user))
             .collect();
         let mut new_assignments = db_entities::UserCompanyAssignment::find_many(doc! {
             "company_id": company_id,
@@ -720,7 +703,7 @@ pub async fn edit_company_project_allocations(
         .await?;
 
         for assignment in new_assignments.iter_mut() {
-            assignment.project_ids.push(project_id);
+            assignment.project_ids_mut().push(project_id);
             assignment.save(Some(&mut transaction)).await?;
         }
 
@@ -745,7 +728,7 @@ pub async fn edit_company_project_allocations_for_user(
     )
     .await?;
     if let Some(mut assignment) = assignment {
-        assignment.project_ids = project_ids;
+        assignment.set_project_ids(project_ids);
         assignment.save(None).await?;
         Ok(())
     } else {
@@ -775,17 +758,16 @@ mod tests {
 
     #[tokio::test]
     async fn create_company_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
@@ -800,7 +782,7 @@ mod tests {
         assert!(assignment.is_some());
 
         let companies = db_entities::Company::find_many(doc! {}).await.unwrap();
-        assert!(companies.get(0).unwrap().name == name);
+        assert!(*companies.get(0).unwrap().name() == name);
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
@@ -808,63 +790,55 @@ mod tests {
 
     #[tokio::test]
     async fn get_user_companies_test() {
-        let mut company = db_entities::Company {
-            id: None,
-            name: "My Company".into(),
-            active: true,
-        };
+        let mut company = db_entities::Company::new("My Company".into(), true);
         let company_id = ObjectId::from_str(&company.save(None).await.unwrap()).unwrap();
-        let mut first_user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut first_user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
-        let mut first_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            user_id: first_user_id.clone(),
+        let mut first_assignment = db_entities::UserCompanyAssignment::new(
+            first_user_id.clone(),
             company_id,
-            role: crate::enums::CompanyRole::Owner,
-            job_title: "CEO".into(),
-            project_ids: vec![],
-        };
+            crate::enums::CompanyRole::Owner,
+            "CEO".into(),
+            vec![],
+        );
         first_assignment.save(None).await.unwrap();
-        let mut second_user = db_entities::User {
-            username: "riverpond".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut second_user = db_entities::User::new(
+            "river.pond@mail.com".into(),
+            "riverpond".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         let second_user_id = ObjectId::from_str(&second_user.save(None).await.unwrap()).unwrap();
-        let mut second_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            user_id: second_user_id.clone(),
+        let mut second_assignment = db_entities::UserCompanyAssignment::new(
+            second_user_id.clone(),
             company_id,
-            role: crate::enums::CompanyRole::User,
-            job_title: "Developer".into(),
-            project_ids: vec![],
-        };
+            crate::enums::CompanyRole::User,
+            "Developer".into(),
+            vec![],
+        );
         second_assignment.save(None).await.unwrap();
 
         let result = get_user_companies(&first_user_id).await;
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().first().unwrap().name, company.name);
+        assert_eq!(result.unwrap().first().unwrap().name(), company.name());
 
         let result = get_user_company(&second_user_id, &company_id).await;
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().name, company.name);
+        assert_eq!(result.unwrap().name(), company.name());
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
@@ -872,23 +846,18 @@ mod tests {
 
     #[tokio::test]
     async fn add_user_to_company_test() {
-        let mut company = db_entities::Company {
-            id: None,
-            name: "My Company".into(),
-            active: true,
-        };
+        let mut company = db_entities::Company::new("My Company".into(), true);
         let company_id = ObjectId::from_str(&company.save(None).await.unwrap()).unwrap();
-        let mut first_user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut first_user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
 
         let result = add_user_to_company(
@@ -906,8 +875,8 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(assignment.company_id, company_id);
-        assert_eq!(assignment.user_id, first_user_id);
+        assert_eq!(*assignment.company_id(), company_id);
+        assert_eq!(*assignment.user_id(), first_user_id);
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
@@ -915,32 +884,26 @@ mod tests {
 
     #[tokio::test]
     async fn remove_user_from_company_test() {
-        let mut company = db_entities::Company {
-            id: None,
-            name: "My Company".into(),
-            active: true,
-        };
+        let mut company = db_entities::Company::new("My Company".into(), true);
         let company_id = ObjectId::from_str(&company.save(None).await.unwrap()).unwrap();
-        let mut first_user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut first_user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
-        let mut first_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            user_id: first_user_id.clone(),
+        let mut first_assignment = db_entities::UserCompanyAssignment::new(
+            first_user_id.clone(),
             company_id,
-            role: crate::enums::CompanyRole::Owner,
-            job_title: "CEO".into(),
-            project_ids: vec![],
-        };
+            crate::enums::CompanyRole::Owner,
+            "CEO".into(),
+            vec![],
+        );
         first_assignment.save(None).await.unwrap();
 
         let result = remove_user_from_company(&first_user_id, &company_id).await;
@@ -957,32 +920,26 @@ mod tests {
 
     #[tokio::test]
     async fn update_user_in_company_test() {
-        let mut company = db_entities::Company {
-            id: None,
-            name: "My Company".into(),
-            active: true,
-        };
+        let mut company = db_entities::Company::new("My Company".into(), true);
         let company_id = ObjectId::from_str(&company.save(None).await.unwrap()).unwrap();
-        let mut first_user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut first_user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
-        let mut first_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            user_id: first_user_id.clone(),
+        let mut first_assignment = db_entities::UserCompanyAssignment::new(
+            first_user_id.clone(),
             company_id,
-            role: crate::enums::CompanyRole::Owner,
-            job_title: "CEO".into(),
-            project_ids: vec![],
-        };
+            crate::enums::CompanyRole::User,
+            "CEO".into(),
+            vec![],
+        );
         first_assignment.save(None).await.unwrap();
 
         let new_job_title = "CIO".to_string();
@@ -1000,9 +957,9 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(assignment.company_id, company_id);
-        assert_eq!(assignment.user_id, first_user_id);
-        assert_eq!(assignment.job_title, new_job_title);
+        assert_eq!(*assignment.company_id(), company_id);
+        assert_eq!(*assignment.user_id(), first_user_id);
+        assert_eq!(*assignment.job_title(), new_job_title);
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());

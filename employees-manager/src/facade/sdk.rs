@@ -4,7 +4,7 @@ use crate::{
     auth::AuthInfo,
     dtos::{sdk_request, sdk_response},
     error::{AppError, ServiceAppError},
-    service::{access_control::AccessControl, user},
+    service::{access_control::AccessControl, db::DatabaseDocument, user},
     DocumentId,
 };
 
@@ -26,10 +26,10 @@ pub async fn get_user(
         _ => AppError::InternalServerError(e.to_string()),
     })?;
     Ok(sdk_response::User {
-        id: user_model
-            .id
+        id: *user_model
+            .get_id()
             .expect("field user_id should exist since the model comes from a db query"),
-        username: user_model.username,
+        username: user_model.username().clone(),
     })
 }
 

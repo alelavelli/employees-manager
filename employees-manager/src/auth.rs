@@ -105,8 +105,8 @@ where
             .map_err(|_| AppError::AuthorizationError(AuthError::InvalidApiKey))?;
         if let Some(user_document) = query_result {
             let auth_data = APIKeyAuthClaim {
-                user_id: user_document
-                    .id
+                user_id: *user_document
+                    .get_id()
                     .expect("User id must be not missing since we have an api key"),
                 key: api_key.key().into(),
             };

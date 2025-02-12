@@ -57,6 +57,8 @@ uuid = { version = "1.8.0", features = ["v4"] }
 bcrypt = "0.15.1"
 
 derive_builder = "0.20.2"
+# macro
+paste = "1.0.15"
 
 [dev-dependencies]
 #mockall = "0.12.1"
