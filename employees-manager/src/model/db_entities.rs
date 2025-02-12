@@ -10,6 +10,9 @@ use crate::{
     DocumentId,
 };
 
+/// The macro generates struct that implements DatabaseDocument trait
+///
+/// You need to provide struct level docstring, the name of the struct, the name of the mongodb collection and the fields with their type
 macro_rules! database_document {
     ( $(#[doc = $doc:expr])* $struct_name:ident, $collection_name:expr, $ ( $field_name:ident : $field_type:ty ),* ) => {
         $( #[doc = $doc] )*
@@ -21,20 +24,23 @@ macro_rules! database_document {
         }
 
         impl $struct_name {
+            #[allow(dead_code)]
+            #[allow(clippy::too_many_arguments)]
             pub fn new($($field_name: $field_type),*) -> Self {
                 Self { id: None, $($field_name),*}
             }
 
             paste!{
                 $(
+                    #[allow(dead_code)]
                     pub fn $field_name(&self) -> &$field_type {
                         &self.$field_name
                     }
-
+                    #[allow(dead_code)]
                     pub fn [<$field_name _mut>](&mut self) -> &mut $field_type {
                         &mut self.$field_name
                     }
-
+                    #[allow(dead_code)]
                     pub fn [<set_ $field_name>](&mut self, value: $field_type) {
                         self.$field_name = value;
                     }

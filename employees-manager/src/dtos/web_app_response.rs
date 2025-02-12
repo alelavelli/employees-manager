@@ -6,6 +6,7 @@ use crate::{
     enums::{CompanyRole, NotificationType},
     error::ServiceAppError,
     model::{db_entities, internal},
+    service::db::DatabaseDocument,
 };
 
 /// Authorization response for jwt token
@@ -87,10 +88,10 @@ impl TryFrom<db_entities::User> for User {
     type Error = ServiceAppError;
 
     fn try_from(value: db_entities::User) -> Result<Self, Self::Error> {
-        if let Some(id) = value.id {
+        if let Some(id) = value.get_id() {
             Ok(Self {
                 id: id.to_hex(),
-                username: value.username,
+                username: value.username().into(),
             })
         } else {
             Err(ServiceAppError::ResponseBuildError(
@@ -116,15 +117,15 @@ impl TryFrom<db_entities::User> for AuthUserData {
     type Error = ServiceAppError;
 
     fn try_from(value: db_entities::User) -> Result<Self, Self::Error> {
-        if let Some(id) = value.id {
+        if let Some(id) = value.get_id() {
             Ok(Self {
                 id: id.to_hex(),
-                username: value.username,
-                email: value.email,
-                name: value.name,
-                surname: value.surname,
-                platform_admin: value.platform_admin,
-                active: value.active,
+                username: value.username().into(),
+                email: value.email().into(),
+                name: value.name().into(),
+                surname: value.surname().into(),
+                platform_admin: *value.platform_admin(),
+                active: *value.active(),
             })
         } else {
             Err(ServiceAppError::ResponseBuildError(
@@ -146,11 +147,11 @@ impl TryFrom<db_entities::AppNotification> for AppNotification {
     type Error = ServiceAppError;
 
     fn try_from(value: db_entities::AppNotification) -> Result<Self, Self::Error> {
-        if let Some(id) = value.id {
+        if let Some(id) = value.get_id() {
             Ok(Self {
                 id: id.to_hex(),
-                notification_type: value.notification_type,
-                message: value.message,
+                notification_type: *value.notification_type(),
+                message: value.message().into(),
             })
         } else {
             Err(ServiceAppError::ResponseBuildError(
@@ -251,12 +252,12 @@ impl TryFrom<db_entities::CompanyProject> for CompanyProjectInfo {
     type Error = ServiceAppError;
 
     fn try_from(value: db_entities::CompanyProject) -> Result<Self, Self::Error> {
-        if let Some(id) = value.id {
+        if let Some(id) = value.get_id() {
             Ok(Self {
                 id: id.to_hex(),
-                name: value.name,
-                code: value.code,
-                active: value.active,
+                name: value.name().into(),
+                code: value.code().into(),
+                active: *value.active(),
             })
         } else {
             Err(ServiceAppError::ResponseBuildError(

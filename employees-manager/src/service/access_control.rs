@@ -20,7 +20,7 @@ impl<'a, T: AuthInfo> AccessControl<'a, T> {
             ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
             _ => AppError::InternalServerError(e.to_string()),
         })?;
-        if user.active {
+        if *user.active() {
             Ok(AccessControl { auth_info })
         } else {
             Err(AppError::AccessControlError(
@@ -38,7 +38,7 @@ impl<'a, T: AuthInfo> AccessControl<'a, T> {
                 ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
                 _ => AppError::InternalServerError(e.to_string()),
             })?;
-        if user.platform_admin {
+        if *user.platform_admin() {
             Ok(self)
         } else {
             Err(AppError::AccessControlError(
@@ -58,7 +58,7 @@ impl<'a, T: AuthInfo> AccessControl<'a, T> {
             .map_err(|_| {
                 AppError::AccessControlError("You are not allowed to do this operation".into())
             })?;
-        if assignment.role >= role {
+        if *assignment.role() >= role {
             Ok(self)
         } else {
             Err(AppError::AccessControlError(
@@ -78,25 +78,20 @@ mod tests {
 
     #[tokio::test]
     async fn has_company_role_or_higher_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: Some("api_key".into()),
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
-        let mut company = db_entities::Company {
-            id: None,
-            name: "Company".into(),
-            active: true,
-        };
+        let mut company = db_entities::Company::new("Company".into(), true);
         company.save(None).await.unwrap();
 
         for (role, expected) in vec![
@@ -104,14 +99,13 @@ mod tests {
             (crate::enums::CompanyRole::Admin, true),
             (crate::enums::CompanyRole::Owner, true),
         ] {
-            let mut company_assignment = db_entities::UserCompanyAssignment {
-                id: None,
-                user_id: user_id.clone(),
-                company_id: company.get_id().unwrap().clone(),
+            let mut company_assignment = db_entities::UserCompanyAssignment::new(
+                user_id.clone(),
+                company.get_id().unwrap().clone(),
                 role,
-                job_title: "CEO".into(),
-                project_ids: vec![],
-            };
+                "CEO".into(),
+                vec![],
+            );
             company_assignment.save(None).await.unwrap();
 
             let auth_info = AccessControl {

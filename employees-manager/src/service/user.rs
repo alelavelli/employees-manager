@@ -20,10 +20,10 @@ pub async fn login(username: &str, password: &str) -> Result<db_entities::User, 
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
     if let Some(user_document) = query_result {
-        if bcrypt::verify(password, &user_document.password_hash).map_err(|e| {
+        if bcrypt::verify(password, user_document.password_hash()).map_err(|e| {
             AppError::InternalServerError(format!("Error in password hash verification. Got {e}"))
         })? {
-            if user_document.active {
+            if *user_document.active() {
                 Ok(user_document)
             } else {
                 Err(AuthError::WrongCredentials)?
@@ -166,18 +166,17 @@ pub async fn create_user(
             )));
         }
     }
-    let mut user_model = db_entities::User {
-        id: None,
-        username: username.trim().into(),
-        password_hash: hash_password(&password)?,
-        api_key: None,
-        email: email.trim().into(),
-        name: name.trim().into(),
-        surname: surname.trim().into(),
-        // by default users are always not platform admin
-        platform_admin: false,
-        active: true,
-    };
+    let mut user_model = db_entities::User::new(
+        email.trim().into(),
+        username.trim().into(),
+        hash_password(&password)?,
+        name.trim().into(),
+        surname.trim().into(),
+        None,
+        false,
+        true,
+    );
+
     user_model.save(None).await
 }
 
@@ -481,17 +480,16 @@ mod tests {
 
     #[tokio::test]
     async fn update_user_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
@@ -511,25 +509,24 @@ mod tests {
         let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap().unwrap();
-        assert_eq!(loaded_user.name, new_name);
-        assert_eq!(loaded_user.surname, new_surname);
+        assert_eq!(*loaded_user.name(), new_name);
+        assert_eq!(*loaded_user.surname(), new_surname);
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }
 
     #[tokio::test]
     async fn delete_user_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
         let deleted_user_result = delete_user(&user_id).await;
@@ -546,17 +543,16 @@ mod tests {
 
     #[tokio::test]
     async fn deactivate_user_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
         let deleted_user_result = deactivate_user(&user_id).await;
@@ -566,43 +562,37 @@ mod tests {
         let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap();
-        assert!(loaded_user.is_some_and(|user| !user.active));
+        assert!(loaded_user.is_some_and(|user| !user.active()));
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }
 
     #[tokio::test]
     async fn deactivate_user_with_company_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
-        let mut company = db_entities::Company {
-            id: None,
-            name: "Company".into(),
-            active: true,
-        };
+        let mut company = db_entities::Company::new("Company".into(), true);
         company.save(None).await.unwrap();
         let company_id = company.get_id().unwrap();
 
-        let mut user_company_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            user_id: user_id.clone(),
-            company_id: company_id.clone(),
-            role: crate::enums::CompanyRole::Owner,
-            job_title: "CEO".into(),
-            project_ids: vec![],
-        };
+        let mut user_company_assignment = db_entities::UserCompanyAssignment::new(
+            user_id.clone(),
+            company_id.clone(),
+            crate::enums::CompanyRole::Owner,
+            "CEO".into(),
+            vec![],
+        );
         user_company_assignment.save(None).await.unwrap();
 
         let deleted_user_result = deactivate_user(&user_id).await;
@@ -612,13 +602,13 @@ mod tests {
         let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap();
-        assert!(loaded_user.is_some_and(|user| !user.active));
+        assert!(loaded_user.is_some_and(|user| !user.active()));
 
         let collection =
             db.collection::<db_entities::Company>(db_entities::Company::collection_name());
         let filter = doc! {"_id": company_id};
         let loaded_company = collection.find_one(filter).await.unwrap();
-        assert!(loaded_company.is_some_and(|company| !company.active));
+        assert!(loaded_company.is_some_and(|company| !company.active()));
 
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
@@ -626,17 +616,16 @@ mod tests {
 
     #[tokio::test]
     async fn activate_user_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: false,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            false,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
         let deleted_user_result = activate_user(&user_id).await;
@@ -646,43 +635,38 @@ mod tests {
         let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap();
-        assert!(loaded_user.is_some_and(|user| user.active));
+        assert!(loaded_user.is_some_and(|user| *user.active()));
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }
 
     #[tokio::test]
     async fn activate_user_with_company_test() {
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: false,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            false,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
-        let mut company = db_entities::Company {
-            id: None,
-            name: "Company".into(),
-            active: false,
-        };
+        let mut company = db_entities::Company::new("Company".into(), false);
         company.save(None).await.unwrap();
         let company_id = company.get_id().unwrap();
 
-        let mut user_company_assignment = db_entities::UserCompanyAssignment {
-            id: None,
-            user_id: user_id.clone(),
-            company_id: company_id.clone(),
-            role: crate::enums::CompanyRole::Owner,
-            job_title: "CEO".into(),
-            project_ids: vec![],
-        };
+        let mut user_company_assignment = db_entities::UserCompanyAssignment::new(
+            user_id.clone(),
+            company_id.clone(),
+            crate::enums::CompanyRole::Owner,
+            "CEO".into(),
+            vec![],
+        );
+
         user_company_assignment.save(None).await.unwrap();
 
         let deleted_user_result = activate_user(&user_id).await;
@@ -692,13 +676,13 @@ mod tests {
         let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap();
-        assert!(loaded_user.is_some_and(|user| user.active));
+        assert!(loaded_user.is_some_and(|user| *user.active()));
 
         let collection =
             db.collection::<db_entities::Company>(db_entities::Company::collection_name());
         let filter = doc! {"_id": company_id};
         let loaded_company = collection.find_one(filter).await.unwrap();
-        assert!(loaded_company.is_some_and(|company| company.active));
+        assert!(loaded_company.is_some_and(|company| *company.active()));
 
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
@@ -707,17 +691,16 @@ mod tests {
     #[tokio::test]
     async fn set_platform_admin_test() {
         // prepare the test by creating a User who is not admin
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: false,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
@@ -727,7 +710,7 @@ mod tests {
         let collection = db.collection::<db_entities::User>(db_entities::User::collection_name());
         let filter = doc! {"_id": user_id};
         let loaded_user = collection.find_one(filter).await.unwrap().unwrap();
-        assert!(loaded_user.platform_admin);
+        assert!(loaded_user.platform_admin());
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }
@@ -735,17 +718,16 @@ mod tests {
     #[tokio::test]
     async fn unset_platform_admin_test() {
         // prepare the test by creating a User who is not admin
-        let mut user = db_entities::User {
-            username: "johnsmith".into(),
-            password_hash: "fdsg39av2".into(),
-            id: None,
-            email: "john.smith@mail.com".into(),
-            name: "John".into(),
-            surname: "Smith".into(),
-            api_key: None,
-            platform_admin: true,
-            active: true,
-        };
+        let mut user = db_entities::User::new(
+            "john.smith@mail.com".into(),
+            "johnsmith".into(),
+            "fdsg39av2".into(),
+            "John".into(),
+            "Smith".into(),
+            Some("api_key".into()),
+            true,
+            true,
+        );
         user.save(None).await.unwrap();
         let user_id = user.get_id().unwrap();
 
@@ -754,7 +736,7 @@ mod tests {
         let db = &get_database_service().await.db;
         user.reload().await.unwrap();
 
-        assert!(!user.platform_admin);
+        assert!(!user.platform_admin());
         let drop_result = db.drop().await;
         assert!(drop_result.is_ok());
     }
@@ -762,7 +744,7 @@ mod tests {
     #[tokio::test]
     async fn login_test() {
         let username = "John";
-        let password = "Smith";
+        let password = "Smith".into();
         let name = "John".into();
         let surname = "Smith".into();
         let email = "john@smith.com".into();
@@ -772,24 +754,23 @@ mod tests {
         assert!(result.is_err());
 
         // Add users and retrieve them
-        let mut user = db_entities::User {
-            id: None,
-            username: username.into(),
-            password_hash: hash_password(password).unwrap(),
-            api_key: None,
-            name,
+        let mut user = db_entities::User::new(
             email,
+            username.into(),
+            hash_password(password).unwrap(),
+            name,
             surname,
-            platform_admin: false,
-            active: true,
-        };
+            None,
+            false,
+            true,
+        );
         user.save(None).await.unwrap();
 
         // Remake the query
         let result = login(username, password).await;
         assert!(result.is_ok());
         let user = result.unwrap();
-        assert_eq!(username, user.username);
+        assert_eq!(username, user.username());
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
     }
