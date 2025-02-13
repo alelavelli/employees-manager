@@ -101,3 +101,12 @@ pub enum NotificationType {
     InviteAddCompany,
     InviteAddCompanyAnswer,
 }
+
+/// Define the type of work in the timesheet
+/// each day is marked with this enumeration
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+pub enum WorkingDayType {
+    Office,
+    Remote,
+    Holiday,
+}

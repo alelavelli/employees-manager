@@ -58,9 +58,9 @@ pub async fn create_company(
             .await?;
     for document in companies {
         if name.to_lowercase().trim() == document.name.to_lowercase().trim() {
-            return Err(ServiceAppError::InvalidRequest(
-                "A Company with name {name} already exists.".into(),
-            ));
+            return Err(ServiceAppError::InvalidRequest(format!(
+                "A Company with name {name} already exists."
+            )));
         }
     }
 
@@ -738,10 +738,109 @@ pub async fn edit_company_project_allocations_for_user(
     }
 }
 
+pub async fn create_company_project_activity(
+    company_id: DocumentId,
+    name: String,
+    description: String,
+) -> Result<(), ServiceAppError> {
+    // First check if the name does not exist yet for this company
+    #[derive(Serialize, Deserialize, Debug)]
+    struct QueryResult {
+        name: String,
+    }
+    if db_entities::ProjectActivity::find_one_projection::<QueryResult>(
+        doc! {
+            "company_id": company_id
+        },
+        doc! {"name": 1},
+    )
+    .await?
+    .is_some()
+    {
+        Err(ServiceAppError::InvalidRequest(format!(
+            "Activity with name {name} already exist for company with id {company_id}"
+        )))
+    } else {
+        db_entities::ProjectActivity::new(name, description, company_id)
+            .save(None)
+            .await?;
+        Ok(())
+    }
+}
+
+pub async fn edit_company_project_activity(
+    company_id: DocumentId,
+    activity_id: DocumentId,
+    name: String,
+    description: String,
+) -> Result<(), ServiceAppError> {
+    // First check if the name does not already exist for this company
+    if db_entities::ProjectActivity::find_one(doc! {"name": &name})
+        .await?
+        .is_some()
+    {
+        return Err(ServiceAppError::InvalidRequest(format!(
+            "Activity with name {name} already exist for company with id {company_id}"
+        )));
+    }
+
+    if let Some(mut activity) = db_entities::ProjectActivity::find_one(doc! {
+        "_id": activity_id, "company_id": company_id
+    })
+    .await?
+    {
+        activity.set_name(name);
+        activity.set_description(description);
+        activity.save(None).await?;
+        Ok(())
+    } else {
+        Err(ServiceAppError::EntityDoesNotExist(format!(
+            "Activity with id {activity_id} does not exist for company with id {company_id}"
+        )))
+    }
+}
+
+/// Deletes a project activity from the company, it can be deleted
+/// only if it is not used in any timesheet
+pub async fn delete_company_project_activity(
+    company_id: DocumentId,
+    activity_id: DocumentId,
+) -> Result<(), ServiceAppError> {
+    if let Some(activity) = db_entities::ProjectActivity::find_one(doc! {
+        "_id": activity_id, "company_id": company_id
+    })
+    .await?
+    {
+        // To safely delete the activity we need to check if it is used by in some timesheet
+        #[derive(Serialize, Deserialize, Debug)]
+        struct QueryResult {
+            id: DocumentId,
+        }
+        let query_result = db_entities::TimesheetDay::find_many_projection::<QueryResult>(
+            doc! { "activities.activity_id": activity_id },
+            doc! { "_id": 1},
+        )
+        .await?;
+
+        if query_result.is_empty() {
+            // we can safely delete it
+            activity.delete(None).await?;
+            Ok(())
+        } else {
+            Err(ServiceAppError::InvalidRequest(format!("Cannot delete the activity because it is used in a timesheet. Please just remove it from your Projects.")))
+        }
+    } else {
+        Err(ServiceAppError::EntityDoesNotExist(format!(
+            "Activity with id {activity_id} does not exist for company with id {company_id}"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
 
+    use chrono::NaiveDate;
     use mongodb::bson::{doc, oid::ObjectId};
 
     use crate::{
@@ -755,6 +854,8 @@ mod tests {
             db::{get_database_service, DatabaseDocument},
         },
     };
+
+    use super::delete_company_project_activity;
 
     #[tokio::test]
     async fn create_company_test() {
@@ -963,5 +1064,56 @@ mod tests {
 
         let drop_result = get_database_service().await.db.drop().await;
         assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn delete_company_project_activity_test() {
+        let company_id = ObjectId::new();
+        let mut activity = db_entities::ProjectActivity::new(
+            "my_activity".into(),
+            "description".into(),
+            company_id.clone(),
+        );
+        activity.save(None).await.unwrap();
+        let mut second_activity = db_entities::ProjectActivity::new(
+            "my_activity_2".into(),
+            "description".into(),
+            company_id.clone(),
+        );
+        second_activity.save(None).await.unwrap();
+
+        let mut timesheet_day = db_entities::TimesheetDay::new(
+            ObjectId::new(),
+            NaiveDate::default(),
+            0,
+            crate::enums::WorkingDayType::Office,
+            vec![db_entities::TimesheetActivityHours::new(
+                company_id.clone(),
+                ObjectId::new(),
+                *activity.get_id().unwrap(),
+                1,
+            )],
+        );
+        timesheet_day.save(None).await.unwrap();
+
+        let result = delete_company_project_activity(company_id, *activity.get_id().unwrap());
+        assert!(result.await.is_err());
+        assert_eq!(
+            db_entities::ProjectActivity::find_many(doc! {})
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
+        let result =
+            delete_company_project_activity(company_id, *second_activity.get_id().unwrap());
+        assert!(result.await.is_ok());
+        assert_eq!(
+            db_entities::ProjectActivity::find_many(doc! {})
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }

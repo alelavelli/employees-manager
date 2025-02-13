@@ -1,10 +1,11 @@
+use chrono::NaiveDate;
 use mongodb::bson::oid::ObjectId;
 use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 use crate::{
-    enums::{CompanyRole, EmployeeRequest, NotificationType},
+    enums::{CompanyRole, EmployeeRequest, NotificationType, WorkingDayType},
     error::DatabaseError,
     service::db::DatabaseDocument,
     DocumentId,
@@ -67,6 +68,44 @@ macro_rules! database_document {
                 } else {
                     Err(DatabaseError::InvalidObjectId)
                 }
+            }
+        }
+    };
+}
+
+/// The macro generates struct used as an object inside the database document
+///
+/// You need to provide struct level docstring, the name of the struct
+macro_rules! embedded_document {
+    ( $(#[doc = $doc:expr])* $struct_name:ident, $ ( $field_name:ident : $field_type:ty ),* ) => {
+        $( #[doc = $doc] )*
+        #[derive(Debug, Serialize, Deserialize, Clone)]
+        pub struct $struct_name {
+            $ ($field_name: $field_type, )*
+        }
+
+        impl $struct_name {
+            #[allow(dead_code)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn new($($field_name: $field_type),*) -> Self {
+                Self { $($field_name),*}
+            }
+
+            paste!{
+                $(
+                    #[allow(dead_code)]
+                    pub fn $field_name(&self) -> &$field_type {
+                        &self.$field_name
+                    }
+                    #[allow(dead_code)]
+                    pub fn [<$field_name _mut>](&mut self) -> &mut $field_type {
+                        &mut self.$field_name
+                    }
+                    #[allow(dead_code)]
+                    pub fn [<set_ $field_name>](&mut self, value: $field_type) {
+                        self.$field_name = value;
+                    }
+                )*
             }
         }
     };
@@ -160,4 +199,46 @@ database_document!(
     code: String,
     company_id: DocumentId,
     active: bool
+);
+
+database_document!(
+    #[doc = "Define a type of activity that can be done in the Project."]
+    #[doc  = "It is defined at Company level and can be associated to any Project."]
+    #[doc = "The User specify it during the timesheet compilation."]
+    ProjectActivity,
+    "project_activity",
+    name: String,
+    description: String,
+    company_id: DocumentId
+);
+
+database_document!(
+    #[doc = "Assigns the activity to the Project."]
+    ProjectActivityAssignment,
+    "project_activity_assignment",
+    project_id: DocumentId,
+    activity_ids: Vec<DocumentId>
+);
+
+embedded_document!(
+    #[doc = "Struct that contains a single activity hour amount inside a timesheet day"]
+    #[doc = "It is a document inside the TimesheetDay."]
+    TimesheetActivityHours,
+    company_id: DocumentId,
+    project_id: DocumentId,
+    activity_id: DocumentId,
+    hours: usize
+);
+
+database_document!(
+    #[doc = "A Timesheet day of the User in the Company."]
+    #[doc = "A day is composed of number of permit hours, the type, i.e., work at the office, remote or holiday and the list of activities."]
+    #[doc = "An activity is specified by company id, project id, activity id and number of hours"]
+    TimesheetDay,
+    "timesheet_day",
+    user_id: DocumentId,
+    date: NaiveDate,
+    permit_hours: usize,
+    working_type: WorkingDayType,
+    activities: Vec<TimesheetActivityHours>
 );
