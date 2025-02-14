@@ -13,8 +13,8 @@
       <mat-tab label="Projects">
         <div class="company-projects">
           <div class="company-projects-content">
-            <div class="company-projects-content-left">
-              <div class="h3-title">Project list</div>
+            <div class="company-projects-content-section">
+              <div class="h3-title">Projects</div>
               <div>
                 <button mat-raised-button class="clickable primary-button" (click)="openNewProjectDialog()">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
@@ -121,19 +121,19 @@
 
               </div>
             </div>
-            <div class="company-projects-content-right">
-              <div class="h3-title">Project allocations</div>
+            <div class="company-projects-content-section">
+              <div class="h3-title">Project User allocations</div>
               <form [formGroup]="allocationViewForm" class="company-project-allocations-header">
                 <mat-form-field appearance="outline" subscriptSizing="dynamic">
                   <mat-label>View by</mat-label>
                   <mat-select [(value)]="allocationViewMode">
-                    <mat-option [value]="AllocationViewMode.PROJECT">Project</mat-option>
-                    <mat-option [value]="AllocationViewMode.USER">User</mat-option>
+                    <mat-option [value]="UserProjectAllocationViewMode.PROJECT">Project</mat-option>
+                    <mat-option [value]="UserProjectAllocationViewMode.USER">User</mat-option>
                   </mat-select>
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" subscriptSizing="dynamic"
-                  *ngIf="allocationViewMode === AllocationViewMode.PROJECT">
+                  *ngIf="allocationViewMode === UserProjectAllocationViewMode.PROJECT">
                   <mat-label>Select a project</mat-label>
                   <input matInput type="text" placeholder="Select a project" formControlName="project"
                     [matAutocomplete]="auto">
@@ -146,7 +146,7 @@
                 </mat-form-field>
 
                 <mat-form-field appearance="outline" subscriptSizing="dynamic"
-                  *ngIf="allocationViewMode === AllocationViewMode.USER">
+                  *ngIf="allocationViewMode === UserProjectAllocationViewMode.USER">
                   <mat-label>Select a user</mat-label>
                   <input matInput type="text" placeholder="Select a user" formControlName="username"
                     [matAutocomplete]="auto">
@@ -191,14 +191,15 @@
 
               <div class="company-project-allocation-body" *ngIf="allocationModeShow">
 
-                <div *ngIf="allocationViewMode === AllocationViewMode.USER">
+                <div *ngIf="allocationViewMode === UserProjectAllocationViewMode.USER">
                   Viewing allocation for User {{currentAllocationUser}}
                 </div>
-                <div *ngIf="allocationViewMode === AllocationViewMode.PROJECT">
+                <div *ngIf="allocationViewMode === UserProjectAllocationViewMode.PROJECT">
                   Viewing allocation for Project {{currentAllocationProject}}
                 </div>
 
-                <form [formGroup]="allocationsForProjectForm" *ngIf="allocationViewMode === AllocationViewMode.PROJECT">
+                <form [formGroup]="allocationsForProjectForm"
+                  *ngIf="allocationViewMode === UserProjectAllocationViewMode.PROJECT">
                   <mat-selection-list formControlName="usernames">
                     @for (user of usersInCompany; track user) {
 
@@ -209,7 +210,8 @@
                   </mat-selection-list>
                 </form>
 
-                <form [formGroup]="allocationsForUserForm" *ngIf="allocationViewMode === AllocationViewMode.USER">
+                <form [formGroup]="allocationsForUserForm"
+                  *ngIf="allocationViewMode === UserProjectAllocationViewMode.USER">
                   <mat-selection-list formControlName="projects">
                     @for (project of projects; track project) {
 
@@ -220,6 +222,100 @@
                   </mat-selection-list>
                 </form>
               </div>
+            </div>
+            <div class="company-projects-content-section">
+              <div class="h3-title">Project Activities</div>
+              <div>
+                <button mat-raised-button class="clickable primary-button" (click)="openNewActivityDialog()">
+                  <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+                    <mat-icon>add</mat-icon>
+                    New Activity
+                  </div>
+                </button>
+              </div>
+
+              <form [formGroup]="activityFilterForm">
+                <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
+                  <mat-form-field style="width: 50%;">
+                    <mat-label>Filter</mat-label>
+                    <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+                  </mat-form-field>
+                </div>
+              </form>
+
+              <div class="mat-elevation-z8">
+                <form [formGroup]="editActivityForm">
+                  <table mat-table [dataSource]="activitiesTableDataSource" matSort>
+                    <ng-container matColumnDef="id">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+                      <td mat-cell *matCellDef="let element"> {{element.id}} </td>
+                    </ng-container>
+                    <ng-container matColumnDef="name">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+                      <td mat-cell *matCellDef="let element">
+                        <div *ngIf="activityUnderEdit !== element.id">
+                          {{element.name}}
+                        </div>
+                        <div *ngIf="activityUnderEdit === element.id">
+                          <mat-form-field style="margin-top: 1rem;" appearance="outline">
+                            <input matInput placeholder="{{element.name}}" formControlName="name" #input>
+                          </mat-form-field>
+                        </div>
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="description">
+                      <th mat-header-cell *matHeaderCellDef mat-sort-header> Description </th>
+                      <td mat-cell *matCellDef="let element">
+                        <div *ngIf="activityUnderEdit !== element.id">
+                          {{element.description}}
+                        </div>
+                        <div *ngIf="activityUnderEdit === element.id">
+                          <mat-form-field style="margin-top: 1rem; width: 80%;" appearance="outline">
+                            <input matInput placeholder="{{element.description}}" formControlName="description" #input>
+                          </mat-form-field>
+                        </div>
+                      </td>
+                    </ng-container>
+
+                    <ng-container matColumnDef="actionMenu">
+                      <th mat-header-cell *matHeaderCellDef> Actions </th>
+                      <td mat-cell *matCellDef="let element">
+                        <mat-icon class="clickable" [matMenuTriggerFor]="activitiesMenu"
+                          [matMenuTriggerData]="{ row: element }">more_vert</mat-icon>
+                      </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedActivityInfoColumns"
+                      class="company-projects-header-row">
+                    </tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedActivityInfoColumns;"></tr>
+                  </table>
+                </form>
+                <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of users"></mat-paginator>
+
+                <mat-menu #activitiesMenu="matMenu">
+                  <ng-template matMenuContent let-row="row">
+                    <button mat-menu-item (click)="startEditActivity(row)"
+                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit === null"><mat-icon>edit</mat-icon>Edit
+                      activity</button>
+                    <button mat-menu-item (click)="confirmEditActivity(row)"
+                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit !== null"
+                      [disabled]="editActivityForm.invalid"><mat-icon>save</mat-icon>Confirm</button>
+                    <button mat-menu-item (click)="cancelEditActivity(row)"
+                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit !== null"><mat-icon>close</mat-icon>Cancel</button>
+                    <button mat-menu-item (click)="deleteActivity(row)"
+                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit === null"><mat-icon>delete</mat-icon>Delete
+                      activity</button>
+                  </ng-template>
+                </mat-menu>
+
+              </div>
+
+            </div>
+
+            <div class="company-projects-content-section">
+              <div class="h3-title">Project Activities Assignment</div>
+              Vista per progetto o per activity con relativo assignment simile a com'è con gli utenti
             </div>
           </div>
         </div>

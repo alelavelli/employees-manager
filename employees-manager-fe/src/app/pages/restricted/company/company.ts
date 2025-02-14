@@ -1,14 +1,7 @@
-import {
-  Component,
-  computed,
-  OnInit,
-  QueryList,
-  ViewChild,
-  ViewChildren,
-} from '@angular/core';
+import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
 import { AsyncPipe, CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { forkJoin, map, Observable, of, startWith } from 'rxjs';
+import { filter, forkJoin, map, Observable, of, startWith } from 'rxjs';
 import { UserService } from '../../../service/user.service';
 import {
   CompanyInfo,
@@ -16,6 +9,8 @@ import {
   InvitedUserInCompanyInfo,
   InviteUserInCompany,
   NewCompanyProject,
+  NewProjectActivity,
+  ProjectActivityInfo,
   UserData,
   UserInCompanyInfo,
 } from '../../../types/model';
@@ -49,10 +44,16 @@ import { InviteUserInCompanyDialogComponent } from './invite-user/invite-user-mo
 import { MatTabsModule } from '@angular/material/tabs';
 import { NewCompanyProjectDialogComponent } from './create-project/create-project-modal';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { NewActivityDialogComponent } from './create-activity/create-activity-modal';
 
-enum AllocationViewMode {
+enum UserProjectAllocationViewMode {
   PROJECT = 'project',
   USER = 'user',
+}
+
+enum ActivityProjectAllocationViewMode {
+  PROJECT = 'project',
+  ACTIVITY = 'activity',
 }
 
 @Component({
@@ -104,6 +105,11 @@ export class CompanyPageComponent implements OnInit {
     new MatTableDataSource<CompanyProjectInfo>([]);
   readonly projectFilterForm: FormGroup;
 
+  activities: ProjectActivityInfo[] = [];
+  activitiesTableDataSource: MatTableDataSource<ProjectActivityInfo> =
+    new MatTableDataSource<ProjectActivityInfo>([]);
+  readonly activityFilterForm: FormGroup;
+
   changeJobTitleForm: FormGroup = this.formBuilder.group({
     jobTitle: ['', Validators.required],
   });
@@ -115,8 +121,14 @@ export class CompanyPageComponent implements OnInit {
   });
   projectUnderEdit: string | null = null;
 
-  AllocationViewMode = AllocationViewMode;
-  allocationViewMode = AllocationViewMode.PROJECT;
+  editActivityForm: FormGroup = this.formBuilder.group({
+    name: ['', Validators.required],
+    description: ['', Validators.required],
+  });
+  activityUnderEdit: string | null = null;
+
+  UserProjectAllocationViewMode = UserProjectAllocationViewMode;
+  allocationViewMode = UserProjectAllocationViewMode.PROJECT;
   allocationViewForm: FormGroup = this.formBuilder.group({
     username: [''],
     project: [''],
@@ -134,6 +146,32 @@ export class CompanyPageComponent implements OnInit {
     usernames: new FormControl([]),
   });
   allocationsForUserForm: FormGroup = this.formBuilder.group({
+    projects: new FormControl([]),
+  });
+
+  ActivityProjectAllocationViewMode = ActivityProjectAllocationViewMode;
+  activityProjectAllocationViewMode = ActivityProjectAllocationViewMode.PROJECT;
+  activityProjectAllocationForm: FormGroup = this.formBuilder.group({
+    project: [''],
+    activity: [''],
+  });
+  activityProjectAssignmentModeUnderEdit: boolean = false;
+  activityProjectAssignmentModeShow: boolean = false;
+  activityProjectAssignmentViewFilteredProjects: Observable<
+    CompanyProjectInfo[]
+  >;
+  activityProjectAssignmentViewFilteredActivities: Observable<
+    ProjectActivityInfo[]
+  >;
+  currentAssignmentProject: string | null = null;
+  currentAssignmentUser: string | null = null;
+  activitiesAssignedInProject: string[] = [];
+  activitiesAssignedToUser: string[] = [];
+
+  assignmentsForProjectForm: FormGroup = this.formBuilder.group({
+    activities: new FormControl([]),
+  });
+  assignmentsForActivityForm: FormGroup = this.formBuilder.group({
     projects: new FormControl([]),
   });
 
@@ -161,6 +199,13 @@ export class CompanyPageComponent implements OnInit {
     'name',
     'code',
     'active',
+    'actionMenu',
+  ];
+
+  displayedActivityInfoColumns: string[] = [
+    'id',
+    'name',
+    'description',
     'actionMenu',
   ];
 
@@ -239,8 +284,21 @@ export class CompanyPageComponent implements OnInit {
       active: [null, Validators.required],
     });
 
+    this.activityFilterForm = formBuilder.group({
+      valueString: '',
+    });
+    this.activityFilterForm.valueChanges.subscribe((value) => {
+      const filter = {
+        ...value,
+        valueString: value.valueString.trim().toLocaleLowerCase(),
+      } as string;
+      this.activitiesTableDataSource.filter = filter;
+    });
+
     this.allocationViewFilteredUsers = of([]);
     this.allocationViewFilteredProjects = of([]);
+    this.activityProjectAssignmentViewFilteredProjects = of([]);
+    this.activityProjectAssignmentViewFilteredActivities = of([]);
   }
 
   ngOnInit(): void {
@@ -280,6 +338,7 @@ export class CompanyPageComponent implements OnInit {
         users: this.apiService.getUsersInCompany(this.companyId),
         pendingUsers: this.apiService.getPendingUsersInCompany(this.companyId),
         projects: this.apiService.getCompanyProjects(this.companyId),
+        activities: this.apiService.getCompanyProjectActivities(this.companyId),
       }).subscribe({
         next: (response) => {
           this.usersInCompany = response.users;
@@ -404,6 +463,55 @@ export class CompanyPageComponent implements OnInit {
                   : this.usersInCompany.slice();
               })
             );
+
+          this.activities = response.activities;
+          this.activitiesTableDataSource = new MatTableDataSource(
+            this.activities
+          );
+          setTimeout(() => {
+            this.activitiesTableDataSource.filterPredicate = (
+              data,
+              filter: any
+            ) => {
+              const idFilter = data.id
+                .toLocaleLowerCase()
+                .includes(filter.Validators);
+              const nameFilter = data.name
+                .toLocaleLowerCase()
+                .includes(filter.valueString);
+              return idFilter || nameFilter;
+            };
+
+            this.activitiesTableDataSource.sort = this.sort.toArray()[3];
+            this.activitiesTableDataSource.paginator =
+              this.paginator.toArray()[3];
+          });
+
+          this.activityProjectAssignmentViewFilteredProjects =
+            this.activityProjectAllocationForm.valueChanges.pipe(
+              startWith(''),
+              map((value: { project: string }) => {
+                const name =
+                  typeof value.project === 'string'
+                    ? value.project
+                    : value.project!;
+                return name
+                  ? this._filterProject(name as string)
+                  : this.projects.slice();
+              })
+            );
+
+          this.activityProjectAssignmentViewFilteredActivities =
+            this.activityProjectAllocationForm.valueChanges.pipe(
+              startWith(''),
+              map((value: { user: string }) => {
+                const name =
+                  typeof value.user === 'string' ? value.user : value.user!;
+                return name
+                  ? this._filterActivity(name as string)
+                  : this.activities.slice();
+              })
+            );
         },
         error: () => {
           this.usersInCompany = [];
@@ -450,6 +558,14 @@ export class CompanyPageComponent implements OnInit {
 
     return this.usersInCompany.filter((option) =>
       option.userUsername.toLowerCase().includes(filterValue)
+    );
+  }
+
+  private _filterActivity(name: string): ProjectActivityInfo[] {
+    const filterValue = name.toLowerCase();
+
+    return this.activities.filter((option) =>
+      option.name.toLowerCase().includes(filterValue)
     );
   }
 
@@ -672,6 +788,95 @@ export class CompanyPageComponent implements OnInit {
       });
   }
 
+  openNewActivityDialog() {
+    this.dialog
+      .open(NewActivityDialogComponent, {
+        width: '40rem',
+        data: {
+          companyId: this.companyId,
+        },
+      })
+      .afterClosed()
+      .subscribe({
+        next: (data: NewProjectActivity) => {
+          if (data !== undefined) {
+            this.apiService
+              .createProjectActivity(
+                this.companyId!,
+                data.name,
+                data.description
+              )
+              .subscribe({
+                next: () => {
+                  this.loadData();
+                  this.toastr.success('Activity created', 'Success', {
+                    timeOut: 5000,
+                    progressBar: true,
+                  });
+                },
+              });
+          }
+        },
+      });
+  }
+
+  startEditActivity(activity: ProjectActivityInfo) {
+    this.activityUnderEdit = activity.id;
+    this.editActivityForm.setValue({
+      name: activity.name,
+      description: activity.description,
+    });
+  }
+
+  confirmEditActivity(activity: ProjectActivityInfo) {
+    this.apiService
+      .editProjectActivity(
+        this.companyId!,
+        activity.id,
+        this.editActivityForm.value['name'],
+        this.editActivityForm.value['description']
+      )
+      .subscribe({
+        next: () => {
+          this.toastr.success(
+            `Activity ${activity.name} updated`,
+            'Activity updated',
+            {
+              timeOut: 5000,
+              progressBar: true,
+            }
+          );
+          this.loadData();
+        },
+        error: () => {},
+      });
+  }
+
+  cancelEditActivity(activity: ProjectActivityInfo) {
+    this.activityUnderEdit = null;
+    this.editActivityForm.setValue({
+      name: '',
+      description: '',
+    });
+  }
+
+  deleteActivity(activity: ProjectActivityInfo) {
+    this.apiService.deleteActivity(this.companyId!, activity.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          `Activity ${activity.name} deleted`,
+          'Activity deleted',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {},
+    });
+  }
+
   startEditProject(project: CompanyProjectInfo) {
     this.projectUnderEdit = project.id;
     this.editCompanyProjectForm.setValue({
@@ -735,7 +940,7 @@ export class CompanyPageComponent implements OnInit {
   }
 
   showAllocations() {
-    if (this.allocationViewMode === AllocationViewMode.PROJECT) {
+    if (this.allocationViewMode === UserProjectAllocationViewMode.PROJECT) {
       this.currentAllocationUser = null;
 
       if (
@@ -808,7 +1013,7 @@ export class CompanyPageComponent implements OnInit {
 
   cancelEditAllocation() {
     this.allocationModeUnderEdit = false;
-    if (this.allocationViewMode === AllocationViewMode.PROJECT) {
+    if (this.allocationViewMode === UserProjectAllocationViewMode.PROJECT) {
       this.allocationsForProjectForm.patchValue({
         usernames: this.usersInCompany
           .filter((user) => this.usersAllocatedInProject.includes(user.userId))
@@ -827,7 +1032,7 @@ export class CompanyPageComponent implements OnInit {
 
   confirmEditAllocation() {
     this.allocationModeUnderEdit = false;
-    if (this.allocationViewMode === AllocationViewMode.PROJECT) {
+    if (this.allocationViewMode === UserProjectAllocationViewMode.PROJECT) {
       console.log(
         'Sending update for project ',
         this.projects

@@ -16,10 +16,11 @@ import {
   UserToInvite,
   InvitedUserInCompanyInfo,
   CompanyProjectInfo,
+  ProjectActivityInfo,
 } from '../types/model';
 import { CompanyRole, NotificationType } from '../types/enums';
 
-const MOCKED = false;
+const MOCKED = true;
 const API_URL = environment.apiHost + '/api';
 
 @Injectable({
@@ -378,6 +379,19 @@ export class ApiService {
         });
   }
 
+  createProjectActivity(
+    companyId: string,
+    name: string,
+    description: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(API_URL + `/company/${companyId}/activity`, {
+          name: name,
+          description: description,
+        });
+  }
+
   editCompanyProject(
     companyId: string,
     projectId: string,
@@ -394,6 +408,47 @@ export class ApiService {
             code: code,
             active: active,
           }
+        );
+  }
+
+  getCompanyProjectActivities(
+    companyId: string
+  ): Observable<ProjectActivityInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(10).keys()].map((i) => ({
+            name: `activity-${i}`,
+            id: `id-${i}`,
+            description: `this description is very long and needs to be handled very carefully. Do you understand?`,
+          }))
+        )
+      : this.httpClient.get<ProjectActivityInfo[]>(
+          API_URL + `/company/${companyId}/activity`
+        );
+  }
+
+  editProjectActivity(
+    companyId: string,
+    activityId: string,
+    name: string,
+    description: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/activity/${activityId}`,
+          {
+            name: name,
+            description: description,
+          }
+        );
+  }
+
+  deleteActivity(companyId: string, activityId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/company/${companyId}/activity/${activityId}`
         );
   }
 

@@ -95,18 +95,10 @@
     flex-direction: column;
     gap: 2rem;
 
-    .company-projects-content-left {
+    .company-projects-content-section {
       display: flex;
       flex-direction: column;
       gap: 2rem;
-      //width: 50%;
-    }
-
-    .company-projects-content-right {
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-      //width: 25%;
     }
   }
 

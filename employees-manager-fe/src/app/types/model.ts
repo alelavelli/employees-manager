@@ -119,3 +119,14 @@ export interface TimesheetDay {
   projects: TimesheetProjectHours[];
   dayType: TimesheetDayWorkType;
 }
+
+export interface ProjectActivityInfo {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface NewProjectActivity {
+  name: string;
+  description: string;
+}
