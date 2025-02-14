@@ -128,24 +128,24 @@ export class CompanyPageComponent implements OnInit {
   activityUnderEdit: string | null = null;
 
   UserProjectAllocationViewMode = UserProjectAllocationViewMode;
-  allocationViewMode = UserProjectAllocationViewMode.PROJECT;
-  allocationViewForm: FormGroup = this.formBuilder.group({
+  userProjectAllocationViewMode = UserProjectAllocationViewMode.PROJECT;
+  projectUserAllocationViewForm: FormGroup = this.formBuilder.group({
     username: [''],
     project: [''],
   });
-  allocationModeUnderEdit: boolean = false;
-  allocationModeShow: boolean = false;
-  allocationViewFilteredProjects: Observable<CompanyProjectInfo[]>;
-  allocationViewFilteredUsers: Observable<UserInCompanyInfo[]>;
+  userProjectAllocationModeUnderEdit: boolean = false;
+  userProjectAllocationModeShow: boolean = false;
+  userProjectAllocationViewFilteredProjects: Observable<CompanyProjectInfo[]>;
+  userProjectAllocationViewFilteredUsers: Observable<UserInCompanyInfo[]>;
   currentAllocationProject: string | null = null;
   currentAllocationUser: string | null = null;
   usersAllocatedInProject: string[] = [];
   projectsAllocatedToUser: string[] = [];
 
-  allocationsForProjectForm: FormGroup = this.formBuilder.group({
+  userProjectAllocationsForProjectForm: FormGroup = this.formBuilder.group({
     usernames: new FormControl([]),
   });
-  allocationsForUserForm: FormGroup = this.formBuilder.group({
+  userProjectAllocationsForUserForm: FormGroup = this.formBuilder.group({
     projects: new FormControl([]),
   });
 
@@ -164,9 +164,9 @@ export class CompanyPageComponent implements OnInit {
     ProjectActivityInfo[]
   >;
   currentAssignmentProject: string | null = null;
-  currentAssignmentUser: string | null = null;
+  currentAssignmentActivity: string | null = null;
   activitiesAssignedInProject: string[] = [];
-  activitiesAssignedToUser: string[] = [];
+  projectsAssignedToActivity: string[] = [];
 
   assignmentsForProjectForm: FormGroup = this.formBuilder.group({
     activities: new FormControl([]),
@@ -295,8 +295,8 @@ export class CompanyPageComponent implements OnInit {
       this.activitiesTableDataSource.filter = filter;
     });
 
-    this.allocationViewFilteredUsers = of([]);
-    this.allocationViewFilteredProjects = of([]);
+    this.userProjectAllocationViewFilteredUsers = of([]);
+    this.userProjectAllocationViewFilteredProjects = of([]);
     this.activityProjectAssignmentViewFilteredProjects = of([]);
     this.activityProjectAssignmentViewFilteredActivities = of([]);
   }
@@ -438,8 +438,8 @@ export class CompanyPageComponent implements OnInit {
               this.paginator.toArray()[2];
           });
 
-          this.allocationViewFilteredProjects =
-            this.allocationViewForm.valueChanges.pipe(
+          this.userProjectAllocationViewFilteredProjects =
+            this.projectUserAllocationViewForm.valueChanges.pipe(
               startWith(''),
               map((value: { project: string }) => {
                 const name =
@@ -452,8 +452,8 @@ export class CompanyPageComponent implements OnInit {
               })
             );
 
-          this.allocationViewFilteredUsers =
-            this.allocationViewForm.valueChanges.pipe(
+          this.userProjectAllocationViewFilteredUsers =
+            this.projectUserAllocationViewForm.valueChanges.pipe(
               startWith(''),
               map((value: { user: string }) => {
                 const name =
@@ -939,18 +939,21 @@ export class CompanyPageComponent implements OnInit {
       });
   }
 
-  showAllocations() {
-    if (this.allocationViewMode === UserProjectAllocationViewMode.PROJECT) {
+  showUserProjectAllocations() {
+    if (
+      this.userProjectAllocationViewMode ===
+      UserProjectAllocationViewMode.PROJECT
+    ) {
       this.currentAllocationUser = null;
 
       if (
-        this.allocationViewForm.value['project'] !== null &&
+        this.projectUserAllocationViewForm.value['project'] !== null &&
         this.projects.filter(
-          (p) => p.name === this.allocationViewForm.value['project']
+          (p) => p.name === this.projectUserAllocationViewForm.value['project']
         ).length != 0
       ) {
         this.currentAllocationProject =
-          this.allocationViewForm.value['project'];
+          this.projectUserAllocationViewForm.value['project'];
         this.apiService
           .getCompanyProjectAllocationsByProject(
             this.companyId!,
@@ -961,8 +964,8 @@ export class CompanyPageComponent implements OnInit {
           .subscribe({
             next: (users: string[]) => {
               this.usersAllocatedInProject = users;
-              this.allocationModeShow = true;
-              this.allocationsForProjectForm.patchValue({
+              this.userProjectAllocationModeShow = true;
+              this.userProjectAllocationsForProjectForm.patchValue({
                 usernames: this.usersInCompany
                   .filter((user) =>
                     this.usersAllocatedInProject.includes(user.userId)
@@ -970,18 +973,21 @@ export class CompanyPageComponent implements OnInit {
                   .map((user) => user.userUsername), // Ensure it matches the values used in `mat-list-option`
               });
             },
-            error: () => (this.allocationModeShow = false),
+            error: () => (this.userProjectAllocationModeShow = false),
           });
       }
     } else {
       this.currentAllocationProject = null;
       if (
-        this.allocationViewForm.value['username'] !== null &&
+        this.projectUserAllocationViewForm.value['username'] !== null &&
         this.usersInCompany.filter(
-          (p) => p.userUsername === this.allocationViewForm.value['username']
+          (p) =>
+            p.userUsername ===
+            this.projectUserAllocationViewForm.value['username']
         ).length != 0
       ) {
-        this.currentAllocationUser = this.allocationViewForm.value['username'];
+        this.currentAllocationUser =
+          this.projectUserAllocationViewForm.value['username'];
         this.apiService
           .getCompanyProjectAllocationsByUser(
             this.companyId!,
@@ -992,8 +998,8 @@ export class CompanyPageComponent implements OnInit {
           .subscribe({
             next: (projects: string[]) => {
               this.projectsAllocatedToUser = projects;
-              this.allocationModeShow = true;
-              this.allocationsForUserForm.patchValue({
+              this.userProjectAllocationModeShow = true;
+              this.userProjectAllocationsForUserForm.patchValue({
                 projects: this.projects
                   .filter((project) =>
                     this.projectsAllocatedToUser.includes(project.id)
@@ -1001,26 +1007,29 @@ export class CompanyPageComponent implements OnInit {
                   .map((project) => project.name), // Ensure it matches the values used in `mat-list-option`
               });
             },
-            error: () => (this.allocationModeShow = false),
+            error: () => (this.userProjectAllocationModeShow = false),
           });
       }
     }
   }
 
-  startEditAllocation() {
-    this.allocationModeUnderEdit = true;
+  startEditUserProjectAllocation() {
+    this.userProjectAllocationModeUnderEdit = true;
   }
 
-  cancelEditAllocation() {
-    this.allocationModeUnderEdit = false;
-    if (this.allocationViewMode === UserProjectAllocationViewMode.PROJECT) {
-      this.allocationsForProjectForm.patchValue({
+  cancelEditUserProjectAllocation() {
+    this.userProjectAllocationModeUnderEdit = false;
+    if (
+      this.userProjectAllocationViewMode ===
+      UserProjectAllocationViewMode.PROJECT
+    ) {
+      this.userProjectAllocationsForProjectForm.patchValue({
         usernames: this.usersInCompany
           .filter((user) => this.usersAllocatedInProject.includes(user.userId))
           .map((user) => user.userUsername), // Ensure it matches the values used in `mat-list-option`
       });
     } else {
-      this.allocationsForUserForm.patchValue({
+      this.userProjectAllocationsForUserForm.patchValue({
         projects: this.projects
           .filter((project) =>
             this.projectsAllocatedToUser.includes(project.id)
@@ -1030,23 +1039,12 @@ export class CompanyPageComponent implements OnInit {
     }
   }
 
-  confirmEditAllocation() {
-    this.allocationModeUnderEdit = false;
-    if (this.allocationViewMode === UserProjectAllocationViewMode.PROJECT) {
-      console.log(
-        'Sending update for project ',
-        this.projects
-          .filter((p) => p.name === this.currentAllocationProject!)
-          .map((p) => p.id)[0],
-        'with users ',
-        this.usersInCompany
-          .filter((u) =>
-            this.allocationsForProjectForm.value['usernames']!.includes(
-              u.userUsername
-            )
-          )
-          .map((u) => u.userId)
-      );
+  confirmEditUserProjectAllocation() {
+    this.userProjectAllocationModeUnderEdit = false;
+    if (
+      this.userProjectAllocationViewMode ===
+      UserProjectAllocationViewMode.PROJECT
+    ) {
       this.apiService
         .updateCompanyProjectAllocationsByProject(
           this.companyId!,
@@ -1055,9 +1053,9 @@ export class CompanyPageComponent implements OnInit {
             .map((p) => p.id)[0],
           this.usersInCompany
             .filter((u) =>
-              this.allocationsForProjectForm.value['usernames']!.includes(
-                u.userUsername
-              )
+              this.userProjectAllocationsForProjectForm.value[
+                'usernames'
+              ]!.includes(u.userUsername)
             )
             .map((u) => u.userId)
         )
@@ -1083,7 +1081,9 @@ export class CompanyPageComponent implements OnInit {
             .map((u) => u.userId)[0],
           this.projects
             .filter((p) =>
-              this.allocationsForUserForm.value['projects']!.includes(p.name)
+              this.userProjectAllocationsForUserForm.value[
+                'projects'
+              ]!.includes(p.name)
             )
             .map((p) => p.id)
         )
@@ -1091,6 +1091,170 @@ export class CompanyPageComponent implements OnInit {
           next: () => {
             this.toastr.success(
               `User allocations ${this.currentAllocationUser} updated`,
+              'Update succeeded',
+              {
+                timeOut: 5000,
+                progressBar: true,
+              }
+            );
+          },
+          error: () => {},
+        });
+    }
+  }
+
+  showActivityProjectAllocations() {
+    if (
+      this.activityProjectAllocationViewMode ===
+      ActivityProjectAllocationViewMode.PROJECT
+    ) {
+      this.currentAssignmentActivity = null;
+
+      if (
+        this.activityProjectAllocationForm.value['project'] !== null &&
+        this.projects.filter(
+          (p) => p.name === this.activityProjectAllocationForm.value['project']
+        ).length != 0
+      ) {
+        this.currentAssignmentProject =
+          this.activityProjectAllocationForm.value['project'];
+        this.apiService
+          .getCompanyProjectActivitiesByProject(
+            this.companyId!,
+            this.projects
+              .filter((p) => p.name === this.currentAssignmentProject!)
+              .map((p) => p.id)[0]
+          )
+          .subscribe({
+            next: (users: string[]) => {
+              this.activitiesAssignedInProject = users;
+              this.activityProjectAssignmentModeShow = true;
+              this.assignmentsForProjectForm.patchValue({
+                activities: this.activities
+                  .filter((activity) =>
+                    this.activitiesAssignedInProject.includes(activity.id)
+                  )
+                  .map((activity) => activity.name), // Ensure it matches the values used in `mat-list-option`
+              });
+            },
+            error: () => (this.activityProjectAssignmentModeShow = false),
+          });
+      }
+    } else {
+      this.currentAssignmentProject = null;
+      if (
+        this.activityProjectAllocationForm.value['activity'] !== null &&
+        this.activities.filter(
+          (p) => p.name === this.activityProjectAllocationForm.value['activity']
+        ).length != 0
+      ) {
+        this.currentAssignmentActivity =
+          this.activityProjectAllocationForm.value['activity'];
+        this.apiService
+          .getCompanyProjectActivitiesByActivity(
+            this.companyId!,
+            this.activities
+              .filter((u) => u.name === this.currentAssignmentActivity!)
+              .map((u) => u.id)[0]
+          )
+          .subscribe({
+            next: (projects: string[]) => {
+              this.projectsAssignedToActivity = projects;
+              this.activityProjectAssignmentModeShow = true;
+              this.assignmentsForActivityForm.patchValue({
+                projects: this.projects
+                  .filter((project) =>
+                    this.projectsAssignedToActivity.includes(project.id)
+                  )
+                  .map((project) => project.name), // Ensure it matches the values used in `mat-list-option`
+              });
+            },
+            error: () => (this.activityProjectAssignmentModeShow = false),
+          });
+      }
+    }
+  }
+
+  startEditActivityProjectAllocation() {
+    this.activityProjectAssignmentModeUnderEdit = true;
+  }
+
+  cancelEditActivityProjectAllocation() {
+    this.activityProjectAssignmentModeUnderEdit = false;
+    if (
+      this.activityProjectAllocationViewMode ===
+      ActivityProjectAllocationViewMode.PROJECT
+    ) {
+      this.assignmentsForProjectForm.patchValue({
+        activities: this.activities
+          .filter((activity) =>
+            this.activitiesAssignedInProject.includes(activity.id)
+          )
+          .map((activity) => activity.name),
+      });
+    } else {
+      this.assignmentsForActivityForm.patchValue({
+        projects: this.projects
+          .filter((project) =>
+            this.projectsAssignedToActivity.includes(project.id)
+          )
+          .map((project) => project.name),
+      });
+    }
+  }
+
+  confirmEditActivityProjectAllocation() {
+    this.activityProjectAssignmentModeUnderEdit = false;
+    if (
+      this.userProjectAllocationViewMode ===
+      UserProjectAllocationViewMode.PROJECT
+    ) {
+      this.apiService
+        .updateCompanyProjectActivitiesByProject(
+          this.companyId!,
+          this.projects
+            .filter((p) => p.name === this.currentAssignmentProject!)
+            .map((p) => p.id)[0],
+          this.activities
+            .filter((u) =>
+              this.assignmentsForProjectForm.value['activities']!.includes(
+                u.name
+              )
+            )
+            .map((u) => u.id)
+        )
+        .subscribe({
+          next: () => {
+            this.toastr.success(
+              `Project activities assignment ${this.currentAssignmentProject} updated`,
+              'Update succeeded',
+              {
+                timeOut: 5000,
+                progressBar: true,
+              }
+            );
+          },
+          error: () => {},
+        });
+    } else {
+      this.apiService
+        .updateCompanyProjectActivitiesByActivity(
+          this.companyId!,
+          this.activities
+            .filter((u) => u.name === this.currentAssignmentActivity!)
+            .map((u) => u.id)[0],
+          this.projects
+            .filter((p) =>
+              this.assignmentsForActivityForm.value['projects']!.includes(
+                p.name
+              )
+            )
+            .map((p) => p.id)
+        )
+        .subscribe({
+          next: () => {
+            this.toastr.success(
+              `Activity project assignment ${this.currentAssignmentActivity} updated`,
               'Update succeeded',
               {
                 timeOut: 5000,

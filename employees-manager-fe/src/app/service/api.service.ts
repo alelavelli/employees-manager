@@ -499,4 +499,52 @@ export class ApiService {
           { projectIds: projectIds }
         );
   }
+
+  getCompanyProjectActivitiesByProject(
+    companyId: string,
+    projectId: string
+  ): Observable<string[]> {
+    return MOCKED
+      ? buildMocked([...Array(5).keys()].map((i) => `id-${i}`))
+      : this.httpClient.get<string[]>(
+          API_URL + `/company/${companyId}/project-activity/${projectId}`
+        );
+  }
+
+  getCompanyProjectActivitiesByActivity(
+    companyId: string,
+    activityId: string
+  ): Observable<string[]> {
+    return MOCKED
+      ? buildMocked([...Array(5).keys()].map((i) => `project-${i}`))
+      : this.httpClient.get<string[]>(
+          API_URL + `/company/${companyId}/activity-assignment/${activityId}`
+        );
+  }
+
+  updateCompanyProjectActivitiesByProject(
+    companyId: string,
+    projectId: string,
+    activityIds: string[]
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/project-activity/${projectId}`,
+          { activityIds: activityIds }
+        );
+  }
+
+  updateCompanyProjectActivitiesByActivity(
+    companyId: string,
+    activityId: string,
+    projectIds: string[]
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/company/${companyId}/activity-assignment/${activityId}`,
+          { projectIds: projectIds }
+        );
+  }
 }
