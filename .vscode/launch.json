@@ -5,23 +5,16 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "lldb",
+      "name": "Frontend",
+      "type": "node-terminal",
       "request": "launch",
-      "name": "Debug unit tests in library 'employees-manager'",
-      "cargo": {
-        "args": ["test", "--no-run", "--lib", "--package=employees-manager"],
-        "filter": {
-          "name": "employees-manager-be",
-          "kind": "lib"
-        }
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
+      "command": "npm start",
+      "cwd": "${workspaceFolder}/employees-manager-fe"
     },
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Backend Server",
+      "name": "Backend",
       "cargo": {
         "args": [
           "build",
@@ -37,25 +30,6 @@
         "DEPLOY_ENVIRONMENT": "dev",
         "LOCAL": "true",
         "RUST_BACKTRACE": "1"
-      },
-      "args": [],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "Debug unit tests in executable 'employees-manager'",
-      "cargo": {
-        "args": [
-          "test",
-          "--no-run",
-          "--bin=employees-manager",
-          "--package=employees-manager"
-        ],
-        "filter": {
-          "name": "employees-manager",
-          "kind": "bin"
-        }
       },
       "args": [],
       "cwd": "${workspaceFolder}"
