@@ -738,6 +738,49 @@ pub async fn edit_company_project_allocations_for_user(
     }
 }
 
+pub async fn get_company_project_activities(
+    company_id: DocumentId,
+) -> Result<Vec<db_entities::ProjectActivity>, ServiceAppError> {
+    db_entities::ProjectActivity::find_many(doc! {"company_id": company_id}).await
+}
+
+pub async fn get_projects_with_activity(
+    activity_id: DocumentId,
+) -> Result<Vec<String>, ServiceAppError> {
+    #[derive(Serialize, Deserialize)]
+    struct QueryResult {
+        project_id: DocumentId,
+    }
+
+    Ok(
+        db_entities::ProjectActivityAssignment::find_many_projection::<QueryResult>(
+            doc! {"activity_ids": activity_id},
+            doc! {"project_id": 1},
+        )
+        .await?
+        .into_iter()
+        .map(|elem| elem.project_id.to_hex())
+        .collect::<Vec<String>>(),
+    )
+}
+
+pub async fn get_projects_activity_assignment(
+    project_id: DocumentId,
+) -> Result<Vec<String>, ServiceAppError> {
+    if let Some(assignment) =
+        db_entities::ProjectActivityAssignment::find_one(doc! {"project_id": project_id}).await?
+    {
+        Ok(assignment
+            .activity_ids()
+            .iter()
+            .map(|value| value.to_hex())
+            .collect())
+    } else {
+        // If there is not assignment then we return an empty list
+        Ok(vec![])
+    }
+}
+
 pub async fn create_company_project_activity(
     company_id: DocumentId,
     name: String,
@@ -750,6 +793,7 @@ pub async fn create_company_project_activity(
     }
     if db_entities::ProjectActivity::find_one_projection::<QueryResult>(
         doc! {
+            "name": name.clone(),
             "company_id": company_id
         },
         doc! {"name": 1},
@@ -775,7 +819,7 @@ pub async fn edit_company_project_activity(
     description: String,
 ) -> Result<(), ServiceAppError> {
     // First check if the name does not already exist for this company
-    if db_entities::ProjectActivity::find_one(doc! {"name": &name})
+    if db_entities::ProjectActivity::find_one(doc! {"name": &name, "_id": {"$ne": activity_id}})
         .await?
         .is_some()
     {
@@ -863,6 +907,67 @@ pub async fn edit_project_activity_assignment(
     } else {
         Err(ServiceAppError::EntityDoesNotExist(format!(
             "Project with id {project_id} does not exist for company {company_id}"
+        )))
+    }
+}
+
+pub async fn edit_project_activity_assignment_by_activity(
+    activity_id: DocumentId,
+    project_ids: Vec<DocumentId>,
+) -> Result<(), ServiceAppError> {
+    // per ogni progetto che contiene activity id ma che ora non è nella lista devo togliere activity id
+    // per ogni nuovo progetto che non aveva activity id la devo aggiungere
+    // se non esisteva il documento allora lo creo, posso chiamare la funzione edit_project_activity_assignment
+    // a livello di progetto per semplificare la cosa
+    let activity = db_entities::ProjectActivity::find_one(doc! {"_id": activity_id}).await?;
+    if activity.is_some() {
+        let mut assignments =
+            db_entities::ProjectActivityAssignment::find_many(doc! {"activity_ids": activity_id})
+                .await?;
+        let db_service = get_database_service().await;
+        let mut transaction = db_service.new_transaction().await?;
+        transaction.start_transaction().await?;
+
+        let mut handled_projects = vec![];
+
+        for assignment in assignments.iter_mut() {
+            if !project_ids.contains(assignment.project_id()) {
+                // we remove the activity from the list because it is not present anymore
+                assignment
+                    .activity_ids_mut()
+                    .retain(|id| id != &activity_id);
+                assignment.save(Some(&mut transaction)).await?;
+            } else {
+                // the activity is still in the list so we do nothing
+                handled_projects.push(assignment.project_id())
+            }
+        }
+
+        // for each project id in project_ids that is not in handled_projects we try to retrieve the assignment
+        // if it is present we add activity_id to the list otherwise we create a new document
+        let remaining_projects: Vec<ObjectId> = project_ids
+            .into_iter()
+            .filter(|project| !handled_projects.contains(&project))
+            .collect();
+
+        for project in remaining_projects {
+            let mut assignments_doc = if let Some(mut doc) =
+                db_entities::ProjectActivityAssignment::find_one(doc! { "project_id": project})
+                    .await?
+            {
+                doc.activity_ids_mut().push(activity_id);
+                doc
+            } else {
+                db_entities::ProjectActivityAssignment::new(project, vec![activity_id])
+            };
+            assignments_doc.save(Some(&mut transaction)).await?;
+        }
+
+        transaction.commit_transaction().await?;
+        Ok(())
+    } else {
+        Err(ServiceAppError::EntityDoesNotExist(format!(
+            "Activity with id {activity_id} does not exist",
         )))
     }
 }
@@ -1122,6 +1227,7 @@ mod tests {
                 company_id.clone(),
                 ObjectId::new(),
                 *activity.get_id().unwrap(),
+                "description".into(),
                 1,
             )],
         );

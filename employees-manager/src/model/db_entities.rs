@@ -227,6 +227,7 @@ embedded_document!(
     company_id: DocumentId,
     project_id: DocumentId,
     activity_id: DocumentId,
+    description: String,
     hours: usize
 );
 

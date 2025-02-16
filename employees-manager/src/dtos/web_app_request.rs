@@ -90,3 +90,29 @@ pub struct ChangeProjectAllocations {
 pub struct ChangeProjectAllocationsForUser {
     pub project_ids: Vec<DocumentId>,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewProjectActivity {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditProjectActivity {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeProjectActivityAssignmentByActivity {
+    pub project_ids: Vec<DocumentId>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeProjectActivityAssignmentByProject {
+    pub activity_ids: Vec<DocumentId>,
+}

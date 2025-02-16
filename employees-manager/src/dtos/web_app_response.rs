@@ -261,7 +261,33 @@ impl TryFrom<db_entities::CompanyProject> for CompanyProjectInfo {
             })
         } else {
             Err(ServiceAppError::ResponseBuildError(
-                "Document Id should exist for User".into(),
+                "Document Id should exist for CompanyProject".into(),
+            ))
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectActivityInfo {
+    id: String,
+    name: String,
+    description: String,
+}
+
+impl TryFrom<db_entities::ProjectActivity> for ProjectActivityInfo {
+    type Error = ServiceAppError;
+
+    fn try_from(value: db_entities::ProjectActivity) -> Result<Self, Self::Error> {
+        if let Some(id) = value.get_id() {
+            Ok(Self {
+                id: id.to_hex(),
+                name: value.name().into(),
+                description: value.description().into(),
+            })
+        } else {
+            Err(ServiceAppError::ResponseBuildError(
+                "Document Id should exist for ProjectActivity".into(),
             ))
         }
     }

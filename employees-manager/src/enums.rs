@@ -109,4 +109,5 @@ pub enum WorkingDayType {
     Office,
     Remote,
     Holiday,
+    Sick,
 }

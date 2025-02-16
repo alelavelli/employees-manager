@@ -74,6 +74,32 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
             "/company/{id}/project/{project_id}",
             delete(delete_company_project),
         )
+        .route("/company/{id}/activity", post(create_project_activity))
+        .route("/company/{id}/activity", get(get_project_activities))
+        .route(
+            "/company/{id}/activity/{activity_id}",
+            patch(edit_project_activity),
+        )
+        .route(
+            "/company/{id}/activity/{activity_id}",
+            delete(delete_project_activity),
+        )
+        .route(
+            "/company/{id}/activity-assignment/{activity_id}",
+            get(get_project_activity_assignment_by_activity),
+        )
+        .route(
+            "/company/{id}/project-activity/{project_id}",
+            get(get_project_activity_assignment_by_project),
+        )
+        .route(
+            "/company/{id}/activity-assignment/{activity_id}",
+            patch(edit_project_activity_assignment_by_activity),
+        )
+        .route(
+            "/company/{id}/project-activity/{project_id}",
+            patch(edit_project_activity_assignment_by_project),
+        )
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -285,4 +311,90 @@ async fn edit_company_project_allocations_by_user(
     facade::edit_company_project_allocations_by_user(jwt_claim, id, user_id, payload)
         .await
         .map(AppJson)
+}
+
+async fn create_project_activity(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+    Json(payload): Json<web_app_request::NewProjectActivity>,
+) -> Result<AppJson<()>, AppError> {
+    facade::create_project_activity(jwt_claim, id, payload)
+        .await
+        .map(AppJson)
+}
+
+async fn get_project_activities(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<Vec<web_app_response::ProjectActivityInfo>>, AppError> {
+    facade::get_project_activities(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
+async fn edit_project_activity(
+    jwt_claim: JWTAuthClaim,
+    Path((id, activity_id)): Path<(DocumentId, DocumentId)>,
+    Json(payload): Json<web_app_request::EditProjectActivity>,
+) -> Result<AppJson<()>, AppError> {
+    facade::edit_project_activity(jwt_claim, id, activity_id, payload)
+        .await
+        .map(AppJson)
+}
+
+async fn delete_project_activity(
+    jwt_claim: JWTAuthClaim,
+    Path((id, activity_id)): Path<(DocumentId, DocumentId)>,
+) -> Result<AppJson<()>, AppError> {
+    facade::delete_project_activity(jwt_claim, id, activity_id)
+        .await
+        .map(AppJson)
+}
+
+async fn get_project_activity_assignment_by_activity(
+    jwt_claim: JWTAuthClaim,
+    Path((id, activity_id)): Path<(DocumentId, DocumentId)>,
+) -> Result<AppJson<Vec<String>>, AppError> {
+    facade::get_project_activity_assignment_by_activity(jwt_claim, id, activity_id)
+        .await
+        .map(AppJson)
+}
+
+async fn get_project_activity_assignment_by_project(
+    jwt_claim: JWTAuthClaim,
+    Path((id, project_id)): Path<(DocumentId, DocumentId)>,
+) -> Result<AppJson<Vec<String>>, AppError> {
+    facade::get_project_activity_assignment_by_project(jwt_claim, id, project_id)
+        .await
+        .map(AppJson)
+}
+
+async fn edit_project_activity_assignment_by_activity(
+    jwt_claim: JWTAuthClaim,
+    Path((id, activity_id)): Path<(DocumentId, DocumentId)>,
+    Json(payload): Json<web_app_request::ChangeProjectActivityAssignmentByActivity>,
+) -> Result<AppJson<()>, AppError> {
+    facade::edit_project_activity_assignment_by_activity(
+        jwt_claim,
+        id,
+        activity_id,
+        payload.project_ids,
+    )
+    .await
+    .map(AppJson)
+}
+
+async fn edit_project_activity_assignment_by_project(
+    jwt_claim: JWTAuthClaim,
+    Path((id, project_id)): Path<(DocumentId, DocumentId)>,
+    Json(payload): Json<web_app_request::ChangeProjectActivityAssignmentByProject>,
+) -> Result<AppJson<()>, AppError> {
+    facade::edit_project_activity_assignment_by_project(
+        jwt_claim,
+        id,
+        project_id,
+        payload.activity_ids,
+    )
+    .await
+    .map(AppJson)
 }

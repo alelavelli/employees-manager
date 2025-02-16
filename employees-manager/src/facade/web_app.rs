@@ -388,7 +388,7 @@ pub async fn get_company_project_allocations_by_project(
         .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
-
+    // TODO: optimize this by filtering directly the query
     let allocation: Option<Vec<String>> = company::get_company_project_allocations(company_id)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
@@ -413,7 +413,7 @@ pub async fn get_company_project_allocations_by_user(
         .await?
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
-
+    // TODO: optimize this by filtering directly the query
     let allocation: Vec<String> = company::get_company_project_allocations(company_id)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
@@ -523,6 +523,157 @@ pub async fn edit_company_project_allocations_by_user(
         .await
         .map_err(|e| match e {
             ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })
+}
+
+pub async fn create_project_activity(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    payload: web_app_request::NewProjectActivity,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::create_company_project_activity(company_id, payload.name, payload.description)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })
+}
+
+pub async fn get_project_activities(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+) -> Result<Vec<web_app_response::ProjectActivityInfo>, AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .await?;
+
+    Ok(company::get_company_project_activities(company_id)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?
+        .into_iter()
+        .flat_map(web_app_response::ProjectActivityInfo::try_from)
+        .collect())
+}
+
+pub async fn edit_project_activity(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    activity_id: DocumentId,
+    payload: web_app_request::EditProjectActivity,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::edit_company_project_activity(
+        company_id,
+        activity_id,
+        payload.name,
+        payload.description,
+    )
+    .await
+    .map_err(|e| match e {
+        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+        _ => AppError::InternalServerError(e.to_string()),
+    })?;
+
+    Ok(())
+}
+
+pub async fn delete_project_activity(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    activity_id: DocumentId,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::delete_company_project_activity(company_id, activity_id)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })?;
+
+    Ok(())
+}
+
+pub async fn get_project_activity_assignment_by_activity(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    activity_id: DocumentId,
+) -> Result<Vec<String>, AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .await?;
+
+    company::get_projects_with_activity(activity_id)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))
+}
+
+pub async fn get_project_activity_assignment_by_project(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    project_id: DocumentId,
+) -> Result<Vec<String>, AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .await?;
+
+    company::get_projects_activity_assignment(project_id)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))
+}
+
+pub async fn edit_project_activity_assignment_by_activity(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    activity_id: DocumentId,
+    project_ids: Vec<DocumentId>,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::edit_project_activity_assignment_by_activity(activity_id, project_ids)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })
+}
+
+pub async fn edit_project_activity_assignment_by_project(
+    auth_info: impl AuthInfo,
+    company_id: DocumentId,
+    project_id: DocumentId,
+    activity_ids: Vec<DocumentId>,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .await?;
+
+    company::edit_project_activity_assignment(company_id, project_id, activity_ids)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
             _ => AppError::InternalServerError(e.to_string()),
         })
 }

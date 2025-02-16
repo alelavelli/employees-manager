@@ -123,7 +123,7 @@ export class CompanyPageComponent implements OnInit {
 
   editActivityForm: FormGroup = this.formBuilder.group({
     name: ['', Validators.required],
-    description: ['', Validators.required],
+    description: [''],
   });
   activityUnderEdit: string | null = null;
 
@@ -846,6 +846,7 @@ export class CompanyPageComponent implements OnInit {
               progressBar: true,
             }
           );
+          this.activityUnderEdit = null;
           this.loadData();
         },
         error: () => {},
@@ -1206,8 +1207,8 @@ export class CompanyPageComponent implements OnInit {
   confirmEditActivityProjectAllocation() {
     this.activityProjectAssignmentModeUnderEdit = false;
     if (
-      this.userProjectAllocationViewMode ===
-      UserProjectAllocationViewMode.PROJECT
+      this.activityProjectAllocationViewMode ===
+      ActivityProjectAllocationViewMode.PROJECT
     ) {
       this.apiService
         .updateCompanyProjectActivitiesByProject(

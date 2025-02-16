@@ -40,7 +40,7 @@ export class NewActivityDialogComponent implements OnInit {
   companyId: string | null;
   newActivityForm: FormGroup = this.formBuilder.group({
     name: ['', Validators.required],
-    description: ['', Validators.required],
+    description: [''],
   });
 
   constructor(
@@ -57,7 +57,7 @@ export class NewActivityDialogComponent implements OnInit {
   onSubmit() {
     this.dialogRef.close({
       name: this.newActivityForm.value['name'],
-      code: this.newActivityForm.value['description'],
+      description: this.newActivityForm.value['description'],
     });
   }
 }
