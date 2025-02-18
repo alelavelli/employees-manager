@@ -1,5 +1,7 @@
 use crate::{enums::CompanyRole, DocumentId};
 
+use super::db_entities;
+
 /// Internal data type returned by the user service to the facade for the admin panel overview
 #[derive(Default)]
 pub struct AdminPanelOverviewUserInfo {
@@ -44,4 +46,25 @@ pub struct InvitedUserInCompanyInfo {
     pub role: CompanyRole,
     pub job_title: String,
     pub company_id: String,
+}
+
+/// Internal data type that contains working hours for a single project activity
+pub struct TimesheetActivityHours {
+    pub company_id: DocumentId,
+    pub project_id: DocumentId,
+    pub activity_id: DocumentId,
+    pub description: String,
+    pub hours: u32,
+}
+
+impl Into<db_entities::TimesheetActivityHours> for TimesheetActivityHours {
+    fn into(self) -> db_entities::TimesheetActivityHours {
+        db_entities::TimesheetActivityHours::new(
+            self.company_id,
+            self.project_id,
+            self.activity_id,
+            self.description,
+            self.hours,
+        )
+    }
 }

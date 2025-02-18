@@ -1,6 +1,11 @@
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
-use crate::{enums::CompanyRole, DocumentId};
+use crate::{
+    enums::{CompanyRole, WorkingDayType},
+    model::internal,
+    DocumentId,
+};
 
 /// Authorization payload for jwt token
 #[derive(Deserialize)]
@@ -115,4 +120,35 @@ pub struct ChangeProjectActivityAssignmentByActivity {
 #[serde(rename_all = "camelCase")]
 pub struct ChangeProjectActivityAssignmentByProject {
     pub activity_ids: Vec<DocumentId>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimesheetActivityHours {
+    pub company_id: DocumentId,
+    pub project_id: DocumentId,
+    pub activity_id: DocumentId,
+    pub description: String,
+    pub hours: u32,
+}
+
+impl Into<internal::TimesheetActivityHours> for TimesheetActivityHours {
+    fn into(self) -> internal::TimesheetActivityHours {
+        internal::TimesheetActivityHours {
+            company_id: self.company_id,
+            project_id: self.project_id,
+            activity_id: self.activity_id,
+            description: self.description,
+            hours: self.hours,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTimesheetDay {
+    pub date: DateTime<Utc>,
+    pub permit_hours: u32,
+    pub working_type: WorkingDayType,
+    pub activities: Vec<TimesheetActivityHours>,
 }

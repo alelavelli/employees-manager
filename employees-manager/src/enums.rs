@@ -3,6 +3,8 @@ use std::fmt::Display;
 use mongodb::bson::Bson;
 use serde::{Deserialize, Serialize};
 
+use crate::error::ServiceAppError;
+
 /// Enumeration with roles assigned to Users for a Company
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum CompanyRole {
@@ -106,8 +108,48 @@ pub enum NotificationType {
 /// each day is marked with this enumeration
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum WorkingDayType {
+    /// When the user works at the office
     Office,
+    /// When the user works at home
     Remote,
+    /// When the user takes a day off from work
+    DayOff,
+    /// When the day is a public or national holiday
     Holiday,
+    /// When the day is a company closure day
+    CompanyClosure,
+    /// When the user does not work because of illness
     Sick,
+}
+
+impl Into<Bson> for WorkingDayType {
+    fn into(self) -> Bson {
+        match self {
+            Self::Office => "Office".to_string(),
+            Self::Remote => "Remote".to_string(),
+            Self::DayOff => "DayOff".to_string(),
+            Self::Holiday => "Holiday".to_string(),
+            Self::CompanyClosure => "CompanyClosure".to_string(),
+            Self::Sick => "Sick".to_string(),
+        }
+        .into()
+    }
+}
+
+impl TryFrom<Bson> for WorkingDayType {
+    type Error = ServiceAppError;
+
+    fn try_from(value: Bson) -> Result<Self, Self::Error> {
+        match value.to_string().as_str() {
+            "Office" => Ok(Self::Office),
+            "Remote" => Ok(Self::Remote),
+            "DayOff" => Ok(Self::DayOff),
+            "Holiday" => Ok(Self::Holiday),
+            "CompanyClosure" => Ok(Self::CompanyClosure),
+            "Sick" => Ok(Self::Sick),
+            _ => Err(ServiceAppError::DatabaseError(
+                "Failed to load WorkingDayType from document".into(),
+            )),
+        }
+    }
 }

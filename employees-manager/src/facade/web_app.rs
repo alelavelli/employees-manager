@@ -6,8 +6,10 @@ use crate::{
     dtos::{web_app_request, web_app_response},
     enums::{CompanyRole, NotificationType},
     error::{AppError, ServiceAppError},
-    model::db_entities,
-    service::{access_control::AccessControl, company, db::DatabaseDocument, notification, user},
+    model::{db_entities, internal},
+    service::{
+        access_control::AccessControl, company, db::DatabaseDocument, notification, timesheet, user,
+    },
     DocumentId,
 };
 
@@ -676,4 +678,26 @@ pub async fn edit_project_activity_assignment_by_project(
             ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
             _ => AppError::InternalServerError(e.to_string()),
         })
+}
+
+pub async fn create_timesheet_day(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+    payload: web_app_request::CreateTimesheetDay,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    timesheet::create_day(
+        user_id,
+        payload.date,
+        payload.permit_hours,
+        payload.working_type,
+        payload
+            .activities
+            .into_iter()
+            .map(|e| e.into())
+            .collect::<Vec<internal::TimesheetActivityHours>>(),
+    )
+    .await
+    .map_err(|e| AppError::InternalServerError(e.to_string()))
 }

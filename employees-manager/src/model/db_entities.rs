@@ -1,27 +1,33 @@
-use chrono::NaiveDate;
-use mongodb::bson::oid::ObjectId;
-use paste::paste;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-
 use crate::{
     enums::{CompanyRole, EmployeeRequest, NotificationType, WorkingDayType},
     error::DatabaseError,
     service::db::DatabaseDocument,
     DocumentId,
 };
+use bson::{self, doc, Bson};
+use chrono::{DateTime, Utc};
+use mongodb::bson::oid::ObjectId;
+use paste::paste;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// The macro generates struct that implements DatabaseDocument trait
 ///
 /// You need to provide struct level docstring, the name of the struct, the name of the mongodb collection and the fields with their type
 macro_rules! database_document {
-    ( $(#[doc = $doc:expr])* $struct_name:ident, $collection_name:expr, $ ( $field_name:ident : $field_type:ty ),* ) => {
+    ( $(#[doc = $doc:expr])* $struct_name:ident, $collection_name:expr, $(
+        $(#[$field_attr:meta])*
+        $field_name:ident : $field_type:ty
+    ),* $(,)? ) => {
         $( #[doc = $doc] )*
         #[derive(Debug, Serialize, Deserialize, Clone)]
         pub struct $struct_name {
             #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
             id: Option<DocumentId>,
-            $ ($field_name: $field_type, )*
+            $(
+                $(#[$field_attr])*
+                $field_name: $field_type,
+            )*
         }
 
         impl $struct_name {
@@ -228,8 +234,20 @@ embedded_document!(
     project_id: DocumentId,
     activity_id: DocumentId,
     description: String,
-    hours: usize
+    hours: u32
 );
+
+impl Into<Bson> for TimesheetActivityHours {
+    fn into(self) -> Bson {
+        Bson::Document(doc! {
+            "company_id": self.company_id,
+            "project_id": self.project_id,
+            "activity_id": self.activity_id,
+            "description": self.description,
+            "hours": self.hours
+        })
+    }
+}
 
 database_document!(
     #[doc = "A Timesheet day of the User in the Company."]
@@ -238,8 +256,9 @@ database_document!(
     TimesheetDay,
     "timesheet_day",
     user_id: DocumentId,
-    date: NaiveDate,
-    permit_hours: usize,
+    #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
+    date: DateTime<Utc>,
+    permit_hours: u32,
     working_type: WorkingDayType,
     activities: Vec<TimesheetActivityHours>
 );
