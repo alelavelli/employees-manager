@@ -701,3 +701,22 @@ pub async fn create_timesheet_day(
     .await
     .map_err(|e| AppError::InternalServerError(e.to_string()))
 }
+
+pub async fn get_timesheet_days(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+    year: i32,
+    month: u32,
+) -> Result<Vec<web_app_response::TimesheetDay>, AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    Ok(timesheet::get_days(user_id, year, month)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })?
+        .into_iter()
+        .map(|doc| doc.into())
+        .collect())
+}

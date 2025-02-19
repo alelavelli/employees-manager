@@ -1,12 +1,15 @@
+use chrono::{DateTime, Utc};
 use derive_builder::Builder;
 use mongodb::bson::oid::ObjectId;
 use serde::Serialize;
 
+use super::web_app_common;
 use crate::{
-    enums::{CompanyRole, NotificationType},
+    enums::{CompanyRole, NotificationType, WorkingDayType},
     error::ServiceAppError,
     model::{db_entities, internal},
     service::db::DatabaseDocument,
+    DocumentId,
 };
 
 /// Authorization response for jwt token
@@ -289,6 +292,32 @@ impl TryFrom<db_entities::ProjectActivity> for ProjectActivityInfo {
             Err(ServiceAppError::ResponseBuildError(
                 "Document Id should exist for ProjectActivity".into(),
             ))
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimesheetDay {
+    pub user_id: DocumentId,
+    pub date: DateTime<Utc>,
+    pub permit_hours: u32,
+    pub working_type: WorkingDayType,
+    pub activities: Vec<web_app_common::TimesheetActivityHours>,
+}
+
+impl From<db_entities::TimesheetDay> for TimesheetDay {
+    fn from(value: db_entities::TimesheetDay) -> Self {
+        Self {
+            user_id: *value.user_id(),
+            date: *value.date(),
+            permit_hours: *value.permit_hours(),
+            working_type: *value.working_type(),
+            activities: value
+                .activities()
+                .iter()
+                .map(|elem| elem.into())
+                .collect::<Vec<web_app_common::TimesheetActivityHours>>(),
         }
     }
 }

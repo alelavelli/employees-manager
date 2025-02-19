@@ -73,7 +73,10 @@ mod tests {
     use crate::{
         auth::APIKeyAuthClaim,
         model::db_entities,
-        service::{access_control::AccessControl, db::DatabaseDocument},
+        service::{
+            access_control::AccessControl,
+            db::{get_database_service, DatabaseDocument},
+        },
     };
 
     #[tokio::test]
@@ -129,5 +132,8 @@ mod tests {
 
             company_assignment.delete(None).await.unwrap();
         }
+
+        let drop_result = get_database_service().await.db.drop().await;
+        assert!(drop_result.is_ok());
     }
 }

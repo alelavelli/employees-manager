@@ -122,15 +122,15 @@ pub enum WorkingDayType {
     Sick,
 }
 
-impl Into<Bson> for WorkingDayType {
-    fn into(self) -> Bson {
-        match self {
-            Self::Office => "Office".to_string(),
-            Self::Remote => "Remote".to_string(),
-            Self::DayOff => "DayOff".to_string(),
-            Self::Holiday => "Holiday".to_string(),
-            Self::CompanyClosure => "CompanyClosure".to_string(),
-            Self::Sick => "Sick".to_string(),
+impl From<WorkingDayType> for Bson {
+    fn from(value: WorkingDayType) -> Self {
+        match value {
+            WorkingDayType::Office => "Office".to_string(),
+            WorkingDayType::Remote => "Remote".to_string(),
+            WorkingDayType::DayOff => "DayOff".to_string(),
+            WorkingDayType::Holiday => "Holiday".to_string(),
+            WorkingDayType::CompanyClosure => "CompanyClosure".to_string(),
+            WorkingDayType::Sick => "Sick".to_string(),
         }
         .into()
     }

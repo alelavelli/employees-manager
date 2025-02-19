@@ -1,6 +1,4 @@
-use crate::{enums::CompanyRole, DocumentId};
-
-use super::db_entities;
+use crate::{dtos::web_app_common, enums::CompanyRole, DocumentId};
 
 /// Internal data type returned by the user service to the facade for the admin panel overview
 #[derive(Default)]
@@ -57,14 +55,14 @@ pub struct TimesheetActivityHours {
     pub hours: u32,
 }
 
-impl Into<db_entities::TimesheetActivityHours> for TimesheetActivityHours {
-    fn into(self) -> db_entities::TimesheetActivityHours {
-        db_entities::TimesheetActivityHours::new(
-            self.company_id,
-            self.project_id,
-            self.activity_id,
-            self.description,
-            self.hours,
-        )
+impl From<web_app_common::TimesheetActivityHours> for TimesheetActivityHours {
+    fn from(value: web_app_common::TimesheetActivityHours) -> Self {
+        Self {
+            company_id: value.company_id,
+            project_id: value.project_id,
+            activity_id: value.activity_id,
+            description: value.description,
+            hours: value.hours,
+        }
     }
 }

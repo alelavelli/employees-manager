@@ -11,6 +11,8 @@ use paste::paste;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+use super::internal;
+
 /// The macro generates struct that implements DatabaseDocument trait
 ///
 /// You need to provide struct level docstring, the name of the struct, the name of the mongodb collection and the fields with their type
@@ -237,15 +239,27 @@ embedded_document!(
     hours: u32
 );
 
-impl Into<Bson> for TimesheetActivityHours {
-    fn into(self) -> Bson {
+impl From<TimesheetActivityHours> for Bson {
+    fn from(value: TimesheetActivityHours) -> Self {
         Bson::Document(doc! {
-            "company_id": self.company_id,
-            "project_id": self.project_id,
-            "activity_id": self.activity_id,
-            "description": self.description,
-            "hours": self.hours
+            "company_id": value.company_id,
+            "project_id": value.project_id,
+            "activity_id": value.activity_id,
+            "description": value.description,
+            "hours": value.hours
         })
+    }
+}
+
+impl From<internal::TimesheetActivityHours> for TimesheetActivityHours {
+    fn from(value: internal::TimesheetActivityHours) -> Self {
+        Self {
+            company_id: value.company_id,
+            project_id: value.project_id,
+            activity_id: value.activity_id,
+            description: value.description,
+            hours: value.hours,
+        }
     }
 }
 

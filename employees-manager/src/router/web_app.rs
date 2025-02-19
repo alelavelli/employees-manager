@@ -101,6 +101,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
             patch(edit_project_activity_assignment_by_project),
         )
         .route("/user/{id}/timesheet-day", post(create_timesheet_day))
+        .route("/user/{id}/timesheet-day", get(get_timesheet_days))
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -406,6 +407,16 @@ async fn create_timesheet_day(
     Json(payload): Json<web_app_request::CreateTimesheetDay>,
 ) -> Result<AppJson<()>, AppError> {
     facade::create_timesheet_day(jwt_claim, id, payload)
+        .await
+        .map(AppJson)
+}
+
+async fn get_timesheet_days(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+    Json(payload): Json<web_app_request::GetUserTimesheetDays>,
+) -> Result<AppJson<Vec<web_app_response::TimesheetDay>>, AppError> {
+    facade::get_timesheet_days(jwt_claim, id, payload.year, payload.month)
         .await
         .map(AppJson)
 }

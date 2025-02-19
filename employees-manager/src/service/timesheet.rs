@@ -1,5 +1,4 @@
 use chrono::{DateTime, TimeZone, Utc};
-use tracing::debug;
 
 use crate::{
     enums::WorkingDayType,
@@ -25,38 +24,40 @@ pub async fn create_day(
 ) -> Result<(), ServiceAppError> {
     let count =
         db_entities::TimesheetDay::count_documents(doc! {"user_id": user_id, "date": date}).await?;
-    if count > 1 {
-        Err(ServiceAppError::InternalServerError(format!(
+    match count {
+        0 => {
+            let mut new_document = db_entities::TimesheetDay::new(
+                user_id,
+                date,
+                permit_hours,
+                working_type,
+                activities
+                    .into_iter()
+                    .map(|e| e.into())
+                    .collect::<Vec<db_entities::TimesheetActivityHours>>(),
+            );
+            new_document.save(None).await?;
+            Ok(())
+        }
+        1 => {
+            db_entities::TimesheetDay::update_one(
+                doc! {"user_id": user_id, "date": date},
+                doc! {
+                    "permit_hours": permit_hours,
+                    "working_type": working_type,
+                    "activities": activities.into_iter()
+                    .map(|e| e.into())
+                    .collect::<Vec<db_entities::TimesheetActivityHours>>()
+                },
+                None,
+            )
+            .await?;
+            Ok(())
+        }
+        _ => Err(ServiceAppError::InternalServerError(format!(
             "There are more than one database documents for user_id {user_id} and date {:?}",
             date.to_string()
-        )))
-    } else if count == 1 {
-        db_entities::TimesheetDay::update_one(
-            doc! {"user_id": user_id, "date": date},
-            doc! {
-                "permit_hours": permit_hours,
-                "working_type": working_type,
-                "activities": activities.into_iter()
-                .map(|e| e.into())
-                .collect::<Vec<db_entities::TimesheetActivityHours>>()
-            },
-            None,
-        )
-        .await?;
-        Ok(())
-    } else {
-        let mut new_document = db_entities::TimesheetDay::new(
-            user_id,
-            date,
-            permit_hours,
-            working_type,
-            activities
-                .into_iter()
-                .map(|e| e.into())
-                .collect::<Vec<db_entities::TimesheetActivityHours>>(),
-        );
-        new_document.save(None).await?;
-        Ok(())
+        ))),
     }
 }
 
@@ -68,7 +69,7 @@ pub async fn get_days(
 ) -> Result<Vec<db_entities::TimesheetDay>, ServiceAppError> {
     let from_date = Utc.with_ymd_and_hms(year, month, 1, 0, 0, 0).earliest();
     let to_date = Utc
-        .with_ymd_and_hms(year, month, 1, 0, 0, 0)
+        .with_ymd_and_hms(year, month + 1, 1, 0, 0, 0)
         .earliest()
         .or_else(|| Utc.with_ymd_and_hms(year + 1, month, 0, 0, 0, 0).earliest());
     if from_date.is_none() || to_date.is_none() {
@@ -78,10 +79,9 @@ pub async fn get_days(
     } else {
         let from_date = from_date.unwrap();
         let to_date = to_date.unwrap();
-        debug!("from_date {from_date} and to_date {to_date}");
         db_entities::TimesheetDay::find_many(doc! {
             "user_id": user_id,
-            "date": {"$and": [{"$gte": from_date}, {"$lt": to_date}]}
+            "date": {"$lt": to_date, "$gte": from_date},
         })
         .await
     }
@@ -206,7 +206,7 @@ mod tests {
         let docs = get_days(user_id, 2025, 3).await.unwrap();
         assert_eq!(docs.len(), 1);
 
-        //let drop_result = get_database_service().await.db.drop().await;
-        //assert!(drop_result.is_ok());
+        let drop_result = get_database_service().await.db.drop().await;
+        assert!(drop_result.is_ok());
     }
 }
