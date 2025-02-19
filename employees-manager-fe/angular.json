@@ -29,6 +29,17 @@
             }
           },
           "configurations": {
+            "mocked": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true,
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.mocked.ts"
+                }
+              ]
+            },
             "local": {
               "optimization": false,
               "extractLicenses": false,
@@ -130,6 +141,9 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
+            "mocked": {
+              "buildTarget": "employees-manager-fe:build:mocked"
+            },
             "local": {
               "buildTarget": "employees-manager-fe:build:local"
             },

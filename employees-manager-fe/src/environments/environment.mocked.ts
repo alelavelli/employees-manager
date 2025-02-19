@@ -1,7 +1,7 @@
 export const environment = {
   maintenance: false,
-  production: true,
-  mocked: false,
-  envName: 'PROD',
+  production: false,
+  mocked: true,
+  envName: 'MOCKED',
   apiHost: '',
 };
