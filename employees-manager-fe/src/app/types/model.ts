@@ -130,3 +130,9 @@ export interface NewProjectActivity {
   name: string;
   description: string;
 }
+
+export interface CalendarDay {
+  dayName: string;
+  dayNumber: number;
+  isWeekend: boolean;
+}
