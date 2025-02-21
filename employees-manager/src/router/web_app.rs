@@ -9,7 +9,7 @@ use crate::{
 };
 
 use axum::{
-    extract::Path,
+    extract::{Path, Query},
     routing::{delete, get, patch, post},
     Json, Router,
 };
@@ -414,9 +414,9 @@ async fn create_timesheet_day(
 async fn get_timesheet_days(
     jwt_claim: JWTAuthClaim,
     Path(id): Path<DocumentId>,
-    Json(payload): Json<web_app_request::GetUserTimesheetDays>,
+    query: Query<web_app_request::GetUserTimesheetDays>,
 ) -> Result<AppJson<Vec<web_app_response::TimesheetDay>>, AppError> {
-    facade::get_timesheet_days(jwt_claim, id, payload.year, payload.month)
+    facade::get_timesheet_days(jwt_claim, id, query.year, query.month)
         .await
         .map(AppJson)
 }

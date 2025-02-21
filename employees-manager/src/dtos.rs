@@ -13,7 +13,6 @@ use crate::error::AppError;
 
 pub mod sdk_request;
 pub mod sdk_response;
-pub mod web_app_common;
 pub mod web_app_request;
 pub mod web_app_response;
 // Create our own JSON extractor by wrapping `axum::Json`. This makes it easy to override the

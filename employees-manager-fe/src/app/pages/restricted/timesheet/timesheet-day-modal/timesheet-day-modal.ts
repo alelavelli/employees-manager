@@ -29,7 +29,7 @@ import { MatIconModule } from '@angular/material/icon';
   ],
   encapsulation: ViewEncapsulation.None,
 })
-export class NewCompanyDialogComponent {
+export class EditTimesheetDialogComponent {
   newCompanyForm: FormGroup = this.formBuilder.group({
     name: ['', Validators.required],
     jobTitle: ['', Validators.required],

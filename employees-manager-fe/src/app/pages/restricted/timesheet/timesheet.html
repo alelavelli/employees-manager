@@ -28,23 +28,24 @@
       </div> -->
     </div>
     <div class="timesheet-grid" *ngIf="!loading && openTimesheet">
-      <div *ngFor="let day of calendarDays" class="timesheet-day" [ngClass]="{'timesheet-disabled-day': day.isWeekend}">
+      <div *ngFor="let day of calendarDays" class="timesheet-day" [ngClass]="{'timesheet-disabled-day': day.isWeekend}"
+        (click)="openEditTimesheetDay(day)">
         <div class="timesheet-day-header">
           <div class="timesheet-day-header-label">
             {{day.dayName}}
             {{day.dayNumber}}
           </div>
-          <div class="timesheet-day-header-icon">
-            REMOTE
+          <div class="timesheet-day-header-icon" *ngIf="!day.isWeekend">
+            {{getWorkType(day)}}
           </div>
         </div>
-        <div class="timesheet-day-body">
+        <div class="timesheet-day-body" *ngIf="!day.isWeekend">
           <div class="timesheet-day-body-content">
             <div class="timesheet-day-body-content-label">
               Working
             </div>
             <div class="timesheet-day-body-content-value">
-              5
+              {{getTotalWorkHours(day)}}
             </div>
           </div>
           <div class="timesheet-day-body-content">
@@ -52,7 +53,7 @@
               Permit
             </div>
             <div class="timesheet-day-body-content-value">
-              3
+              {{getPermitHours(day)}}
             </div>
           </div>
 
@@ -61,7 +62,7 @@
               Projects
             </div>
             <div class="timesheet-day-body-content-value">
-              1
+              {{getNumberOfProjects(day)}}
             </div>
           </div>
         </div>

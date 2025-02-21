@@ -3,7 +3,6 @@ use derive_builder::Builder;
 use mongodb::bson::oid::ObjectId;
 use serde::Serialize;
 
-use super::web_app_common;
 use crate::{
     enums::{CompanyRole, NotificationType, WorkingDayType},
     error::ServiceAppError,
@@ -296,28 +295,25 @@ impl TryFrom<db_entities::ProjectActivity> for ProjectActivityInfo {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Builder, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimesheetActivityHours {
+    pub company_id: DocumentId,
+    pub company_name: String,
+    pub project_id: DocumentId,
+    pub project_name: String,
+    pub activity_id: DocumentId,
+    pub activity_name: String,
+    pub description: String,
+    pub hours: u32,
+}
+
+#[derive(Serialize, Builder)]
 #[serde(rename_all = "camelCase")]
 pub struct TimesheetDay {
     pub user_id: DocumentId,
     pub date: DateTime<Utc>,
     pub permit_hours: u32,
     pub working_type: WorkingDayType,
-    pub activities: Vec<web_app_common::TimesheetActivityHours>,
-}
-
-impl From<db_entities::TimesheetDay> for TimesheetDay {
-    fn from(value: db_entities::TimesheetDay) -> Self {
-        Self {
-            user_id: *value.user_id(),
-            date: *value.date(),
-            permit_hours: *value.permit_hours(),
-            working_type: *value.working_type(),
-            activities: value
-                .activities()
-                .iter()
-                .map(|elem| elem.into())
-                .collect::<Vec<web_app_common::TimesheetActivityHours>>(),
-        }
-    }
+    pub activities: Vec<TimesheetActivityHours>,
 }

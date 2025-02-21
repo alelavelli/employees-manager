@@ -106,18 +106,23 @@ export interface NewCompanyProject {
   code: string;
 }
 
-export interface TimesheetProjectHours {
-  project: CompanyProjectInfo;
+export interface TimesheetActivityHours {
+  companyId: string;
+  companyName: string;
+  projectId: string;
+  projectName: string;
+  activityId: string;
+  activityName: string;
+  description: string;
   hours: number;
 }
 
 export interface TimesheetDay {
+  user_id: string;
   date: Date;
-  active: boolean;
-  workHours: number;
   permitHours: number;
-  projects: TimesheetProjectHours[];
-  dayType: TimesheetDayWorkType;
+  workingType: TimesheetDayWorkType;
+  activities: TimesheetActivityHours[];
 }
 
 export interface ProjectActivityInfo {
@@ -135,4 +140,11 @@ export interface CalendarDay {
   dayName: string;
   dayNumber: number;
   isWeekend: boolean;
+}
+
+export interface TimesheetProjectInfo {
+  companyId: string;
+  projectId: string;
+  projectName: string;
+  activities: ProjectActivityInfo[];
 }

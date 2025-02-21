@@ -17,8 +17,15 @@ import {
   InvitedUserInCompanyInfo,
   CompanyProjectInfo,
   ProjectActivityInfo,
+  TimesheetDay,
+  TimesheetActivityHours,
+  TimesheetProjectInfo,
 } from '../types/model';
-import { CompanyRole, NotificationType } from '../types/enums';
+import {
+  CompanyRole,
+  NotificationType,
+  TimesheetDayWorkType,
+} from '../types/enums';
 
 const MOCKED = environment.mocked;
 const API_URL = environment.apiHost + '/api';
@@ -545,6 +552,76 @@ export class ApiService {
       : this.httpClient.patch<void>(
           API_URL + `/company/${companyId}/activity-assignment/${activityId}`,
           { projectIds: projectIds }
+        );
+  }
+
+  getTimesheetDays(
+    userId: string,
+    year: number,
+    month: number
+  ): Observable<TimesheetDay[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(10).keys()].map((i) => ({
+            user_id: `user-id-${i}`,
+            date: new Date(2025, 1, i),
+            permitHours: 2,
+            workingType: TimesheetDayWorkType.Office,
+            activities: [
+              {
+                companyId: `company-id-${i}`,
+                companyName: `company-name-${i}`,
+                projectId: `project-id-${i}`,
+                projectName: `project-name-${i}`,
+                activityId: `activity-id-${i}`,
+                activityName: `activity-name-${i}`,
+                description: `description-${i}`,
+                hours: i,
+              },
+              {
+                companyId: `company-id-${i}`,
+                companyName: `company-name-${i}`,
+                projectId: `second-project-id-${i}`,
+                projectName: `second-project-name-${i}`,
+                activityId: `activity-id-${i}`,
+                activityName: `second-activity-name-${i}`,
+                description: `description-${i}`,
+                hours: i,
+              },
+            ] as TimesheetActivityHours[],
+          }))
+        )
+      : this.httpClient.get<TimesheetDay[]>(
+          API_URL + `/user/${userId}/timesheet-day`,
+          { params: { year: year.toString(), month: month.toString() } }
+        );
+  }
+
+  getUserProjectsForTimesheet(
+    userId: string
+  ): Observable<TimesheetProjectInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(10).keys()].map((i) => ({
+            companyId: i < 5 ? `company-one` : 'company-two',
+            projectId: i % 2 == 0 ? `project-id-one` : 'project-id-two',
+            projectName: i % 2 == 0 ? `project-name-one` : 'project-name-two',
+            activities: [
+              {
+                id: `first-activity-id-${i}`,
+                name: `second-activity-name-${i}`,
+                description: `description-${i}`,
+              },
+              {
+                id: `first-activity-id-${i}`,
+                name: `second-activity-name-${i}`,
+                description: `description-${i}`,
+              },
+            ],
+          }))
+        )
+      : this.httpClient.get<TimesheetProjectInfo[]>(
+          API_URL + `/user/${userId}/timesheet-project`
         );
   }
 }

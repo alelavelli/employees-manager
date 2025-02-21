@@ -6,8 +6,6 @@ use crate::{
     DocumentId,
 };
 
-use super::web_app_common;
-
 /// Authorization payload for jwt token
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -125,11 +123,21 @@ pub struct ChangeProjectActivityAssignmentByProject {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TimesheetActivityHours {
+    pub company_id: DocumentId,
+    pub project_id: DocumentId,
+    pub activity_id: DocumentId,
+    pub description: String,
+    pub hours: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateTimesheetDay {
     pub date: DateTime<Utc>,
     pub permit_hours: u32,
     pub working_type: WorkingDayType,
-    pub activities: Vec<web_app_common::TimesheetActivityHours>,
+    pub activities: Vec<TimesheetActivityHours>,
 }
 
 #[derive(Deserialize)]
