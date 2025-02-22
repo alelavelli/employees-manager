@@ -563,7 +563,7 @@ export class ApiService {
     return MOCKED
       ? buildMocked(
           [...Array(10).keys()].map((i) => ({
-            user_id: `user-id-${i}`,
+            userId: `user-id-${i}`,
             date: new Date(2025, 0, i),
             permitHours: 2,
             workingType: TimesheetDayWorkType.Office,
@@ -624,5 +624,22 @@ export class ApiService {
       : this.httpClient.get<TimesheetProjectInfo[]>(
           API_URL + `/user/${userId}/timesheet-project`
         );
+  }
+
+  createTimesheetDay(
+    userId: string,
+    day: Date,
+    permitHours: number,
+    dayType: TimesheetDayWorkType,
+    activities: TimesheetActivityHours[]
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(API_URL + `/user/${userId}/timesheet-day`, {
+          day: day,
+          permitHours: permitHours,
+          workDayType: dayType,
+          activities: activities,
+        });
   }
 }

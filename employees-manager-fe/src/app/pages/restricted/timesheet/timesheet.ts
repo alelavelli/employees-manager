@@ -5,6 +5,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import {
   CalendarDay,
+  TimesheetActivityHours,
   TimesheetDay,
   TimesheetProjectInfo,
   UserData,
@@ -190,7 +191,33 @@ export class TimesheetPageComponent implements OnInit {
           },
         })
         .afterClosed()
-        .subscribe({});
+        .subscribe({
+          next: (data: {
+            permitHours: number;
+            dayType: TimesheetDayWorkType;
+            activities: TimesheetActivityHours[];
+          }) => {
+            if (data !== undefined && this.userData !== null) {
+              this.apiService
+                .createTimesheetDay(
+                  this.userData.id,
+                  day.date,
+                  data.permitHours,
+                  data.dayType,
+                  data.activities
+                )
+                .subscribe({
+                  next: () => {
+                    this.loadData();
+                    this.toastr.success('Updated timesheet day', 'Sent', {
+                      timeOut: 5000,
+                      progressBar: true,
+                    });
+                  },
+                });
+            }
+          },
+        });
     }
   }
 }

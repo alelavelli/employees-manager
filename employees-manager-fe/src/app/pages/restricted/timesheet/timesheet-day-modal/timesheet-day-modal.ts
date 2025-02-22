@@ -258,8 +258,9 @@ export class EditTimesheetDialogComponent {
 
   onSubmit() {
     this.dialogRef.close({
-      name: this.dayForm.value['name'],
-      jobTitle: this.dayForm.value['jobTitle'],
+      dayType: this.dayForm.value['dayType'],
+      permitHours: this.dayForm.value['permitHours'],
+      activities: this.activities,
     });
   }
 }

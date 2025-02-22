@@ -118,7 +118,7 @@ export interface TimesheetActivityHours {
 }
 
 export interface TimesheetDay {
-  user_id: string;
+  userId: string;
   date: Date;
   permitHours: number;
   workingType: TimesheetDayWorkType;
