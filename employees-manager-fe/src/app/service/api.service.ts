@@ -564,7 +564,7 @@ export class ApiService {
       ? buildMocked(
           [...Array(10).keys()].map((i) => ({
             user_id: `user-id-${i}`,
-            date: new Date(2025, 1, i),
+            date: new Date(2025, 0, i),
             permitHours: 2,
             workingType: TimesheetDayWorkType.Office,
             activities: [
@@ -575,7 +575,7 @@ export class ApiService {
                 projectName: `project-name-${i}`,
                 activityId: `activity-id-${i}`,
                 activityName: `activity-name-${i}`,
-                description: `description-${i}`,
+                notes: `notes-${i}`,
                 hours: i,
               },
               {
@@ -583,9 +583,9 @@ export class ApiService {
                 companyName: `company-name-${i}`,
                 projectId: `second-project-id-${i}`,
                 projectName: `second-project-name-${i}`,
-                activityId: `activity-id-${i}`,
+                activityId: `second-activity-id-${i}`,
                 activityName: `second-activity-name-${i}`,
-                description: `description-${i}`,
+                notes: `notes-${i}`,
                 hours: i,
               },
             ] as TimesheetActivityHours[],
@@ -603,18 +603,19 @@ export class ApiService {
     return MOCKED
       ? buildMocked(
           [...Array(10).keys()].map((i) => ({
-            companyId: i < 5 ? `company-one` : 'company-two',
-            projectId: i % 2 == 0 ? `project-id-one` : 'project-id-two',
-            projectName: i % 2 == 0 ? `project-name-one` : 'project-name-two',
+            companyId: i < 5 ? `company-id-1` : 'company-id-3',
+            companyName: i < 5 ? `company-name-1` : 'company-name-3',
+            projectId: i % 2 == 0 ? `project-id-1` : 'project-id-3',
+            projectName: i % 2 == 0 ? `project-name-1` : 'project-name-3',
             activities: [
               {
-                id: `first-activity-id-${i}`,
-                name: `second-activity-name-${i}`,
+                id: `activity-id-1`,
+                name: `activity-name-1`,
                 description: `description-${i}`,
               },
               {
-                id: `first-activity-id-${i}`,
-                name: `second-activity-name-${i}`,
+                id: `activity-id-3`,
+                name: `activity-name-3`,
                 description: `description-${i}`,
               },
             ],

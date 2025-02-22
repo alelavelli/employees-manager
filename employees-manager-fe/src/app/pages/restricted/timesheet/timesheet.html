@@ -3,23 +3,16 @@
     <div class="timesheet-header">
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Select a year</mat-label>
-        <mat-select [(value)]="selectedYear">
+        <mat-select [(value)]="selectedYear" (valueChange)="loadData()">
           <mat-option *ngFor="let year of years" [value]="year">{{year}}</mat-option>
         </mat-select>
       </mat-form-field>
       <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Select a month</mat-label>
-        <mat-select [(value)]="selectedMonth">
+        <mat-select [(value)]="selectedMonth" (valueChange)="loadData()">
           <mat-option *ngFor="let month of months" [value]="month">{{month}}</mat-option>
         </mat-select>
       </mat-form-field>
-      <button mat-raised-button class="clickable primary-button" (click)="loadData()"
-        [disabled]="selectedMonth === null || selectedYear === null">
-        <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
-          <mat-icon>folder_open</mat-icon>
-          Open
-        </div>
-      </button>
     </div>
     <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
     <div class="timesheet-header-days" *ngIf="!loading && openTimesheet">

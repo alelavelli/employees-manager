@@ -113,7 +113,7 @@ export interface TimesheetActivityHours {
   projectName: string;
   activityId: string;
   activityName: string;
-  description: string;
+  notes: string;
   hours: number;
 }
 
@@ -137,6 +137,7 @@ export interface NewProjectActivity {
 }
 
 export interface CalendarDay {
+  date: Date;
   dayName: string;
   dayNumber: number;
   isWeekend: boolean;
@@ -144,6 +145,7 @@ export interface CalendarDay {
 
 export interface TimesheetProjectInfo {
   companyId: string;
+  companyName: string;
   projectId: string;
   projectName: string;
   activities: ProjectActivityInfo[];

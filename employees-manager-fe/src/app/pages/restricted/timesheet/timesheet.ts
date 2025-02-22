@@ -89,6 +89,7 @@ export class TimesheetPageComponent implements OnInit {
       const days = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
       this.calendarDays = [...Array(days).keys()].map((i) => {
         const day = i + 1;
+        const date = new Date(this.selectedYear!, this.selectedMonth!, day);
         const weekDay = new Date(
           this.selectedYear!,
           this.selectedMonth!,
@@ -96,6 +97,7 @@ export class TimesheetPageComponent implements OnInit {
         ).getDay();
         const dayName = Day[weekDay];
         return {
+          date: date,
           dayName: dayName,
           dayNumber: day,
           isWeekend: weekDay == 0 || weekDay == 6,
@@ -120,12 +122,13 @@ export class TimesheetPageComponent implements OnInit {
 
   getMatchingUserDay(day: CalendarDay): TimesheetDay | null {
     if (this.selectedMonth !== null && this.selectedYear !== null) {
-      const filtered = this.userDays.filter(
-        (timesheetDay) =>
-          timesheetDay.date.getDay() === day.dayNumber &&
-          timesheetDay.date.getMonth() === this.selectedMonth &&
+      const filtered = this.userDays.filter((timesheetDay) => {
+        return (
+          timesheetDay.date.getDate() === day.dayNumber &&
+          timesheetDay.date.getMonth() + 1 === this.selectedMonth &&
           timesheetDay.date.getFullYear() === this.selectedYear
-      );
+        );
+      });
       if (filtered.length > 0) {
         return filtered[0];
       } else {
@@ -180,7 +183,11 @@ export class TimesheetPageComponent implements OnInit {
     if (!day.isWeekend) {
       this.dialog
         .open(EditTimesheetDialogComponent, {
-          data: {},
+          data: {
+            calendarDay: day,
+            timesheetDay: this.getMatchingUserDay(day),
+            projects: this.userProjects,
+          },
         })
         .afterClosed()
         .subscribe({});
