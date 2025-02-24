@@ -1,3 +1,4 @@
+import { Moment } from 'moment';
 import { CompanyRole, NotificationType, TimesheetDayWorkType } from './enums';
 
 export interface LoginResponse {
@@ -119,7 +120,7 @@ export interface TimesheetActivityHours {
 
 export interface TimesheetDay {
   userId: string;
-  date: Date;
+  date: Moment;
   permitHours: number;
   workingType: TimesheetDayWorkType;
   activities: TimesheetActivityHours[];
@@ -137,7 +138,7 @@ export interface NewProjectActivity {
 }
 
 export interface CalendarDay {
-  date: Date;
+  date: Moment;
   dayName: string;
   dayNumber: number;
   isWeekend: boolean;

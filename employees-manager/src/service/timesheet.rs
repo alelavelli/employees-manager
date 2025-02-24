@@ -43,11 +43,13 @@ pub async fn create_day(
             db_entities::TimesheetDay::update_one(
                 doc! {"user_id": user_id, "date": date},
                 doc! {
-                    "permit_hours": permit_hours,
-                    "working_type": working_type,
-                    "activities": activities.into_iter()
-                    .map(|e| e.into())
-                    .collect::<Vec<db_entities::TimesheetActivityHours>>()
+                    "$set": {
+                        "permit_hours": permit_hours,
+                        "working_type": working_type,
+                        "activities": activities.into_iter()
+                        .map(|e| e.into())
+                        .collect::<Vec<db_entities::TimesheetActivityHours>>()
+                    }
                 },
                 None,
             )
@@ -126,14 +128,14 @@ mod tests {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
-                    description: "this is my description".into(),
+                    notes: "this is my description".into(),
                     hours: 2,
                 },
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
-                    description: "this is my second description".into(),
+                    notes: "this is my second description".into(),
                     hours: 4,
                 },
             ],
@@ -157,14 +159,14 @@ mod tests {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
-                    description: "this is my description".into(),
+                    notes: "this is my description".into(),
                     hours: 2,
                 },
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
-                    description: "this is my second description".into(),
+                    notes: "this is my second description".into(),
                     hours: 4,
                 },
             ],
@@ -182,14 +184,14 @@ mod tests {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
-                    description: "this is my description".into(),
+                    notes: "this is my description".into(),
                     hours: 2,
                 },
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
-                    description: "this is my second description".into(),
+                    notes: "this is my second description".into(),
                     hours: 4,
                 },
             ],

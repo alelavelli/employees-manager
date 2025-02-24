@@ -269,7 +269,7 @@ impl TryFrom<db_entities::CompanyProject> for CompanyProjectInfo {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectActivityInfo {
     id: String,
@@ -304,7 +304,7 @@ pub struct TimesheetActivityHours {
     pub project_name: String,
     pub activity_id: DocumentId,
     pub activity_name: String,
-    pub description: String,
+    pub notes: String,
     pub hours: u32,
 }
 
@@ -316,4 +316,14 @@ pub struct TimesheetDay {
     pub permit_hours: u32,
     pub working_type: WorkingDayType,
     pub activities: Vec<TimesheetActivityHours>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimesheetProjectInfo {
+    pub company_id: DocumentId,
+    pub company_name: String,
+    pub project_id: DocumentId,
+    pub project_name: String,
+    pub activities: Vec<ProjectActivityInfo>,
 }

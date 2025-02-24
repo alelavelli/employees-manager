@@ -1,4 +1,4 @@
-<h1 mat-dialog-title>Day {{calendarDay.dayName}} {{calendarDay.date.toDateString()}}</h1>
+<h1 mat-dialog-title>Day {{calendarDay.dayName}} {{calendarDay.date.format("DD/MM/YYYY")}}</h1>
 
 <div mat-dialog-content class="timesheet-day-modal-container">
     <form [formGroup]="dayForm" (ngSubmit)="onSubmit()" class="form-container">
@@ -38,7 +38,7 @@
                     <div *ngIf="activityUnderEdit === element.activityId">
                         <mat-form-field style="margin-top: 1rem;" appearance="outline">
                             <mat-label>Select a company</mat-label>
-                            <mat-select formControlName="companyId" (valueChange)="updateProjectsOfCompany()">
+                            <mat-select formControlName="companyId" (selectionChange)="updateProjectsOfCompany()">
                                 <mat-option *ngFor="let company of companies"
                                     [value]="company.id">{{company.name}}</mat-option>
                             </mat-select>
@@ -55,7 +55,7 @@
                     <div *ngIf="activityUnderEdit === element.activityId">
                         <mat-form-field style="margin-top: 1rem;" appearance="outline">
                             <mat-label>Select a project</mat-label>
-                            <mat-select formControlName="projectId" (valueChange)="updateActivitiesOfProject()">
+                            <mat-select formControlName="projectId" (selectionChange)="updateActivitiesOfProject()">
                                 <mat-option *ngFor="let project of projectsOfCompany"
                                     [value]="project.id">{{project.name}}</mat-option>
                             </mat-select>

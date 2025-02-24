@@ -51,7 +51,7 @@ pub struct TimesheetActivityHours {
     pub company_id: DocumentId,
     pub project_id: DocumentId,
     pub activity_id: DocumentId,
-    pub description: String,
+    pub notes: String,
     pub hours: u32,
 }
 
@@ -61,7 +61,7 @@ impl From<web_app_request::TimesheetActivityHours> for TimesheetActivityHours {
             company_id: value.company_id,
             project_id: value.project_id,
             activity_id: value.activity_id,
-            description: value.description,
+            notes: value.notes,
             hours: value.hours,
         }
     }

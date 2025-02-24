@@ -525,7 +525,7 @@ pub async fn get_users_to_invite_in_company(
 }
 
 pub async fn get_company_projects(
-    company_id: DocumentId,
+    company_id: &DocumentId,
 ) -> Result<Vec<db_entities::CompanyProject>, ServiceAppError> {
     db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await
 }
@@ -766,17 +766,19 @@ pub async fn get_projects_with_activity(
     )
 }
 
+pub async fn get_activities_by_id(
+    activity_ids: &Vec<DocumentId>,
+) -> Result<Vec<db_entities::ProjectActivity>, ServiceAppError> {
+    db_entities::ProjectActivity::find_many(doc! {"_id": {"$in": activity_ids}}).await
+}
+
 pub async fn get_projects_activity_assignment(
-    project_id: DocumentId,
-) -> Result<Vec<String>, ServiceAppError> {
+    project_id: &DocumentId,
+) -> Result<Vec<DocumentId>, ServiceAppError> {
     if let Some(assignment) =
         db_entities::ProjectActivityAssignment::find_one(doc! {"project_id": project_id}).await?
     {
-        Ok(assignment
-            .activity_ids()
-            .iter()
-            .map(|value| value.to_hex())
-            .collect())
+        Ok(assignment.activity_ids().clone())
     } else {
         // If there is not assignment then we return an empty list
         Ok(vec![])

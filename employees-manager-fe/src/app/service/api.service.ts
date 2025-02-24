@@ -26,6 +26,8 @@ import {
   NotificationType,
   TimesheetDayWorkType,
 } from '../types/enums';
+import { Moment } from 'moment';
+import moment from 'moment';
 
 const MOCKED = environment.mocked;
 const API_URL = environment.apiHost + '/api';
@@ -564,7 +566,7 @@ export class ApiService {
       ? buildMocked(
           [...Array(10).keys()].map((i) => ({
             userId: `user-id-${i}`,
-            date: new Date(2025, 0, i),
+            date: moment(`2025-${1}-${i}`, 'YYYY-MM-DD'),
             permitHours: 2,
             workingType: TimesheetDayWorkType.Office,
             activities: [
@@ -628,7 +630,7 @@ export class ApiService {
 
   createTimesheetDay(
     userId: string,
-    day: Date,
+    day: Moment,
     permitHours: number,
     dayType: TimesheetDayWorkType,
     activities: TimesheetActivityHours[]
@@ -636,9 +638,9 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.post<void>(API_URL + `/user/${userId}/timesheet-day`, {
-          day: day,
+          date: day.toISOString(),
           permitHours: permitHours,
-          workDayType: dayType,
+          workingType: dayType,
           activities: activities,
         });
   }

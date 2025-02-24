@@ -87,6 +87,7 @@ export class EditTimesheetDialogComponent {
     companyId: ['', Validators.required],
     projectId: ['', Validators.required],
     activityId: ['', Validators.required],
+    hours: [0, Validators.required],
     notes: [''],
   });
   activityUnderEdit: string | null = null;
@@ -137,7 +138,6 @@ export class EditTimesheetDialogComponent {
   }
 
   getCompanies(): Company[] {
-    console.log(this.projects);
     return Array.from(
       new Map(
         this.projects.map((elem) => [
@@ -186,6 +186,7 @@ export class EditTimesheetDialogComponent {
       companyId: row.companyId,
       projectId: row.projectId,
       activityId: row.activityId,
+      hours: row.hours,
       notes: row.notes,
     });
     this.updateProjectsOfCompany();
@@ -210,9 +211,10 @@ export class EditTimesheetDialogComponent {
     )[0].name;
 
     this.editActivityForm.setValue({
-      companyId: '',
-      projectId: '',
-      activityId: '',
+      companyId: null,
+      projectId: null,
+      activityId: null,
+      hours: 0,
       notes: '',
     });
     this.updateProjectsOfCompany();
@@ -221,9 +223,10 @@ export class EditTimesheetDialogComponent {
   cancelEditActivityRow(row: TimesheetActivityHours) {
     this.activityUnderEdit = null;
     this.editActivityForm.setValue({
-      companyId: '',
-      projectId: '',
-      activityId: '',
+      companyId: null,
+      projectId: null,
+      activityId: null,
+      hours: 0,
       notes: '',
     });
     this.activitiesTableDataSource = new MatTableDataSource(this.activities);
@@ -248,19 +251,33 @@ export class EditTimesheetDialogComponent {
     });
     this.activityUnderEdit = 'tmpActivityId';
     this.editActivityForm.setValue({
-      companyId: 'edit me',
-      projectId: 'edit me',
+      companyId: null,
+      projectId: null,
       activityId: 'edit me',
+      hours: 0,
       notes: '',
     });
     this.activitiesTableDataSource = new MatTableDataSource(this.activities);
   }
 
   onSubmit() {
-    this.dialogRef.close({
-      dayType: this.dayForm.value['dayType'],
-      permitHours: this.dayForm.value['permitHours'],
-      activities: this.activities,
-    });
+    const dayType = this.dayForm.value['dayType'];
+
+    if (
+      dayType === TimesheetDayWorkType.Office ||
+      dayType === TimesheetDayWorkType.Remote
+    ) {
+      this.dialogRef.close({
+        dayType: dayType,
+        permitHours: this.dayForm.value['permitHours'],
+        activities: this.activities,
+      });
+    } else {
+      this.dialogRef.close({
+        dayType: dayType,
+        permitHours: 0,
+        activities: [],
+      });
+    }
   }
 }

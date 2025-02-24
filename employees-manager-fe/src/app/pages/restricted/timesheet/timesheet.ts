@@ -14,10 +14,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { ApiService } from '../../../service/api.service';
 import { Day, Month, TimesheetDayWorkType } from '../../../types/enums';
 import { UserService } from '../../../service/user.service';
-import { M } from '@angular/cdk/keycodes';
+import moment from 'moment';
 import { ToastrService } from 'ngx-toastr';
 import { MatDialog } from '@angular/material/dialog';
 import { EditTimesheetDialogComponent } from './timesheet-day-modal/timesheet-day-modal';
+import { timesheetDayWorkTypeToString } from '../../../service/common';
 @Component({
   selector: 'timesheet-page',
   templateUrl: './timesheet.html',
@@ -87,15 +88,17 @@ export class TimesheetPageComponent implements OnInit {
       this.selectedMonth !== null &&
       this.userData !== null
     ) {
-      const days = new Date(this.selectedYear, this.selectedMonth, 0).getDate();
+      const days = moment(
+        `${this.selectedYear}-${this.selectedMonth}`,
+        'YYYY-M'
+      ).daysInMonth();
       this.calendarDays = [...Array(days).keys()].map((i) => {
         const day = i + 1;
-        const date = new Date(this.selectedYear!, this.selectedMonth!, day);
-        const weekDay = new Date(
-          this.selectedYear!,
-          this.selectedMonth!,
-          day
-        ).getDay();
+        const date = moment.utc(
+          `${this.selectedYear}-${this.selectedMonth}-${day}`,
+          'YYYY-M-D'
+        );
+        const weekDay = date.day();
         const dayName = Day[weekDay];
         return {
           date: date,
@@ -113,7 +116,11 @@ export class TimesheetPageComponent implements OnInit {
         )
         .subscribe({
           next: (value) => {
-            this.userDays = value;
+            this.userDays = value.map((obj) => ({
+              ...obj,
+              // Convert date to UTC Moment because it is not done automatically. Nice language :)
+              date: moment.utc(obj.date, 'YYYY-MM-DD HH:mm:ss'),
+            }));
           },
         });
 
@@ -125,9 +132,9 @@ export class TimesheetPageComponent implements OnInit {
     if (this.selectedMonth !== null && this.selectedYear !== null) {
       const filtered = this.userDays.filter((timesheetDay) => {
         return (
-          timesheetDay.date.getDate() === day.dayNumber &&
-          timesheetDay.date.getMonth() + 1 === this.selectedMonth &&
-          timesheetDay.date.getFullYear() === this.selectedYear
+          timesheetDay.date.date() === day.dayNumber &&
+          timesheetDay.date.month() + 1 === this.selectedMonth &&
+          timesheetDay.date.year() === this.selectedYear
         );
       });
       if (filtered.length > 0) {
@@ -145,7 +152,7 @@ export class TimesheetPageComponent implements OnInit {
     if (matchingTimesheetDay === null) {
       return null;
     } else {
-      return matchingTimesheetDay.workingType;
+      return timesheetDayWorkTypeToString(matchingTimesheetDay.workingType);
     }
   }
 
@@ -153,10 +160,12 @@ export class TimesheetPageComponent implements OnInit {
     let matchingTimesheetDay = this.getMatchingUserDay(day);
     if (matchingTimesheetDay === null) {
       return null;
-    } else {
+    } else if (matchingTimesheetDay.activities.length > 0) {
       return matchingTimesheetDay.activities
         .map((elem) => elem.hours)
         .reduce((tot, elem) => tot + elem);
+    } else {
+      return 0;
     }
   }
 

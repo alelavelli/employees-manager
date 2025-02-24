@@ -20,9 +20,9 @@ export enum CompanyRole {
 export enum TimesheetDayWorkType {
   Office = 'Office',
   Remote = 'Remote',
-  DayOff = 'Day Off',
+  DayOff = 'DayOff',
   Holiday = 'Holiday',
-  CompanyClosure = 'Company Closure',
+  CompanyClosure = 'CompanyClosure',
   Sick = 'Sick',
 }
 

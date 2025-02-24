@@ -375,7 +375,7 @@ pub async fn get_company_projects(
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
-    Ok(company::get_company_projects(company_id)
+    Ok(company::get_company_projects(&company_id)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
         .into_iter()
@@ -639,9 +639,12 @@ pub async fn get_project_activity_assignment_by_project(
         .has_company_role_or_higher(&company_id, CompanyRole::User)
         .await?;
 
-    company::get_projects_activity_assignment(project_id)
+    Ok(company::get_projects_activity_assignment(&project_id)
         .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?
+        .into_iter()
+        .map(|elem| elem.to_hex())
+        .collect())
 }
 
 pub async fn edit_project_activity_assignment_by_activity(
@@ -813,7 +816,7 @@ pub async fn get_timesheet_days(
                 .company_name(company_name.clone())
                 .project_id(*activity_doc.project_id())
                 .project_name(project_name.clone())
-                .description(activity_doc.description().clone())
+                .notes(activity_doc.notes().clone())
                 .hours(*activity_doc.hours())
                 .build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet activity response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e.to_string())))?;
             current_activities.push(activity);
@@ -823,4 +826,56 @@ pub async fn get_timesheet_days(
     }
 
     Ok(timesheets_to_return)
+}
+
+pub async fn get_user_projects_for_timesheet(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+) -> Result<Vec<web_app_response::TimesheetProjectInfo>, AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    let companies = company::get_user_companies(&user_id)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
+    let mut timesheet_project_info = vec![];
+
+    for company_doc in companies {
+        if let Some(company_id) = company_doc.get_id() {
+            let projects = company::get_company_projects(company_id)
+            .await
+            .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of company projects for company {company_id}. Got error {e}")))?;
+
+            for project_doc in projects.iter() {
+                if let Some(project_id) = project_doc.get_id() {
+                    let activity_ids = company::get_projects_activity_assignment(project_id).await
+                .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity assignment for project {project_id}. Got error {e}")))?;
+                    let activities = company::get_activities_by_id(
+                        &activity_ids
+                    ).await.map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity for project {project_id}. Got error {e}")))?;
+
+                    timesheet_project_info.push(web_app_response::TimesheetProjectInfo {
+                        company_id: *company_id,
+                        company_name: company_doc.name().into(),
+                        project_id: *project_id,
+                        project_name: project_doc.name().into(),
+                        activities: activities
+                            .into_iter()
+                            .flat_map(|activity_doc| activity_doc.try_into())
+                            .collect::<Vec<web_app_response::ProjectActivityInfo>>(),
+                    });
+                } else {
+                    return Err(AppError::InternalServerError(
+                        "project_doc must have id since it is read from db".into(),
+                    ));
+                }
+            }
+        } else {
+            return Err(AppError::InternalServerError(
+                "company_doc must have id since it is read from db".into(),
+            ));
+        }
+    }
+
+    Ok(timesheet_project_info)
 }

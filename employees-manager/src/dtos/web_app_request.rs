@@ -127,7 +127,7 @@ pub struct TimesheetActivityHours {
     pub company_id: DocumentId,
     pub project_id: DocumentId,
     pub activity_id: DocumentId,
-    pub description: String,
+    pub notes: String,
     pub hours: u32,
 }
 
