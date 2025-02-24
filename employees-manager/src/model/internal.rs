@@ -1,4 +1,4 @@
-use crate::{enums::CompanyRole, DocumentId};
+use crate::{dtos::web_app_request, enums::CompanyRole, DocumentId};
 
 /// Internal data type returned by the user service to the facade for the admin panel overview
 #[derive(Default)]
@@ -44,4 +44,25 @@ pub struct InvitedUserInCompanyInfo {
     pub role: CompanyRole,
     pub job_title: String,
     pub company_id: String,
+}
+
+/// Internal data type that contains working hours for a single project activity
+pub struct TimesheetActivityHours {
+    pub company_id: DocumentId,
+    pub project_id: DocumentId,
+    pub activity_id: DocumentId,
+    pub notes: String,
+    pub hours: u32,
+}
+
+impl From<web_app_request::TimesheetActivityHours> for TimesheetActivityHours {
+    fn from(value: web_app_request::TimesheetActivityHours) -> Self {
+        Self {
+            company_id: value.company_id,
+            project_id: value.project_id,
+            activity_id: value.activity_id,
+            notes: value.notes,
+            hours: value.hours,
+        }
+    }
 }

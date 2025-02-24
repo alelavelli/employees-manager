@@ -1,43 +1,44 @@
 <div class="timesheet-page-container page-with-padding">
-  <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
-  <ng-container *ngIf="!loading">
+  <ng-container>
     <div class="timesheet-header">
-      <mat-form-field appearance="outline">
-        <mat-label>Select a company</mat-label>
-        <mat-select [(value)]="companyId" (selectionChange)="loadData()">
-          <mat-option *ngFor="let company of companies" [value]="company.id">{{company.name}}</mat-option>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Select a year</mat-label>
+        <mat-select [(value)]="selectedYear" (valueChange)="loadData()">
+          <mat-option *ngFor="let year of years" [value]="year">{{year}}</mat-option>
         </mat-select>
       </mat-form-field>
-      <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
         <mat-label>Select a month</mat-label>
-        <mat-select [(value)]="selectedMonth" (selectionChange)="loadData()">
+        <mat-select [(value)]="selectedMonth" (valueChange)="loadData()">
           <mat-option *ngFor="let month of months" [value]="month">{{month}}</mat-option>
         </mat-select>
       </mat-form-field>
     </div>
-    <div class="timesheet-header-days">
-      <div *ngFor="let day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']">
+    <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+    <div class="timesheet-header-days" *ngIf="!loading && openTimesheet">
+      <!-- <div *ngFor="let day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']">
         {{day}}
-      </div>
+      </div> -->
     </div>
-    <div class="timesheet-grid">
-      <div *ngFor="let i of values" class="timesheet-day"
-        [ngClass]="{'timesheet-disabled-day': (i+1) % 7 == 0 || (i+2) % 7 == 0}">
+    <div class="timesheet-grid" *ngIf="!loading && openTimesheet">
+      <div *ngFor="let day of calendarDays" class="timesheet-day" [ngClass]="{'timesheet-disabled-day': day.isWeekend}"
+        (click)="openEditTimesheetDay(day)">
         <div class="timesheet-day-header">
           <div class="timesheet-day-header-label">
-            {{i}}
+            {{day.dayName}}
+            {{day.dayNumber}}
           </div>
-          <div class="timesheet-day-header-icon">
-            REMOTE
+          <div class="timesheet-day-header-icon" *ngIf="!day.isWeekend">
+            {{getWorkType(day)}}
           </div>
         </div>
-        <div class="timesheet-day-body">
+        <div class="timesheet-day-body" *ngIf="!day.isWeekend">
           <div class="timesheet-day-body-content">
             <div class="timesheet-day-body-content-label">
               Working
             </div>
             <div class="timesheet-day-body-content-value">
-              5
+              {{getTotalWorkHours(day)}}
             </div>
           </div>
           <div class="timesheet-day-body-content">
@@ -45,7 +46,7 @@
               Permit
             </div>
             <div class="timesheet-day-body-content-value">
-              3
+              {{getPermitHours(day)}}
             </div>
           </div>
 
@@ -54,7 +55,7 @@
               Projects
             </div>
             <div class="timesheet-day-body-content-value">
-              1
+              {{getNumberOfProjects(day)}}
             </div>
           </div>
         </div>

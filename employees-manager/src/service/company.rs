@@ -525,7 +525,7 @@ pub async fn get_users_to_invite_in_company(
 }
 
 pub async fn get_company_projects(
-    company_id: DocumentId,
+    company_id: &DocumentId,
 ) -> Result<Vec<db_entities::CompanyProject>, ServiceAppError> {
     db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await
 }
@@ -588,6 +588,8 @@ pub async fn edit_project(
     code: String,
     active: bool,
 ) -> Result<String, ServiceAppError> {
+    // TODO: instead of loading all the projects documents, load a project with id and then use update_one()
+
     let company_project_query =
         db_entities::CompanyProject::find_one(doc! {"_id": project_id, "company_id": company_id})
             .await?;
@@ -764,17 +766,19 @@ pub async fn get_projects_with_activity(
     )
 }
 
+pub async fn get_activities_by_id(
+    activity_ids: &Vec<DocumentId>,
+) -> Result<Vec<db_entities::ProjectActivity>, ServiceAppError> {
+    db_entities::ProjectActivity::find_many(doc! {"_id": {"$in": activity_ids}}).await
+}
+
 pub async fn get_projects_activity_assignment(
-    project_id: DocumentId,
-) -> Result<Vec<String>, ServiceAppError> {
+    project_id: &DocumentId,
+) -> Result<Vec<DocumentId>, ServiceAppError> {
     if let Some(assignment) =
         db_entities::ProjectActivityAssignment::find_one(doc! {"project_id": project_id}).await?
     {
-        Ok(assignment
-            .activity_ids()
-            .iter()
-            .map(|value| value.to_hex())
-            .collect())
+        Ok(assignment.activity_ids().clone())
     } else {
         // If there is not assignment then we return an empty list
         Ok(vec![])
@@ -976,7 +980,7 @@ pub async fn edit_project_activity_assignment_by_activity(
 mod tests {
     use std::str::FromStr;
 
-    use chrono::NaiveDate;
+    use chrono::{DateTime, Utc};
     use mongodb::bson::{doc, oid::ObjectId};
 
     use crate::{
@@ -1220,7 +1224,7 @@ mod tests {
 
         let mut timesheet_day = db_entities::TimesheetDay::new(
             ObjectId::new(),
-            NaiveDate::default(),
+            DateTime::<Utc>::default(),
             0,
             crate::enums::WorkingDayType::Office,
             vec![db_entities::TimesheetActivityHours::new(
@@ -1252,5 +1256,7 @@ mod tests {
                 .len(),
             1
         );
+        let drop_result = get_database_service().await.db.drop().await;
+        assert!(drop_result.is_ok());
     }
 }

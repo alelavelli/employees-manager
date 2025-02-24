@@ -5,6 +5,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Frontend mocked",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run start:mocked",
+      "cwd": "${workspaceFolder}/employees-manager-fe"
+    },
+    {
       "name": "Frontend",
       "type": "node-terminal",
       "request": "launch",

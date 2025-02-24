@@ -1,11 +1,27 @@
 @import "colors";
 
-.modal-container {
+.timesheet-day-modal-container {
   .form-container {
     padding: 0.125rem 1rem 0.125rem 1rem;
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    .timesheet-day-form-row {
+      display: flex;
+      flex-direction: row;
+      gap: 1rem;
+    }
+  }
+
+  .timesheet-day-header-row {
+    color: $themePrimary;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+  .timesheet-error-message {
+    color: #e84e0f;
+    font-size: 14px;
+    margin-top: 10px;
   }
 
   .action-buttons {

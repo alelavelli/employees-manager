@@ -1,3 +1,5 @@
+use std::collections::{hash_map::Entry, HashMap};
+
 use jsonwebtoken::Header;
 use mongodb::bson::doc;
 
@@ -6,8 +8,10 @@ use crate::{
     dtos::{web_app_request, web_app_response},
     enums::{CompanyRole, NotificationType},
     error::{AppError, ServiceAppError},
-    model::db_entities,
-    service::{access_control::AccessControl, company, db::DatabaseDocument, notification, user},
+    model::{db_entities, internal},
+    service::{
+        access_control::AccessControl, company, db::DatabaseDocument, notification, timesheet, user,
+    },
     DocumentId,
 };
 
@@ -371,7 +375,7 @@ pub async fn get_company_projects(
         .has_company_role_or_higher(&company_id, CompanyRole::Admin)
         .await?;
 
-    Ok(company::get_company_projects(company_id)
+    Ok(company::get_company_projects(&company_id)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
         .into_iter()
@@ -635,9 +639,12 @@ pub async fn get_project_activity_assignment_by_project(
         .has_company_role_or_higher(&company_id, CompanyRole::User)
         .await?;
 
-    company::get_projects_activity_assignment(project_id)
+    Ok(company::get_projects_activity_assignment(&project_id)
         .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?
+        .into_iter()
+        .map(|elem| elem.to_hex())
+        .collect())
 }
 
 pub async fn edit_project_activity_assignment_by_activity(
@@ -676,4 +683,199 @@ pub async fn edit_project_activity_assignment_by_project(
             ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
             _ => AppError::InternalServerError(e.to_string()),
         })
+}
+
+pub async fn create_timesheet_day(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+    payload: web_app_request::CreateTimesheetDay,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    timesheet::create_day(
+        user_id,
+        payload.date,
+        payload.permit_hours,
+        payload.working_type,
+        payload
+            .activities
+            .into_iter()
+            .map(|e| e.into())
+            .collect::<Vec<internal::TimesheetActivityHours>>(),
+    )
+    .await
+    .map_err(|e| AppError::InternalServerError(e.to_string()))
+}
+
+pub async fn get_timesheet_days(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+    year: i32,
+    month: u32,
+) -> Result<Vec<web_app_response::TimesheetDay>, AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    /*
+    The function does the following:
+    - retrieve all the timesheet days for user, year and month
+    - for each day build the response and store it in the variable timesheets_to_return
+
+    The single TimesheetDay struct response is built using its builder and the attributes are retrieved
+    from the TimesheetDay document. Activity embedded document needs to be built in a similar way by iterating over
+    all the activities the TimesheetDay document has.
+    Since the TimesheetActivityHours response needs additional information that the original embedded document does not have
+    we need to query the database. To avoid useless database query we cache the several documents we use with an HashMap.
+    */
+
+    // create caches to store temporary database documents to avoid reading them multiple times
+    let mut company_cache: HashMap<DocumentId, db_entities::Company> = HashMap::new();
+    let mut project_cache: HashMap<DocumentId, db_entities::CompanyProject> = HashMap::new();
+    let mut activity_cache: HashMap<DocumentId, db_entities::ProjectActivity> = HashMap::new();
+
+    // Retrieve all the timesheet days that need to be returned to the client
+    let timesheet_days = timesheet::get_days(user_id, year, month)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })?;
+
+    let mut timesheets_to_return = vec![];
+
+    // iterate over all the days and build response structs
+    for timesheet_doc in timesheet_days {
+        // Use the builder and add first entities that can be retrieved easily from the document
+        let mut builder = web_app_response::TimesheetDayBuilder::default();
+        builder
+            .date(*timesheet_doc.date())
+            .permit_hours(*timesheet_doc.permit_hours())
+            .user_id(*timesheet_doc.user_id())
+            .working_type(*timesheet_doc.working_type());
+
+        // iterate over all the activities and build them
+        let mut current_activities = vec![];
+        for activity_doc in timesheet_doc.activities() {
+            // Here, we cannot use or_insert_with because we cannot use async closure that are considered unsafe
+            // therefore, we check if the entry exist and if not we perform the query
+            if let Entry::Vacant(entry) = activity_cache.entry(*activity_doc.activity_id()) {
+                entry.insert(
+                    db_entities::ProjectActivity::find_one(
+                        doc! {"_id": activity_doc.activity_id()})
+                        .await
+                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the activity document with id {}. Got error {}", activity_doc.activity_id(), e.to_string())))?
+                        .ok_or(AppError::DoesNotExist(format!("Activity with id {} does not exist.", activity_doc.activity_id())))?
+                );
+            }
+            let activity_name = activity_cache
+                .get(activity_doc.activity_id())
+                .ok_or(AppError::InternalServerError(format!(
+                    "Activity entry with id {} should exist in the cache",
+                    activity_doc.activity_id()
+                )))?
+                .name();
+
+            if let Entry::Vacant(entry) = company_cache.entry(*activity_doc.company_id()) {
+                entry.insert(
+                    db_entities::Company::find_one(
+                        doc! {"_id": activity_doc.company_id()})
+                        .await
+                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the company document with id {}. Got error {}", activity_doc.company_id(), e.to_string())))?
+                        .ok_or(AppError::DoesNotExist(format!("Company with id {} does not exist.", activity_doc.company_id())))?
+                );
+            }
+            let company_name = company_cache
+                .get(activity_doc.company_id())
+                .ok_or(AppError::InternalServerError(format!(
+                    "Company entry with id {} should exist in the cache",
+                    activity_doc.company_id()
+                )))?
+                .name();
+
+            if let Entry::Vacant(entry) = project_cache.entry(*activity_doc.project_id()) {
+                entry.insert(
+                    db_entities::CompanyProject::find_one(
+                        doc! {"_id": activity_doc.project_id()})
+                        .await
+                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the project document with id {}. Got error {}", activity_doc.project_id(), e.to_string())))?
+                        .ok_or(AppError::DoesNotExist(format!("Project with id {} does not exist.", activity_doc.project_id())))?
+                );
+            }
+            let project_name = project_cache
+                .get(activity_doc.project_id())
+                .ok_or(AppError::InternalServerError(format!(
+                    "Project entry with id {} should exist in the cache",
+                    activity_doc.project_id()
+                )))?
+                .name();
+
+            // actually build the activity leveraging the cache
+            let activity = web_app_response::TimesheetActivityHoursBuilder::default()
+                .activity_id(*activity_doc.activity_id())
+                .activity_name(activity_name.clone())
+                .company_id(*activity_doc.company_id())
+                .company_name(company_name.clone())
+                .project_id(*activity_doc.project_id())
+                .project_name(project_name.clone())
+                .notes(activity_doc.notes().clone())
+                .hours(*activity_doc.hours())
+                .build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet activity response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e.to_string())))?;
+            current_activities.push(activity);
+        }
+        let current_timesheet = builder.activities(current_activities).build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e.to_string())))?;
+        timesheets_to_return.push(current_timesheet);
+    }
+
+    Ok(timesheets_to_return)
+}
+
+pub async fn get_user_projects_for_timesheet(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+) -> Result<Vec<web_app_response::TimesheetProjectInfo>, AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    let companies = company::get_user_companies(&user_id)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
+    let mut timesheet_project_info = vec![];
+
+    for company_doc in companies {
+        if let Some(company_id) = company_doc.get_id() {
+            let projects = company::get_company_projects(company_id)
+            .await
+            .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of company projects for company {company_id}. Got error {e}")))?;
+
+            for project_doc in projects.iter() {
+                if let Some(project_id) = project_doc.get_id() {
+                    let activity_ids = company::get_projects_activity_assignment(project_id).await
+                .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity assignment for project {project_id}. Got error {e}")))?;
+                    let activities = company::get_activities_by_id(
+                        &activity_ids
+                    ).await.map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity for project {project_id}. Got error {e}")))?;
+
+                    timesheet_project_info.push(web_app_response::TimesheetProjectInfo {
+                        company_id: *company_id,
+                        company_name: company_doc.name().into(),
+                        project_id: *project_id,
+                        project_name: project_doc.name().into(),
+                        activities: activities
+                            .into_iter()
+                            .flat_map(|activity_doc| activity_doc.try_into())
+                            .collect::<Vec<web_app_response::ProjectActivityInfo>>(),
+                    });
+                } else {
+                    return Err(AppError::InternalServerError(
+                        "project_doc must have id since it is read from db".into(),
+                    ));
+                }
+            }
+        } else {
+            return Err(AppError::InternalServerError(
+                "company_doc must have id since it is read from db".into(),
+            ));
+        }
+    }
+
+    Ok(timesheet_project_info)
 }

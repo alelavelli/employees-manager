@@ -46,7 +46,7 @@ export class NewUserDialogComponent {
       confirmPassword: new FormControl('', [Validators.required]),
       name: ['', Validators.required],
       surname: ['', Validators.required],
-      email: ['', Validators.pattern(/\S+@\S+\.\S+/)],
+      email: ['', [Validators.required, Validators.pattern(/\S+@\S+\.\S+/)]],
     },
     <AbstractControlOptions>{ validators: [this.passwordMatchValidator] }
   );

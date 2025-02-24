@@ -8,7 +8,6 @@ use mongodb::{
 };
 
 use tracing::debug;
-use uuid::Uuid;
 
 use crate::{
     error::{DatabaseError, ServiceAppError},
@@ -36,23 +35,27 @@ The method get_database_service will select the right database according to
 the thread creating a new database and database connection.
  */
 static DATABASE: OnceCell<Arc<DatabaseService>> = OnceCell::const_new();
-thread_local! {
-    static THREAD_LOCAL_DB: OnceCell<Arc<DatabaseService>> = const {OnceCell::const_new()};
-}
+/* thread_local! {
+    static THREAD_LOCAL_DB: OnceCell<Arc<DatabaseService>> = OnceCell::const_new();
+} */
 
 pub async fn get_database_service() -> Arc<DatabaseService> {
     if cfg!(test) {
+        // Form some reason thead_local stop working due to `there is no reactor running, must be called from the context of Tokio runtime`
+        // therefore, the database service always returns a connection using the current thread id.
+        // The drawback is the creation of multiple connections
         let db_service = DatabaseService::new().await.unwrap();
-        THREAD_LOCAL_DB
-            .with(|f| {
-                if !f.initialized() {
-                    f.set(Arc::new(db_service)).unwrap();
-                }
-                f.clone()
-            })
-            .get()
-            .unwrap()
-            .clone()
+        Arc::new(db_service)
+        /* THREAD_LOCAL_DB
+        .with(|f| {
+            if !f.initialized() {
+                f.set(Arc::new(db_service)).unwrap();
+            }
+            f.clone()
+        })
+        .get()
+        .unwrap()
+        .clone() */
     } else {
         DATABASE
             .get_or_init(|| async {
@@ -79,7 +82,7 @@ pub struct DatabaseService {
 impl DatabaseService {
     async fn new() -> Result<DatabaseService, ServiceAppError> {
         if cfg!(test) {
-            let id = Uuid::new_v4().to_string();
+            let id = format!("{:?}", std::thread::current().id());
             let mut db_name = String::from("app-test-db-");
             db_name.push_str(&id);
             let connection_string = format!(

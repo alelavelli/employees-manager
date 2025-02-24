@@ -96,7 +96,7 @@ export class NotificationsPageComponent implements OnInit {
     this.apiService.getUnreadNotifications().subscribe({
       next: (notifications: AppNotification[]) => {
         this.notifications = notifications;
-        console.log('Notifications', notifications);
+
         this.notificationsTableDataSource = new MatTableDataSource(
           this.notifications
         );
