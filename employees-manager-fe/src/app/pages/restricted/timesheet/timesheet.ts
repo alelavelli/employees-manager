@@ -60,6 +60,8 @@ export class TimesheetPageComponent implements OnInit {
   calendarDays: CalendarDay[] = [];
   userDays: TimesheetDay[] = [];
 
+  offsetDays: CalendarDay[] = [];
+
   constructor(
     private apiService: ApiService,
     private userService: UserService,
@@ -107,6 +109,7 @@ export class TimesheetPageComponent implements OnInit {
           isWeekend: weekDay == 0 || weekDay == 6,
         };
       });
+      this.offsetDays = [...Array(this.calendarDays[0].date.day() - 1)];
 
       this.apiService
         .getTimesheetDays(
