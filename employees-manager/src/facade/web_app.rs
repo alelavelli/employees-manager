@@ -762,7 +762,7 @@ pub async fn get_timesheet_days(
                     db_entities::ProjectActivity::find_one(
                         doc! {"_id": activity_doc.activity_id()})
                         .await
-                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the activity document with id {}. Got error {}", activity_doc.activity_id(), e.to_string())))?
+                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the activity document with id {}. Got error {}", activity_doc.activity_id(), e)))?
                         .ok_or(AppError::DoesNotExist(format!("Activity with id {} does not exist.", activity_doc.activity_id())))?
                 );
             }
@@ -779,7 +779,7 @@ pub async fn get_timesheet_days(
                     db_entities::Company::find_one(
                         doc! {"_id": activity_doc.company_id()})
                         .await
-                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the company document with id {}. Got error {}", activity_doc.company_id(), e.to_string())))?
+                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the company document with id {}. Got error {}", activity_doc.company_id(), e)))?
                         .ok_or(AppError::DoesNotExist(format!("Company with id {} does not exist.", activity_doc.company_id())))?
                 );
             }
@@ -796,7 +796,7 @@ pub async fn get_timesheet_days(
                     db_entities::CompanyProject::find_one(
                         doc! {"_id": activity_doc.project_id()})
                         .await
-                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the project document with id {}. Got error {}", activity_doc.project_id(), e.to_string())))?
+                        .map_err(|e| AppError::InternalServerError(format!("An error occurred when retrieving the project document with id {}. Got error {}", activity_doc.project_id(), e)))?
                         .ok_or(AppError::DoesNotExist(format!("Project with id {} does not exist.", activity_doc.project_id())))?
                 );
             }
@@ -818,10 +818,10 @@ pub async fn get_timesheet_days(
                 .project_name(project_name.clone())
                 .notes(activity_doc.notes().clone())
                 .hours(*activity_doc.hours())
-                .build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet activity response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e.to_string())))?;
+                .build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet activity response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e)))?;
             current_activities.push(activity);
         }
-        let current_timesheet = builder.activities(current_activities).build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e.to_string())))?;
+        let current_timesheet = builder.activities(current_activities).build().map_err(|e| AppError::InternalServerError(format!("An error occurred when building timesheet response for timesheet day with id {:?} with error {}", timesheet_doc.get_id(), e)))?;
         timesheets_to_return.push(current_timesheet);
     }
 
