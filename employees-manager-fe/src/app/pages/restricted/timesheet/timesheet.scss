@@ -4,6 +4,13 @@
   cursor: pointer;
 }
 
+.day-name {
+  display: flex;
+  justify-content: center;
+  font-weight: bold;
+  margin: 1rem;
+}
+
 .timesheet-page-container {
   margin-top: 2rem;
   display: flex;

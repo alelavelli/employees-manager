@@ -21,11 +21,18 @@
       </div> -->
     </div>
     <div class="timesheet-grid" *ngIf="!loading && openTimesheet">
+      <div class="day-name">Monday</div>
+      <div class="day-name">Tuesday</div>
+      <div class="day-name">Wednesday</div>
+      <div class="day-name">Thursday</div>
+      <div class="day-name">Friday</div>
+      <div class="day-name">Saturday</div>
+      <div class="day-name">Sunday</div>
+      <div class="offset-day" *ngFor="let item of offsetDays"></div>
       <div *ngFor="let day of calendarDays" class="timesheet-day" [ngClass]="{'timesheet-disabled-day': day.isWeekend}"
         (click)="openEditTimesheetDay(day)">
         <div class="timesheet-day-header">
           <div class="timesheet-day-header-label">
-            {{day.dayName}}
             {{day.dayNumber}}
           </div>
           <div class="timesheet-day-header-icon" *ngIf="!day.isWeekend">
