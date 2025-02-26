@@ -439,6 +439,23 @@ fn hash_password(password: &str) -> Result<String, ServiceAppError> {
     })
 }
 
+pub async fn get_company_project_of_user(
+    user_id: &DocumentId,
+    company_id: &DocumentId,
+) -> Result<Vec<DocumentId>, ServiceAppError> {
+    if let Some(doc) = db_entities::UserCompanyAssignment::find_one(
+        doc! {"user_id": user_id, "company_id": company_id},
+    )
+    .await?
+    {
+        Ok(doc.project_ids().clone())
+    } else {
+        Err(ServiceAppError::EntityDoesNotExist(format!(
+            "User with id {user_id} is not in company with id {company_id}"
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

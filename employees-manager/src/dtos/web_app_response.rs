@@ -8,7 +8,6 @@ use crate::{
     error::ServiceAppError,
     model::{db_entities, internal},
     service::db::DatabaseDocument,
-    DocumentId,
 };
 
 /// Authorization response for jwt token
@@ -298,11 +297,11 @@ impl TryFrom<db_entities::ProjectActivity> for ProjectActivityInfo {
 #[derive(Serialize, Builder, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimesheetActivityHours {
-    pub company_id: DocumentId,
+    pub company_id: String,
     pub company_name: String,
-    pub project_id: DocumentId,
+    pub project_id: String,
     pub project_name: String,
-    pub activity_id: DocumentId,
+    pub activity_id: String,
     pub activity_name: String,
     pub notes: String,
     pub hours: u32,
@@ -311,7 +310,7 @@ pub struct TimesheetActivityHours {
 #[derive(Serialize, Builder)]
 #[serde(rename_all = "camelCase")]
 pub struct TimesheetDay {
-    pub user_id: DocumentId,
+    pub user_id: String,
     pub date: DateTime<Utc>,
     pub permit_hours: u32,
     pub working_type: WorkingDayType,
@@ -321,9 +320,9 @@ pub struct TimesheetDay {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimesheetProjectInfo {
-    pub company_id: DocumentId,
+    pub company_id: String,
     pub company_name: String,
-    pub project_id: DocumentId,
+    pub project_id: String,
     pub project_name: String,
     pub activities: Vec<ProjectActivityInfo>,
 }
