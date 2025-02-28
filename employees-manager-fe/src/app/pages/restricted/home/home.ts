@@ -1,8 +1,9 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
 import {
   CompanyInfo,
+  CorporateGroupInfo,
   CreateCompanyParameters,
-  UserInCompanyInfo,
+  CreateCorporateGroupParameters,
   UserData,
 } from '../../../types/model';
 import { UserService } from '../../../service/user.service';
@@ -27,6 +28,7 @@ import { forkJoin } from 'rxjs';
 import { CompanyRole } from '../../../types/enums';
 import { NewCompanyDialogComponent } from './new-company-modal/new-company-modal';
 import { RouterLink } from '@angular/router';
+import { NewCorporateGroupDialogComponent } from './new-corporate-group-modal/new-corporate-group-modal';
 
 @Component({
   selector: 'home-page',
@@ -66,8 +68,19 @@ export class HomePageComponent implements OnInit {
     'actionMenu',
   ];
 
-  @ViewChild(MatSort, { static: false }) sort!: MatSort;
-  @ViewChild(MatPaginator, { static: false }) paginator!: MatPaginator;
+  corporateGroups: CorporateGroupInfo[] = [];
+  corporateGroupsTableDataSource: MatTableDataSource<CorporateGroupInfo> =
+    new MatTableDataSource<CorporateGroupInfo>([]);
+  readonly corporateGroupsFilterForm: FormGroup;
+  displayedCorporateGroupInfoColumns: string[] = [
+    'id',
+    'name',
+    'totalCompanies',
+    'actionMenu',
+  ];
+
+  @ViewChildren(MatSort) sort = new QueryList<MatSort>();
+  @ViewChildren(MatPaginator) paginator = new QueryList<MatPaginator>();
 
   constructor(
     private userService: UserService,
@@ -91,6 +104,17 @@ export class HomePageComponent implements OnInit {
       } as string;
       this.companiesTableDataSource.filter = filter;
     });
+
+    this.corporateGroupsFilterForm = formBuilder.group({
+      valueString: '',
+    });
+    this.corporateGroupsFilterForm.valueChanges.subscribe((value) => {
+      const filter = {
+        ...value,
+        valueString: value.valueString.trim().toLowerCase(),
+      } as string;
+      this.corporateGroupsTableDataSource.filter = filter;
+    });
   }
 
   ngOnInit(): void {
@@ -103,11 +127,16 @@ export class HomePageComponent implements OnInit {
     forkJoin({
       userData: this.userService.fetchUserData(),
       companies: this.apiService.getUserCompanies(),
+      corporateGroups: this.apiService.getUserCorporateGroups(),
     }).subscribe({
       next: (response) => {
         this.userData = response.userData;
         this.companies = response.companies;
+        this.corporateGroups = response.corporateGroups;
         this.companiesTableDataSource = new MatTableDataSource(this.companies);
+        this.corporateGroupsTableDataSource = new MatTableDataSource(
+          this.corporateGroups
+        );
         setTimeout(() => {
           this.companiesTableDataSource.filterPredicate = (
             data,
@@ -125,18 +154,41 @@ export class HomePageComponent implements OnInit {
               .includes(filter.valueString);
             return activeCompanyFilter && (nameFilter || idFilter);
           };
-          this.companiesTableDataSource.sort = this.sort;
-          this.companiesTableDataSource.paginator = this.paginator;
+          this.companiesTableDataSource.sort = this.sort.toArray()[0];
+          this.companiesTableDataSource.paginator = this.paginator.toArray()[0];
+
+          this.corporateGroupsTableDataSource.filterPredicate = (
+            data,
+            filter: any
+          ) => {
+            const idFilter = data.groupId
+              .toLocaleLowerCase()
+              .includes(filter.valueString);
+            const nameFilter = data.name
+              .toLocaleLowerCase()
+              .includes(filter.valueString);
+            return nameFilter || idFilter;
+          };
+          this.corporateGroupsTableDataSource.sort = this.sort.toArray()[1];
+          this.corporateGroupsTableDataSource.paginator =
+            this.paginator.toArray()[1];
         });
         this.loading = false;
       },
       error: () => {
         this.userData = null;
         this.companies = [];
+        this.corporateGroups = [];
         this.companiesTableDataSource = new MatTableDataSource(this.companies);
+        this.corporateGroupsTableDataSource = new MatTableDataSource(
+          this.corporateGroups
+        );
         setTimeout(() => {
-          this.companiesTableDataSource.sort = this.sort;
-          this.companiesTableDataSource.paginator = this.paginator;
+          this.companiesTableDataSource.sort = this.sort.toArray()[0];
+          this.companiesTableDataSource.paginator = this.paginator.toArray()[0];
+          this.corporateGroupsTableDataSource.sort = this.sort.toArray()[1];
+          this.corporateGroupsTableDataSource.paginator =
+            this.paginator.toArray()[1];
         });
         this.loading = false;
       },
@@ -171,6 +223,32 @@ export class HomePageComponent implements OnInit {
                     progressBar: true,
                   }
                 );
+              },
+            });
+          }
+        },
+      });
+  }
+
+  openCreateCorporateGroupDialog() {
+    this.dialog
+      .open(NewCorporateGroupDialogComponent, {
+        width: '40rem',
+        data: {},
+      })
+      .afterClosed()
+      .subscribe({
+        next: (
+          newCorporateGroup: CreateCorporateGroupParameters | undefined
+        ) => {
+          if (newCorporateGroup !== undefined) {
+            this.apiService.createCorporateGroup(newCorporateGroup).subscribe({
+              next: () => {
+                this.loadData();
+                this.toastr.success('New corporate group created', 'Sent', {
+                  timeOut: 5000,
+                  progressBar: true,
+                });
               },
             });
           }

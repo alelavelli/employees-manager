@@ -15,6 +15,7 @@ import { CalendarPageComponent } from './pages/restricted/calendar/calendar';
 import { TimesheetPageComponent } from './pages/restricted/timesheet/timesheet';
 import { ExpensesPageComponent } from './pages/restricted/expenses/expenses';
 import { CompanyPageComponent } from './pages/restricted/company/company';
+import { CorporateGroupPageComponent } from './pages/restricted/corporate-group/corporate-group';
 
 export const routes: Routes = environment.maintenance
   ? [
@@ -76,6 +77,12 @@ export const routes: Routes = environment.maintenance
         path: 'company',
         canActivate: [AuthGuard],
         component: CompanyPageComponent,
+        data: { layoutType: LayoutType.Restricted },
+      },
+      {
+        path: 'corporate-group',
+        canActivate: [AuthGuard],
+        component: CorporateGroupPageComponent,
         data: { layoutType: LayoutType.Restricted },
       },
       {

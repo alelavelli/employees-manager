@@ -276,3 +276,14 @@ database_document!(
     working_type: WorkingDayType,
     activities: Vec<TimesheetActivityHours>
 );
+
+database_document!(
+    #[doc = "Corporate Group groups together a set of Companies letting managers to have a global view."]
+    #[doc = "Admins of each company are automatically admins of the group."]
+    CorporateGroup,
+    "corporate_group",
+    name: String,
+    company_ids: Vec<DocumentId>,
+    #[doc = "The user that created the corporate group"]
+    owner: DocumentId
+);
