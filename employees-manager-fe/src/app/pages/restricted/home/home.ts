@@ -28,6 +28,7 @@ import { forkJoin } from 'rxjs';
 import { CompanyRole } from '../../../types/enums';
 import { NewCompanyDialogComponent } from './new-company-modal/new-company-modal';
 import { RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
 import { NewCorporateGroupDialogComponent } from './new-corporate-group-modal/new-corporate-group-modal';
 
 @Component({
@@ -48,6 +49,7 @@ import { NewCorporateGroupDialogComponent } from './new-corporate-group-modal/ne
     ReactiveFormsModule,
     MatMenuModule,
     RouterLink,
+    MatButtonModule,
   ],
 })
 export class HomePageComponent implements OnInit {

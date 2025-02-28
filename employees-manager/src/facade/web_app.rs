@@ -749,7 +749,7 @@ pub async fn get_timesheet_days(
         builder
             .date(*timesheet_doc.date())
             .permit_hours(*timesheet_doc.permit_hours())
-            .user_id(*timesheet_doc.user_id())
+            .user_id(timesheet_doc.user_id().to_hex())
             .working_type(*timesheet_doc.working_type());
 
         // iterate over all the activities and build them
@@ -810,11 +810,11 @@ pub async fn get_timesheet_days(
 
             // actually build the activity leveraging the cache
             let activity = web_app_response::TimesheetActivityHoursBuilder::default()
-                .activity_id(*activity_doc.activity_id())
+                .activity_id(activity_doc.activity_id().to_hex())
                 .activity_name(activity_name.clone())
-                .company_id(*activity_doc.company_id())
+                .company_id(activity_doc.company_id().to_hex())
                 .company_name(company_name.clone())
-                .project_id(*activity_doc.project_id())
+                .project_id(activity_doc.project_id().to_hex())
                 .project_name(project_name.clone())
                 .notes(activity_doc.notes().clone())
                 .hours(*activity_doc.hours())
@@ -842,28 +842,36 @@ pub async fn get_user_projects_for_timesheet(
 
     for company_doc in companies {
         if let Some(company_id) = company_doc.get_id() {
+            let assigned_projects = user::get_company_project_of_user(&user_id, company_id)
+                .await
+                .map_err(|e| match e {
+                    ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                    _ => AppError::InternalServerError(e.to_string()),
+                })?;
             let projects = company::get_company_projects(company_id)
             .await
             .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of company projects for company {company_id}. Got error {e}")))?;
 
             for project_doc in projects.iter() {
                 if let Some(project_id) = project_doc.get_id() {
-                    let activity_ids = company::get_projects_activity_assignment(project_id).await
-                .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity assignment for project {project_id}. Got error {e}")))?;
-                    let activities = company::get_activities_by_id(
-                        &activity_ids
-                    ).await.map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity for project {project_id}. Got error {e}")))?;
+                    if assigned_projects.contains(project_id) {
+                        let activity_ids = company::get_projects_activity_assignment(project_id).await
+                    .map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity assignment for project {project_id}. Got error {e}")))?;
+                        let activities = company::get_activities_by_id(
+                            &activity_ids
+                        ).await.map_err(|e| AppError::InternalServerError(format!("Got error during retrieval of projects activity for project {project_id}. Got error {e}")))?;
 
-                    timesheet_project_info.push(web_app_response::TimesheetProjectInfo {
-                        company_id: *company_id,
-                        company_name: company_doc.name().into(),
-                        project_id: *project_id,
-                        project_name: project_doc.name().into(),
-                        activities: activities
-                            .into_iter()
-                            .flat_map(|activity_doc| activity_doc.try_into())
-                            .collect::<Vec<web_app_response::ProjectActivityInfo>>(),
-                    });
+                        timesheet_project_info.push(web_app_response::TimesheetProjectInfo {
+                            company_id: company_id.to_hex(),
+                            company_name: company_doc.name().into(),
+                            project_id: project_id.to_hex(),
+                            project_name: project_doc.name().into(),
+                            activities: activities
+                                .into_iter()
+                                .flat_map(|activity_doc| activity_doc.try_into())
+                                .collect::<Vec<web_app_response::ProjectActivityInfo>>(),
+                        });
+                    }
                 } else {
                     return Err(AppError::InternalServerError(
                         "project_doc must have id since it is read from db".into(),
