@@ -24,6 +24,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { ToastrService } from 'ngx-toastr';
 import { NewUserDialogComponent } from './new-user-modal/new-user-modal';
 import { ConfirmDialogComponent } from '../../../components/confirm-modal/confirm-modal';
+import { MatButtonModule } from '@angular/material/button';
 
 @Component({
   selector: 'admin-page',
@@ -42,6 +43,7 @@ import { ConfirmDialogComponent } from '../../../components/confirm-modal/confir
     MatButtonToggleModule,
     ReactiveFormsModule,
     MatMenuModule,
+    MatButtonModule,
   ],
   encapsulation: ViewEncapsulation.None,
 })

@@ -27,6 +27,7 @@ import { forkJoin } from 'rxjs';
 import { CompanyRole } from '../../../types/enums';
 import { NewCompanyDialogComponent } from './new-company-modal/new-company-modal';
 import { RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
 
 @Component({
   selector: 'home-page',
@@ -46,6 +47,7 @@ import { RouterLink } from '@angular/router';
     ReactiveFormsModule,
     MatMenuModule,
     RouterLink,
+    MatButtonModule,
   ],
 })
 export class HomePageComponent implements OnInit {

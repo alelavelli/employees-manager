@@ -16,7 +16,7 @@
             <div class="company-projects-content-section">
               <div class="h3-title">Projects</div>
               <div>
-                <button mat-raised-button class="clickable primary-button" (click)="openNewProjectDialog()">
+                <button mat-raised-button class="clickable" color="primary" (click)="openNewProjectDialog()">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>add</mat-icon>
                     New Project
@@ -109,10 +109,10 @@
                       *ngIf="isCompanyAdminOrHigher() && projectUnderEdit === null"><mat-icon>edit</mat-icon>Edit
                       project</button>
                     <button mat-menu-item (click)="confirmEditProject(row)"
-                      *ngIf="isCompanyAdminOrHigher() && projectUnderEdit !== null"
+                      *ngIf="isCompanyAdminOrHigher() && projectUnderEdit === row.id"
                       [disabled]="editCompanyProjectForm.invalid"><mat-icon>save</mat-icon>Confirm</button>
                     <button mat-menu-item (click)="cancelEditProject(row)"
-                      *ngIf="isCompanyAdminOrHigher() && projectUnderEdit !== null"><mat-icon>close</mat-icon>Cancel</button>
+                      *ngIf="isCompanyAdminOrHigher() && projectUnderEdit === row.id"><mat-icon>close</mat-icon>Cancel</button>
                     <button mat-menu-item (click)="deleteProject(row)"
                       *ngIf="isCompanyAdminOrHigher() && projectUnderEdit === null"><mat-icon>delete</mat-icon>Delete
                       project</button>
@@ -158,14 +158,14 @@
                   </mat-autocomplete>
                 </mat-form-field>
 
-                <button mat-raised-button class="clickable primary-button" (click)="showUserProjectAllocations()">
+                <button mat-raised-button class="clickable" color="primary" (click)="showUserProjectAllocations()">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>manage_search</mat-icon>
                     Show
                   </div>
                 </button>
 
-                <button mat-raised-button class="clickable primary-button" (click)="startEditUserProjectAllocation()"
+                <button mat-raised-button class="clickable" color="primary" (click)="startEditUserProjectAllocation()"
                   *ngIf="userProjectAllocationModeShow && !userProjectAllocationModeUnderEdit">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>edit</mat-icon>
@@ -179,7 +179,7 @@
                     Cancel
                   </div>
                 </button>
-                <button mat-raised-button class="clickable primary-button" (click)="confirmEditUserProjectAllocation()"
+                <button mat-raised-button class="clickable" color="primary" (click)="confirmEditUserProjectAllocation()"
                   *ngIf="userProjectAllocationModeUnderEdit">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>done</mat-icon>
@@ -227,7 +227,7 @@
             <div class="company-projects-content-section">
               <div class="h3-title">Project Activities</div>
               <div>
-                <button mat-raised-button class="clickable primary-button" (click)="openNewActivityDialog()">
+                <button mat-raised-button class="clickable" color="primary" (click)="openNewActivityDialog()">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>add</mat-icon>
                     New Activity
@@ -300,10 +300,10 @@
                       *ngIf="isCompanyAdminOrHigher() && activityUnderEdit === null"><mat-icon>edit</mat-icon>Edit
                       activity</button>
                     <button mat-menu-item (click)="confirmEditActivity(row)"
-                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit !== null"
+                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit === row.id"
                       [disabled]="editActivityForm.invalid"><mat-icon>save</mat-icon>Confirm</button>
                     <button mat-menu-item (click)="cancelEditActivity(row)"
-                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit !== null"><mat-icon>close</mat-icon>Cancel</button>
+                      *ngIf="isCompanyAdminOrHigher() && activityUnderEdit === row.id"><mat-icon>close</mat-icon>Cancel</button>
                     <button mat-menu-item (click)="deleteActivity(row)"
                       *ngIf="isCompanyAdminOrHigher() && activityUnderEdit === null"><mat-icon>delete</mat-icon>Delete
                       activity</button>
@@ -351,14 +351,14 @@
                   </mat-autocomplete>
                 </mat-form-field>
 
-                <button mat-raised-button class="clickable primary-button" (click)="showActivityProjectAllocations()">
+                <button mat-raised-button class="clickable" color="primary" (click)="showActivityProjectAllocations()">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>manage_search</mat-icon>
                     Show
                   </div>
                 </button>
 
-                <button mat-raised-button class="clickable primary-button"
+                <button mat-raised-button class="clickable" color="primary"
                   (click)="startEditActivityProjectAllocation()"
                   *ngIf="activityProjectAssignmentModeShow && !activityProjectAssignmentModeUnderEdit">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
@@ -373,7 +373,7 @@
                     Cancel
                   </div>
                 </button>
-                <button mat-raised-button class="clickable primary-button"
+                <button mat-raised-button class="clickable" color="primary"
                   (click)="confirmEditActivityProjectAllocation()" *ngIf="activityProjectAssignmentModeUnderEdit">
                   <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                     <mat-icon>done</mat-icon>
@@ -423,7 +423,7 @@
       <mat-tab label="Users">
         <div class="users">
           <div>
-            <button mat-raised-button class="clickable primary-button" (click)="openInviteUserInCompanyDialog()">
+            <button mat-raised-button class="clickable" color="primary" (click)="openInviteUserInCompanyDialog()">
               <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
                 <mat-icon>add</mat-icon>
                 Invite User
@@ -539,7 +539,7 @@
                         </mat-form-field>
                       </form>
                       <button mat-raised-button type="submit" [disabled]="changeJobTitleForm.invalid" color="primary"
-                        class="clickable primary-button" (click)="changeJobTitle(row)">
+                        class="clickable" color="primary" (click)="changeJobTitle(row)">
                         Change
                       </button>
                     </div>

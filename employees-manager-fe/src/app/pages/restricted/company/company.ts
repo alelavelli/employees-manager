@@ -45,6 +45,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { NewCompanyProjectDialogComponent } from './create-project/create-project-modal';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { NewActivityDialogComponent } from './create-activity/create-activity-modal';
+import { MatButtonModule } from '@angular/material/button';
 
 enum UserProjectAllocationViewMode {
   PROJECT = 'project',
@@ -80,6 +81,7 @@ enum ActivityProjectAllocationViewMode {
     AsyncPipe,
     MatListModule,
     FormsModule,
+    MatButtonModule,
   ],
 })
 export class CompanyPageComponent implements OnInit {
