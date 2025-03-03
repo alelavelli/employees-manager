@@ -159,6 +159,11 @@ export interface CorporateGroupInfo {
   companyNames: string[];
 }
 
+export interface CorporateGroupCompanyInfo {
+  name: string;
+  id: string;
+}
+
 export interface CreateCorporateGroupParameters {
   name: string;
   companyIds: string[];

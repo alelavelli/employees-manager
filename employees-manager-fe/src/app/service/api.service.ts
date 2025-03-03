@@ -22,6 +22,7 @@ import {
   TimesheetProjectInfo,
   CorporateGroupInfo,
   CreateCorporateGroupParameters,
+  CorporateGroupCompanyInfo,
 } from '../types/model';
 import {
   CompanyRole,
@@ -231,6 +232,21 @@ export class ApiService {
           }))
         )
       : this.httpClient.get<CorporateGroupInfo[]>(API_URL + '/corporate-group');
+  }
+
+  getEligibleCompaniesForCorporateGroup(): Observable<
+    CorporateGroupCompanyInfo[]
+  > {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            name: `company-name-${i}`,
+            id: `company-id-${i}`,
+          }))
+        )
+      : this.httpClient.get<CorporateGroupCompanyInfo[]>(
+          API_URL + '/corporate-group/eligible-company'
+        );
   }
 
   createCorporateGroup(

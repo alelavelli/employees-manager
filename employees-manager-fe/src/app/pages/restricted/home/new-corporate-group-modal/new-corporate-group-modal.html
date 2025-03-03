@@ -7,10 +7,34 @@
             <input matInput placeholder="Name" formControlName="name">
         </mat-form-field>
     </form>
+
+
+    <mat-form-field class="cg-company-chip-list" appearance="outline">
+        <mat-label>Companies</mat-label>
+        <mat-chip-grid #chipGrid aria-label="Company selection">
+            @for (company of companies(); track $index) {
+            <mat-chip-row (removed)="remove(company)">
+                {{company}}
+                <button matChipRemove [attr.aria-label]="'remove ' + company">
+                    <mat-icon>cancel</mat-icon>
+                </button>
+            </mat-chip-row>
+            }
+        </mat-chip-grid>
+        <input name="currentCompany" placeholder="New Company..." #fruitInput [(ngModel)]="currentCompany"
+            [matChipInputFor]="chipGrid" [matAutocomplete]="autoCompany"
+            [matChipInputSeparatorKeyCodes]="separatorKeysCodes" (matChipInputTokenEnd)="add($event)" />
+        <mat-autocomplete #autoCompany="matAutocomplete" (optionSelected)="selected($event)">
+            @for (company of filteredCompanies(); track company) {
+            <mat-option [value]="company">{{company.name}}</mat-option>
+            }
+        </mat-autocomplete>
+    </mat-form-field>
+
     <div mat-dialog-actions align="end" class="action-buttons">
         <button mat-button (click)="dialogRef.close()">Cancel</button>
-        <button mat-raised-button type="submit" [disabled]="newCorporateGroupForm.invalid" color="primary"
-            (click)="onSubmit()">
+        <button mat-raised-button type="submit" [disabled]="newCorporateGroupForm.invalid || companies.length > 0"
+            color="primary" (click)="onSubmit()">
             Create
         </button>
     </div>

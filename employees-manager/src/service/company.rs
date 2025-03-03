@@ -119,6 +119,32 @@ pub async fn get_user_companies(
     Ok(query_result)
 }
 
+/// Returns an hashmap with key the company id and value its name
+pub async fn get_company_names(
+    company_ids: &Vec<DocumentId>,
+) -> Result<HashMap<DocumentId, String>, ServiceAppError> {
+    #[derive(Deserialize, Serialize)]
+    struct QueryResult {
+        _id: String,
+        company_name: String,
+    }
+
+    Ok(db_entities::Company::find_many_projection::<QueryResult>(
+        doc! {"_id": {"$in": company_ids}},
+        doc! {"_id": 1, "name": 1},
+    )
+    .await?
+    .into_iter()
+    .map(|e| {
+        (
+            DocumentId::parse_str(e._id)
+                .expect("Expecting to have a valid object id from a document read from database."),
+            e.company_name,
+        )
+    })
+    .collect::<HashMap<DocumentId, String>>())
+}
+
 /// Verifies that the entry in UserCompanyAssignment exists and then
 /// returns the Company
 pub async fn get_user_company(

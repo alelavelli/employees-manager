@@ -135,6 +135,7 @@ export class HomePageComponent implements OnInit {
         this.userData = response.userData;
         this.companies = response.companies;
         this.corporateGroups = response.corporateGroups;
+
         this.companiesTableDataSource = new MatTableDataSource(this.companies);
         this.corporateGroupsTableDataSource = new MatTableDataSource(
           this.corporateGroups

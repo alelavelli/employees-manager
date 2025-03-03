@@ -106,6 +106,11 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         )
         .route("/user/{id}/timesheet-day", post(create_timesheet_day))
         .route("/user/{id}/timesheet-day", get(get_timesheet_days))
+        .route(
+            "/corporate-group/eligible-company",
+            get(get_eligible_companies_for_corporate_group),
+        )
+        .route("/corporate-group", get(get_user_corporate_groups))
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -430,6 +435,22 @@ async fn get_user_projects_for_timesheet(
     Path(id): Path<DocumentId>,
 ) -> Result<AppJson<Vec<web_app_response::TimesheetProjectInfo>>, AppError> {
     facade::get_user_projects_for_timesheet(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
+async fn get_eligible_companies_for_corporate_group(
+    jwt_claim: JWTAuthClaim,
+) -> Result<AppJson<Vec<web_app_response::CorporateGroupCompanyInfo>>, AppError> {
+    facade::get_eligible_companies_for_corporate_group(jwt_claim)
+        .await
+        .map(AppJson)
+}
+
+async fn get_user_corporate_groups(
+    jwt_claim: JWTAuthClaim,
+) -> Result<AppJson<Vec<web_app_response::CorporateGroupInfo>>, AppError> {
+    facade::get_user_corporate_groups(jwt_claim)
         .await
         .map(AppJson)
 }

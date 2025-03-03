@@ -326,3 +326,36 @@ pub struct TimesheetProjectInfo {
     pub project_name: String,
     pub activities: Vec<ProjectActivityInfo>,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateGroupCompanyInfo {
+    pub id: String,
+    pub name: String,
+}
+
+impl TryFrom<db_entities::Company> for CorporateGroupCompanyInfo {
+    type Error = ServiceAppError;
+
+    fn try_from(value: db_entities::Company) -> Result<Self, Self::Error> {
+        if let Some(company_id) = value.get_id() {
+            Ok(Self {
+                id: company_id.to_hex(),
+                name: value.name().clone(),
+            })
+        } else {
+            Err(ServiceAppError::ResponseBuildError(
+                "company_id of company database document is None".into(),
+            ))
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CorporateGroupInfo {
+    pub group_id: String,
+    pub name: String,
+    pub company_ids: Vec<String>,
+    pub company_names: Vec<String>,
+}

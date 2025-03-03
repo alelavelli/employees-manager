@@ -5,6 +5,70 @@ use crate::{enums::CompanyRole, error::ServiceAppError, model::db_entities, Docu
 
 use super::db::DatabaseDocument;
 
+/// Returns the list of companies the user can use to create a new Corporate Group
+///
+/// Companies are eligible if they do not belong to any other corporate group and if
+/// the user has Admin or Owner role for the Company.
+pub async fn get_eligible_companies_for_corporate_group(
+    user_id: &DocumentId,
+) -> Result<Vec<db_entities::Company>, ServiceAppError> {
+    #[derive(Serialize, Deserialize, Debug)]
+    struct CompaniesQueryResult {
+        company_id: DocumentId,
+    }
+    // First retrieve the companies for which the user is Admin or Owner
+    // because they are ones that he can add in the group
+    let user_companies =
+        db_entities::UserCompanyAssignment::find_many_projection::<CompaniesQueryResult>(
+            doc! {
+                "user_id": user_id,
+                "role": {"$in": [CompanyRole::Admin, CompanyRole::Owner]},
+            },
+            doc! {"company_id": 1},
+        )
+        .await?;
+
+    // Then retrieve the companies that are already in a Corporate Group
+    // because they need to be discarded
+    let pipeline = vec![
+        doc! {
+            "$unwind": "$company_ids"
+        },
+        doc! {
+            "$group": {
+                "_id": null,
+                "all_company_ids": { "$addToSet": "$company_ids" }
+            }
+        },
+        doc! {
+            "$project": {
+                "_id": 0,
+                "all_company_ids": 1
+            }
+        },
+        doc! {"$unwind": "$all_company_ids"},
+    ];
+    // TODO: flat map can lead to silent failure if the extraction to object id returns Err.
+    // However, since the object id is retrieved from the database, the extraction should always go well
+    let company_ids_in_group: Vec<DocumentId> = db_entities::CorporateGroup::aggregate(pipeline)
+        .await?
+        .into_iter()
+        .flat_map(|elem| elem.get_object_id("all_company_ids").clone())
+        .collect();
+
+    let eligible_company_ids: Vec<DocumentId> = user_companies
+        .into_iter()
+        .map(|elem| elem.company_id)
+        .filter(|elem| !company_ids_in_group.contains(elem))
+        .collect();
+
+    let eligible_companies = db_entities::Company::find_many(
+        doc! {"_id": {"$in": eligible_company_ids}, "active": true},
+    )
+    .await?;
+    Ok(eligible_companies)
+}
+
 /// Creates a new corporate group
 ///
 /// It returns ServiceAppError::InvalidRequest:
@@ -54,16 +118,17 @@ pub async fn create_corporate_group(
 pub async fn get_corporate_groups_for_user(
     user_id: &DocumentId,
 ) -> Result<Vec<db_entities::CorporateGroup>, ServiceAppError> {
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Debug)]
     struct QueryResult {
         company_id: DocumentId,
     }
 
     let user_companies = db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
-        doc! {"user_ids": user_id, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
+        doc! {"user_id": user_id, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
         doc! {"company_id": 1},
     )
     .await?;
+
     db_entities::CorporateGroup::find_many(
         doc! {"company_ids": user_companies.into_iter().map(|elem| elem.company_id).collect::<Vec<DocumentId>>()},
     )
@@ -134,7 +199,7 @@ mod tests {
         enums::CompanyRole,
         model::db_entities,
         service::{
-            corporate_group::create_corporate_group,
+            corporate_group::{create_corporate_group, get_eligible_companies_for_corporate_group},
             db::{get_database_service, DatabaseDocument},
         },
     };
@@ -181,6 +246,50 @@ mod tests {
         assert!(
             result.is_ok(),
             "expecting correct creation of the corporate group"
+        );
+
+        let drop_result = get_database_service().await.db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_eligible_companies_for_corporate_group() {
+        let mut companies: Vec<ObjectId> = vec![];
+        for i in 0..5 {
+            let mut company = db_entities::Company::new(format!("company {i}"), true);
+            company.save(None).await.unwrap();
+            company.reload().await.unwrap();
+            companies.push(company.get_id().unwrap().clone());
+        }
+
+        let user = ObjectId::new();
+        let mut first_group =
+            db_entities::CorporateGroup::new("First group".into(), companies[0..3].to_vec(), user);
+        first_group.save(None).await.unwrap();
+
+        for (index, company_id) in companies.iter().enumerate() {
+            let mut assignment = db_entities::UserCompanyAssignment::new(
+                user,
+                company_id.clone(),
+                if index == 3 {
+                    CompanyRole::User
+                } else {
+                    CompanyRole::Admin
+                },
+                "job_title".into(),
+                vec![],
+            );
+            assignment.save(None).await.unwrap();
+        }
+
+        let eligible_companies = get_eligible_companies_for_corporate_group(&user)
+            .await
+            .unwrap();
+
+        assert_eq!(eligible_companies.len(), 1);
+        assert_eq!(
+            eligible_companies[0].get_id().unwrap(),
+            companies.last().unwrap()
         );
 
         let drop_result = get_database_service().await.db.drop().await;

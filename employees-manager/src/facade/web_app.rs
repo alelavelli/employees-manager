@@ -10,7 +10,8 @@ use crate::{
     error::{AppError, ServiceAppError},
     model::{db_entities, internal},
     service::{
-        access_control::AccessControl, company, db::DatabaseDocument, notification, timesheet, user,
+        access_control::AccessControl, company, corporate_group, db::DatabaseDocument,
+        notification, timesheet, user,
     },
     DocumentId,
 };
@@ -886,4 +887,69 @@ pub async fn get_user_projects_for_timesheet(
     }
 
     Ok(timesheet_project_info)
+}
+
+pub async fn get_eligible_companies_for_corporate_group(
+    auth_info: impl AuthInfo,
+) -> Result<Vec<web_app_response::CorporateGroupCompanyInfo>, AppError> {
+    AccessControl::new(&auth_info).await?;
+    Ok(
+        corporate_group::get_eligible_companies_for_corporate_group(auth_info.user_id())
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))?
+            .into_iter()
+            .flat_map(|e| e.try_into())
+            .collect::<Vec<web_app_response::CorporateGroupCompanyInfo>>(),
+    )
+}
+
+pub async fn get_user_corporate_groups(
+    auth_info: impl AuthInfo,
+) -> Result<Vec<web_app_response::CorporateGroupInfo>, AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    let corporate_groups = corporate_group::get_corporate_groups_for_user(auth_info.user_id())
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
+    let mut result = vec![];
+
+    for group in corporate_groups.into_iter() {
+        if let Some(group_id) = group.get_id() {
+            let company_names_mapping = company::get_company_names(group.company_ids())
+                .await
+                .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
+            let mut company_names: Vec<String> = vec![];
+            for company_id in group.company_ids() {
+                if let Some(name) = company_names_mapping.get(company_id) {
+                    company_names.push(name.into());
+                } else {
+                    return Err(AppError::InternalServerError(format!("Missing company name entry in company name hashmap for company with id {company_id}")));
+                }
+            }
+
+            let company_names = group
+                .company_ids()
+                .iter()
+                .map(|elem| company_names_mapping.get(elem).unwrap().into())
+                .collect();
+            result.push(web_app_response::CorporateGroupInfo {
+                group_id: group_id.to_hex(),
+                name: group.name().clone(),
+                company_ids: group
+                    .company_ids()
+                    .iter()
+                    .map(|elem| elem.to_hex())
+                    .collect(),
+                company_names,
+            })
+        } else {
+            return Err(AppError::InternalServerError(
+                "Expected object id from group read from database".into(),
+            ));
+        }
+    }
+
+    Ok(result)
 }
