@@ -2,6 +2,7 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use jsonwebtoken::Header;
 use mongodb::bson::doc;
+use tracing::debug;
 
 use crate::{
     auth::{AuthInfo, JWTAuthClaim},
@@ -916,10 +917,11 @@ pub async fn get_user_corporate_groups(
 
     for group in corporate_groups.into_iter() {
         if let Some(group_id) = group.get_id() {
+            debug!("Ready to call get_company_names");
             let company_names_mapping = company::get_company_names(group.company_ids())
                 .await
                 .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-
+            debug!("After call get_company_names");
             let mut company_names: Vec<String> = vec![];
             for company_id in group.company_ids() {
                 if let Some(name) = company_names_mapping.get(company_id) {
@@ -952,4 +954,18 @@ pub async fn get_user_corporate_groups(
     }
 
     Ok(result)
+}
+
+pub async fn create_corporate_group(
+    auth_info: impl AuthInfo,
+    payload: web_app_request::CreateCorporateGroup,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    corporate_group::create_corporate_group(auth_info.user_id(), payload.name, payload.company_ids)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })
 }

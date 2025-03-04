@@ -79,7 +79,7 @@ pub async fn get_eligible_companies_for_corporate_group(
 ///
 /// The user that creates the corporate group becomes the owner
 pub async fn create_corporate_group(
-    user_id: DocumentId,
+    user_id: &DocumentId,
     name: String,
     company_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
@@ -105,7 +105,7 @@ pub async fn create_corporate_group(
     ).await? != company_ids.len() as u64 {
         Err(ServiceAppError::InvalidRequest(format!("User must have at least admin role to add a company in the corporate group.")))
     } else {
-        let mut new_doc = db_entities::CorporateGroup::new(name, company_ids, user_id);
+        let mut new_doc = db_entities::CorporateGroup::new(name, company_ids, user_id.clone());
         new_doc.save(None).await?;
         Ok(())
     }
@@ -118,7 +118,7 @@ pub async fn create_corporate_group(
 pub async fn get_corporate_groups_for_user(
     user_id: &DocumentId,
 ) -> Result<Vec<db_entities::CorporateGroup>, ServiceAppError> {
-    #[derive(Serialize, Deserialize, Debug)]
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     struct QueryResult {
         company_id: DocumentId,
     }
@@ -127,12 +127,12 @@ pub async fn get_corporate_groups_for_user(
         doc! {"user_id": user_id, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
         doc! {"company_id": 1},
     )
-    .await?;
+    .await?
+    .into_iter()
+    .map(|elem| elem.company_id)
+    .collect::<Vec<DocumentId>>();
 
-    db_entities::CorporateGroup::find_many(
-        doc! {"company_ids": user_companies.into_iter().map(|elem| elem.company_id).collect::<Vec<DocumentId>>()},
-    )
-    .await
+    db_entities::CorporateGroup::find_many(doc! {"company_ids": {"$in": user_companies}}).await
 }
 
 /// Returns the corporate group that contains the company.
@@ -227,7 +227,7 @@ mod tests {
         }
 
         first_group.save(None).await.unwrap();
-        let result = create_corporate_group(user, "New group".into(), companies.clone()).await;
+        let result = create_corporate_group(&user, "New group".into(), companies.clone()).await;
 
         assert!(
             result.is_err(),
@@ -235,14 +235,14 @@ mod tests {
         );
 
         let result =
-            create_corporate_group(user, "New group".into(), companies[3..5].to_vec()).await;
+            create_corporate_group(&user, "New group".into(), companies[3..5].to_vec()).await;
         assert!(
             result.is_err(),
             "expecting an error because the user is not admin of a company"
         );
 
         let result =
-            create_corporate_group(user, "New group".into(), companies[4..5].to_vec()).await;
+            create_corporate_group(&user, "New group".into(), companies[4..5].to_vec()).await;
         assert!(
             result.is_ok(),
             "expecting correct creation of the corporate group"

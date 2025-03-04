@@ -146,3 +146,10 @@ pub struct GetUserTimesheetDays {
     pub year: i32,
     pub month: u32,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateCorporateGroup {
+    pub name: String,
+    pub company_ids: Vec<DocumentId>,
+}

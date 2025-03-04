@@ -111,6 +111,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
             get(get_eligible_companies_for_corporate_group),
         )
         .route("/corporate-group", get(get_user_corporate_groups))
+        .route("/corporate-group", post(create_corporate_group))
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -451,6 +452,15 @@ async fn get_user_corporate_groups(
     jwt_claim: JWTAuthClaim,
 ) -> Result<AppJson<Vec<web_app_response::CorporateGroupInfo>>, AppError> {
     facade::get_user_corporate_groups(jwt_claim)
+        .await
+        .map(AppJson)
+}
+
+async fn create_corporate_group(
+    jwt_claim: JWTAuthClaim,
+    Json(payload): Json<web_app_request::CreateCorporateGroup>,
+) -> Result<AppJson<()>, AppError> {
+    facade::create_corporate_group(jwt_claim, payload)
         .await
         .map(AppJson)
 }
