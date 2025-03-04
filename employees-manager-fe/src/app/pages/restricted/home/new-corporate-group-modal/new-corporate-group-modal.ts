@@ -147,9 +147,18 @@ export class NewCorporateGroupDialogComponent implements OnInit {
     event.option.deselect();
   }
 
+  selectedCompanies(): number {
+    return this.allCompanies
+      .filter((company) => this.companies().includes(company.name))
+      .map((company) => company.id).length;
+  }
+
   onSubmit() {
     this.dialogRef.close({
       name: this.newCorporateGroupForm.value['name'],
+      companyIds: this.allCompanies
+        .filter((company) => this.companies().includes(company.name))
+        .map((company) => company.id),
     });
   }
 }
