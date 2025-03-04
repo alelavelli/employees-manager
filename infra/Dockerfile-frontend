@@ -13,7 +13,6 @@ RUN npm install
 # Copia il codice dell'app
 COPY . .
 
-# Imposta l'argomento con il valore di default 'prod'
 ARG BUILD_ENVIRONMENT
 
 # Setta la variabile d'ambiente con il valore passato dall'esterno o il valore di default
