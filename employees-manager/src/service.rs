@@ -12,6 +12,7 @@
 
 pub mod access_control;
 pub mod company;
+pub mod corporate_group;
 pub mod db;
 pub mod environment;
 pub mod notification;

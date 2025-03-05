@@ -2,6 +2,7 @@ use std::{collections::HashMap, str::FromStr};
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use super::db::{get_database_service, DatabaseDocument};
 use crate::{
@@ -117,6 +118,30 @@ pub async fn get_user_companies(
 
     let query_result = db_entities::Company::find_many(doc! { "_id": {"$in": company_ids}}).await?;
     Ok(query_result)
+}
+
+/// Returns an hashmap with key the company id and value its name
+pub async fn get_company_names(
+    company_ids: &Vec<DocumentId>,
+) -> Result<HashMap<DocumentId, String>, ServiceAppError> {
+    debug!("Start get_company_names");
+    #[derive(Deserialize, Serialize)]
+    struct QueryResult {
+        _id: DocumentId,
+        name: String,
+    }
+
+    debug!("making query");
+    let query_result = db_entities::Company::find_many_projection::<QueryResult>(
+        doc! {"_id": {"$in": company_ids}},
+        doc! {"_id": 1, "name": 1},
+    )
+    .await?;
+    debug!("converting result to hashmap");
+    Ok(query_result
+        .into_iter()
+        .map(|e| (e._id, e.name))
+        .collect::<HashMap<DocumentId, String>>())
 }
 
 /// Verifies that the entry in UserCompanyAssignment exists and then

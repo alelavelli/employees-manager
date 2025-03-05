@@ -151,3 +151,25 @@ export interface TimesheetProjectInfo {
   projectName: string;
   activities: ProjectActivityInfo[];
 }
+
+export interface CorporateGroupInfo {
+  groupId: string;
+  name: string;
+  companyIds: string[];
+  companyNames: string[];
+}
+
+export interface CorporateGroupCompanyInfo {
+  name: string;
+  id: string;
+}
+
+export interface CreateCorporateGroupParameters {
+  name: string;
+  companyIds: string[];
+}
+
+export interface EditCorporateGroupParameters {
+  name: string;
+  companyIds: string[];
+}

@@ -20,6 +20,10 @@ import {
   TimesheetDay,
   TimesheetActivityHours,
   TimesheetProjectInfo,
+  CorporateGroupInfo,
+  CreateCorporateGroupParameters,
+  CorporateGroupCompanyInfo,
+  EditCorporateGroupParameters,
 } from '../types/model';
 import {
   CompanyRole,
@@ -204,6 +208,74 @@ export class ApiService {
           }))
         )
       : this.httpClient.get<CompanyInfo[]>(API_URL + '/company');
+  }
+
+  getUserCorporateGroups(): Observable<CorporateGroupInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            groupId: `corporate-group-id-${i}`,
+            name: `corporate-group-name-${i}`,
+            companyIds: [
+              `company-id-${i + 1}`,
+              `company-id-${i + 2}`,
+              `company-id-${i + 3}`,
+              `company-id-${i + 4}`,
+              `company-id-${i + 5}`,
+            ],
+            companyNames: [
+              `company-name-${i + 1}`,
+              `company-name-${i + 2}`,
+              `company-name-${i + 3}`,
+              `company-name-${i + 4}`,
+              `company-name-${i + 5}`,
+            ],
+          }))
+        )
+      : this.httpClient.get<CorporateGroupInfo[]>(API_URL + '/corporate-group');
+  }
+
+  getEligibleCompaniesForCorporateGroup(): Observable<
+    CorporateGroupCompanyInfo[]
+  > {
+    return MOCKED
+      ? buildMocked(
+          [...Array(5).keys()].map((i) => ({
+            name: `company-name-${i}`,
+            id: `company-id-${i}`,
+          }))
+        )
+      : this.httpClient.get<CorporateGroupCompanyInfo[]>(
+          API_URL + '/corporate-group/eligible-company'
+        );
+  }
+
+  deleteCorporateGroup(corporateGroupId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/corporate-group/${corporateGroupId}`
+        );
+  }
+
+  editCorporateGroup(
+    corporateGroupId: string,
+    updatedGroup: EditCorporateGroupParameters
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/corporate-group/${corporateGroupId}`,
+          updatedGroup
+        );
+  }
+
+  createCorporateGroup(
+    newGroup: CreateCorporateGroupParameters
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(API_URL + `/corporate-group`, newGroup);
   }
 
   getUsersInCompany(companyId: string): Observable<UserInCompanyInfo[]> {
