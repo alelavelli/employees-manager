@@ -20,3 +20,5 @@ target/
 
 .logs/
 *.DS_Store*
+infra/terraform_template/.terraform/*
+infra/terraform_template/.terraform.lock.hcl

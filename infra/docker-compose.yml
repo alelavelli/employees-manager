@@ -6,8 +6,9 @@ name: employees-manager
 
 services:
   mongodb:
-    image: employees-manager-database:latest
+    image: mongo:7.0.14
     container_name: em-database
+    command: mongod --replSet rs0
     ports:
       - "27117:27017"
     networks:
@@ -23,7 +24,7 @@ services:
       - em_database_logs:/data/logs
 
   backend:
-    image: employees-manager-backend:latest
+    image: europe-west8-docker.pkg.dev/hello-world-plt/employees-manager/employees-manager-backend:latest
     container_name: em-backend
     environment:
       LOCAL: "false"
@@ -48,7 +49,7 @@ services:
       - em_backend_logs:/app/logs
 
   frontend:
-    image: employees-manager-frontend:latest
+    image: europe-west8-docker.pkg.dev/hello-world-plt/employees-manager/employees-manager-frontend:latest
     container_name: em-frontend
     ports:
       - "18080:80"
