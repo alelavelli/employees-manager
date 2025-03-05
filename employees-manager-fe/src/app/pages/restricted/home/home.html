@@ -132,7 +132,7 @@
 
         <mat-menu #corporateGroupMenu="matMenu">
           <ng-template matMenuContent let-row="row">
-            <button mat-menu-item [routerLink]="'/corporate-group'" [queryParams]="{corporateGroupId: row.id}">
+            <button mat-menu-item [routerLink]="'/corporate-group'" [queryParams]="{corporateGroupId: row.groupId}">
               <mat-icon>settings</mat-icon>
               Settings
             </button>

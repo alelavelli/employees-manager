@@ -112,6 +112,8 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         )
         .route("/corporate-group", get(get_user_corporate_groups))
         .route("/corporate-group", post(create_corporate_group))
+        .route("/corporate-group/{id}", delete(delete_corporate_group))
+        .route("/corporate-group/{id}", patch(edit_corporate_group))
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -461,6 +463,25 @@ async fn create_corporate_group(
     Json(payload): Json<web_app_request::CreateCorporateGroup>,
 ) -> Result<AppJson<()>, AppError> {
     facade::create_corporate_group(jwt_claim, payload)
+        .await
+        .map(AppJson)
+}
+
+async fn delete_corporate_group(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+) -> Result<AppJson<()>, AppError> {
+    facade::delete_corporate_group(jwt_claim, id)
+        .await
+        .map(AppJson)
+}
+
+async fn edit_corporate_group(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+    Json(payload): Json<web_app_request::EditCorporateGroup>,
+) -> Result<AppJson<()>, AppError> {
+    facade::edit_corporate_group(jwt_claim, id, payload)
         .await
         .map(AppJson)
 }

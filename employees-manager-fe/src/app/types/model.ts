@@ -168,3 +168,8 @@ export interface CreateCorporateGroupParameters {
   name: string;
   companyIds: string[];
 }
+
+export interface EditCorporateGroupParameters {
+  name: string;
+  companyIds: string[];
+}

@@ -153,3 +153,10 @@ pub struct CreateCorporateGroup {
     pub name: String,
     pub company_ids: Vec<DocumentId>,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditCorporateGroup {
+    pub name: String,
+    pub company_ids: Vec<DocumentId>,
+}

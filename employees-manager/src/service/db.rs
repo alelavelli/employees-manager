@@ -570,16 +570,8 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
             } else {
                 let db_service = get_database_service().await;
                 let collection = db_service.db.collection::<Self>(Self::collection_name());
-                let result = collection.update_one(query.clone(), update).await?;
-                if result.matched_count == result.modified_count {
-                    Ok(())
-                } else {
-                    Err(ServiceAppError::DatabaseError(format!(
-                    "Something went wrong when updating document with filter {} for collection {}",
-                    query,
-                    Self::collection_name()
-                )))
-                }
+                collection.update_one(query.clone(), update).await?;
+                Ok(())
             }
         }
     }
@@ -595,16 +587,8 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
             } else {
                 let db_service = get_database_service().await;
                 let collection = db_service.db.collection::<Self>(Self::collection_name());
-                let result = collection.update_many(query.clone(), update).await?;
-                if result.matched_count == result.modified_count {
-                    Ok(())
-                } else {
-                    Err(ServiceAppError::DatabaseError(format!(
-                    "Something went wrong when updating documents with filter {} for collection {}",
-                    query,
-                    Self::collection_name()
-                )))
-                }
+                collection.update_many(query.clone(), update).await?;
+                Ok(())
             }
         }
     }

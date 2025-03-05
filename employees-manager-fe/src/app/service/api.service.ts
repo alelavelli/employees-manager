@@ -23,6 +23,7 @@ import {
   CorporateGroupInfo,
   CreateCorporateGroupParameters,
   CorporateGroupCompanyInfo,
+  EditCorporateGroupParameters,
 } from '../types/model';
 import {
   CompanyRole,
@@ -246,6 +247,26 @@ export class ApiService {
         )
       : this.httpClient.get<CorporateGroupCompanyInfo[]>(
           API_URL + '/corporate-group/eligible-company'
+        );
+  }
+
+  deleteCorporateGroup(corporateGroupId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/corporate-group/${corporateGroupId}`
+        );
+  }
+
+  editCorporateGroup(
+    corporateGroupId: string,
+    updatedGroup: EditCorporateGroupParameters
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/corporate-group/${corporateGroupId}`,
+          updatedGroup
         );
   }
 

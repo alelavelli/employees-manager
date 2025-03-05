@@ -111,6 +111,29 @@ pub async fn create_corporate_group(
     }
 }
 
+/// Deletes corporate group if the user has permissions to do it
+pub async fn delete_corporate_group(
+    user_id: &DocumentId,
+    corporate_group_id: &DocumentId,
+) -> Result<(), ServiceAppError> {
+    let corporate_group_list = get_corporate_groups_for_user(user_id)
+        .await?
+        .into_iter()
+        .filter(|doc| {
+            doc.get_id()
+                .is_some_and(|doc_id| doc_id == corporate_group_id)
+        })
+        .collect::<Vec<db_entities::CorporateGroup>>();
+
+    if let Some(corporate_group) = corporate_group_list.first() {
+        corporate_group.delete(None).await
+    } else {
+        Err(ServiceAppError::EntityDoesNotExist(format!(
+            "Corporate group with id {corporate_group_id} does not exist."
+        )))
+    }
+}
+
 /// Returns the corporate groups visible by the user.
 /// A user can view a corporate group if it is at least admin of a Company
 /// that is in the group.
@@ -150,8 +173,8 @@ pub async fn get_corporate_group_for_company(
 ///     - if a Company already belongs to another group
 ///     - if company vector is empty
 pub async fn edit_corporate_group(
-    user_id: DocumentId,
-    group_id: DocumentId,
+    user_id: &DocumentId,
+    group_id: &DocumentId,
     name: String,
     company_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {

@@ -969,3 +969,39 @@ pub async fn create_corporate_group(
             _ => AppError::InternalServerError(e.to_string()),
         })
 }
+
+pub async fn edit_corporate_group(
+    auth_info: impl AuthInfo,
+    corporate_group_id: DocumentId,
+    payload: web_app_request::EditCorporateGroup,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    corporate_group::edit_corporate_group(
+        auth_info.user_id(),
+        &corporate_group_id,
+        payload.name,
+        payload.company_ids,
+    )
+    .await
+    .map_err(|e| match e {
+        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+        _ => AppError::InternalServerError(e.to_string()),
+    })
+}
+
+pub async fn delete_corporate_group(
+    auth_info: impl AuthInfo,
+    corporate_group_id: DocumentId,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    corporate_group::delete_corporate_group(auth_info.user_id(), &corporate_group_id)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+            ServiceAppError::AccessControlError(message) => AppError::AccessControlError(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })
+}
