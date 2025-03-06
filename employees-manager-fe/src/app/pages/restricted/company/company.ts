@@ -46,6 +46,7 @@ import { NewCompanyProjectDialogComponent } from './create-project/create-projec
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { NewActivityDialogComponent } from './create-activity/create-activity-modal';
 import { MatButtonModule } from '@angular/material/button';
+import { CompanyUsers } from './users/users';
 
 enum UserProjectAllocationViewMode {
   PROJECT = 'project',
@@ -82,6 +83,7 @@ enum ActivityProjectAllocationViewMode {
     MatListModule,
     FormsModule,
     MatButtonModule,
+    CompanyUsers,
   ],
 })
 export class CompanyPageComponent implements OnInit {
@@ -90,6 +92,7 @@ export class CompanyPageComponent implements OnInit {
   loading: boolean = false;
   userData: UserData | null = null;
   companyId: string | null = null;
+  selectedCompany: CompanyInfo | null = null;
   companies: CompanyInfo[] = [];
 
   usersInCompany: UserInCompanyInfo[] = [];
@@ -327,6 +330,10 @@ export class CompanyPageComponent implements OnInit {
             company.role === CompanyRole.Owner
           );
         });
+        this.selectedCompany = this.companies.filter(
+          (company) => company.id == this.companyId
+        )[0];
+
         this.loading = false;
       },
       error: () => {

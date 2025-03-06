@@ -421,6 +421,8 @@
         </div>
       </mat-tab>
       <mat-tab label="Users">
+        <company-users [userData]="userData" [company]="selectedCompany"
+          *ngIf="userData && selectedCompany "></company-users>
         <div class="users">
           <div>
             <button mat-raised-button class="clickable" color="primary" (click)="openInviteUserInCompanyDialog()">
