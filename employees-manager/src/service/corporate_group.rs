@@ -84,9 +84,9 @@ pub async fn create_corporate_group(
     company_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
     if company_ids.is_empty() {
-        Err(ServiceAppError::InvalidRequest(format!(
-            "You cannot create a Corporate Group without companies."
-        )))
+        Err(ServiceAppError::InvalidRequest(
+            "You cannot create a Corporate Group without companies.".to_string()
+        ))
     } else if db_entities::CorporateGroup::count_documents(doc! { "name": &name }).await? > 0 {
         Err(ServiceAppError::InvalidRequest(format!(
             "Corporate Group with name {name} already exist."
@@ -97,15 +97,15 @@ pub async fn create_corporate_group(
     .await?
         > 0
     {
-        Err(ServiceAppError::InvalidRequest(format!(
-            "Companies cannot belong to more than one Corporate Group"
-        )))
+        Err(ServiceAppError::InvalidRequest(
+            "Companies cannot belong to more than one Corporate Group".to_string()
+        ))
     } else if db_entities::UserCompanyAssignment::count_documents(
         doc! { "user_id": user_id, "company_id": {"$in": &company_ids}, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
     ).await? != company_ids.len() as u64 {
-        Err(ServiceAppError::InvalidRequest(format!("User must have at least admin role to add a company in the corporate group.")))
+        Err(ServiceAppError::InvalidRequest("User must have at least admin role to add a company in the corporate group.".to_string()))
     } else {
-        let mut new_doc = db_entities::CorporateGroup::new(name, company_ids, user_id.clone());
+        let mut new_doc = db_entities::CorporateGroup::new(name, company_ids, *user_id);
         new_doc.save(None).await?;
         Ok(())
     }
@@ -179,9 +179,9 @@ pub async fn edit_corporate_group(
     company_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
     if company_ids.is_empty() {
-        Err(ServiceAppError::InvalidRequest(format!(
-            "You cannot have a Corporate Group without companies."
-        )))
+        Err(ServiceAppError::InvalidRequest(
+            "You cannot have a Corporate Group without companies.".to_string()
+        ))
     } else if db_entities::CorporateGroup::count_documents(
         doc! { "name": &name, "_id": {"$ne": group_id}},
     )
@@ -197,13 +197,12 @@ pub async fn edit_corporate_group(
     .await?
         > 0
     {
-        Err(ServiceAppError::InvalidRequest(format!(
-            "Companies cannot belong to more than one Corporate Group"
-        )))
+        Err(ServiceAppError::InvalidRequest(
+            "Companies cannot belong to more than one Corporate Group".to_string()))
     } else if db_entities::UserCompanyAssignment::count_documents(
         doc! { "user_id": user_id, "company_id": {"$in": &company_ids}, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
     ).await? != company_ids.len() as u64 {
-        Err(ServiceAppError::InvalidRequest(format!("User must have at least admin role to add a company in the corporate group.")))
+        Err(ServiceAppError::InvalidRequest("User must have at least admin role to add a company in the corporate group.".to_string()))
     } else {
         db_entities::CorporateGroup::update_one(
             doc! {"_id": group_id},
