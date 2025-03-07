@@ -73,12 +73,12 @@ import { forkJoin } from 'rxjs';
 export class CompanyUsers implements OnInit {
   @Input() userData!: UserData;
   @Input() company!: CompanyInfo;
+  @Input() usersInCompany!: UserInCompanyInfo[];
 
   CompanyRole = CompanyRole;
 
   loading: boolean = false;
 
-  usersInCompany: UserInCompanyInfo[] = [];
   usersTableDataSource: MatTableDataSource<UserInCompanyInfo> =
     new MatTableDataSource<UserInCompanyInfo>([]);
   readonly userFilterForm: FormGroup;
@@ -169,11 +169,9 @@ export class CompanyUsers implements OnInit {
 
   loadData() {
     forkJoin({
-      users: this.apiService.getUsersInCompany(this.company.id),
       pendingUsers: this.apiService.getPendingUsersInCompany(this.company.id),
     }).subscribe({
       next: (response) => {
-        this.usersInCompany = response.users;
         this.usersTableDataSource = new MatTableDataSource(this.usersInCompany);
         setTimeout(() => {
           this.usersTableDataSource.filterPredicate = (data, filter: any) => {
@@ -230,6 +228,23 @@ export class CompanyUsers implements OnInit {
 
             return roleFilter && (idFilter || usernameFilter);
           };
+          this.pendingUsersTableDataSource.sort = this.sort.toArray()[1];
+          this.pendingUsersTableDataSource.paginator =
+            this.paginator.toArray()[1];
+        });
+      },
+      error: () => {
+        this.usersTableDataSource = new MatTableDataSource(this.usersInCompany);
+        setTimeout(() => {
+          this.usersTableDataSource.sort = this.sort.toArray()[0];
+          this.usersTableDataSource.paginator = this.paginator.toArray()[0];
+        });
+
+        this.pendingUsers = [];
+        this.pendingUsersTableDataSource = new MatTableDataSource(
+          this.pendingUsers
+        );
+        setTimeout(() => {
           this.pendingUsersTableDataSource.sort = this.sort.toArray()[1];
           this.pendingUsersTableDataSource.paginator =
             this.paginator.toArray()[1];
