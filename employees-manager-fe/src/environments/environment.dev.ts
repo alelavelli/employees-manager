@@ -3,5 +3,5 @@ export const environment = {
   production: false,
   mocked: false,
   envName: 'DEV',
-  apiHost: '',
+  apiHost: window.location.origin,
 };

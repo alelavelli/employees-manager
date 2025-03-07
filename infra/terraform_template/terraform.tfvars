@@ -1,0 +1,5 @@
+region           = "europe-west8"
+project_id       = "hello-world-plt"
+project_number   = "422614191369"
+zone             = "europe-west8-b"
+network_tag      = "http-server"
