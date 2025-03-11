@@ -120,7 +120,7 @@ pub async fn export_as_excel(
     let merge_format = Format::new().set_align(FormatAlign::Center);
 
     // create columns
-    let columns = vec![
+    let columns = [
         "Date",
         "Work Type",
         "Permission hours",
