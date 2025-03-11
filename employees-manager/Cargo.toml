@@ -60,6 +60,8 @@ bcrypt = "0.15.1"
 derive_builder = "0.20.2"
 # macro
 paste = "1.0.15"
+# excel
+rust_xlsxwriter = { version = "0.84.0", features = ["serde", "chrono"] }
 
 [dev-dependencies]
 #mockall = "0.12.1"

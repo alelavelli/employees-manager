@@ -716,4 +716,13 @@ export class ApiService {
           activities: activities,
         });
   }
+
+  exportUserTimesheet(year: number, month: number): Observable<Blob> {
+    return MOCKED
+      ? buildMocked(new Blob())
+      : this.httpClient.get<Blob>(API_URL + `/user/timesheet-export`, {
+          params: { year: year.toString(), month: month.toString() },
+          responseType: 'blob' as 'json',
+        });
+  }
 }

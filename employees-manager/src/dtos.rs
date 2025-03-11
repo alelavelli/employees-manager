@@ -6,6 +6,7 @@
 
 use axum::{
     extract::FromRequest,
+    http::{HeaderMap, HeaderName, HeaderValue},
     response::{IntoResponse, Response},
 };
 
@@ -29,5 +30,43 @@ where
 {
     fn into_response(self) -> Response {
         axum::Json(self.0).into_response()
+    }
+}
+
+pub struct ResponseWithHeader<T>
+where
+    T: IntoResponse,
+{
+    headers: HeaderMap,
+    content: T,
+}
+
+impl<T> ResponseWithHeader<T>
+where
+    T: IntoResponse,
+{
+    pub fn new(content: T) -> Self {
+        Self {
+            headers: HeaderMap::new(),
+            content,
+        }
+    }
+
+    pub fn with_header(self, header: HeaderName, value: HeaderValue) -> Self {
+        let mut new_headers = self.headers;
+        new_headers.insert(header, value);
+        Self {
+            headers: new_headers,
+            content: self.content,
+        }
+    }
+}
+
+impl<T> IntoResponse for ResponseWithHeader<T>
+where
+    T: IntoResponse,
+{
+    fn into_response(self) -> Response {
+        (self.headers, self.content).into_response()
     }
 }

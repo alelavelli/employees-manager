@@ -153,3 +153,20 @@ impl TryFrom<Bson> for WorkingDayType {
         }
     }
 }
+
+impl Display for WorkingDayType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                WorkingDayType::Office => "Office",
+                WorkingDayType::Remote => "Remote",
+                WorkingDayType::DayOff => "DayOff",
+                WorkingDayType::Holiday => "Holiday",
+                WorkingDayType::CompanyClosure => "CompanyClosure",
+                WorkingDayType::Sick => "Sick",
+            }
+        )
+    }
+}

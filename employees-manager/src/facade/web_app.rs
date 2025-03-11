@@ -735,12 +735,13 @@ pub async fn get_timesheet_days(
     let mut activity_cache: HashMap<DocumentId, db_entities::ProjectActivity> = HashMap::new();
 
     // Retrieve all the timesheet days that need to be returned to the client
-    let timesheet_days = timesheet::get_days(user_id, year, month)
-        .await
-        .map_err(|e| match e {
-            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-            _ => AppError::InternalServerError(e.to_string()),
-        })?;
+    let timesheet_days =
+        timesheet::get_days(&user_id, &year, &month)
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })?;
 
     let mut timesheets_to_return = vec![];
 
@@ -888,6 +889,18 @@ pub async fn get_user_projects_for_timesheet(
     }
 
     Ok(timesheet_project_info)
+}
+
+pub async fn export_personal_timesheet(
+    auth_info: impl AuthInfo,
+    year: i32,
+    month: u32,
+) -> Result<Vec<u8>, AppError> {
+    AccessControl::new(&auth_info).await?;
+
+    timesheet::export_as_excel(auth_info.user_id(), &year, &month)
+        .await
+        .map_err(|e| AppError::InternalServerError(e.to_string()))
 }
 
 pub async fn get_eligible_companies_for_corporate_group(
