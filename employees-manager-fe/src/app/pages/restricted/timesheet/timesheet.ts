@@ -19,6 +19,7 @@ import { ToastrService } from 'ngx-toastr';
 import { MatDialog } from '@angular/material/dialog';
 import { EditTimesheetDialogComponent } from './timesheet-day-modal/timesheet-day-modal';
 import { timesheetDayWorkTypeToString } from '../../../service/common';
+import { MatButtonModule } from '@angular/material/button';
 @Component({
   selector: 'timesheet-page',
   templateUrl: './timesheet.html',
@@ -30,6 +31,7 @@ import { timesheetDayWorkTypeToString } from '../../../service/common';
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
+    MatButtonModule,
   ],
 })
 export class TimesheetPageComponent implements OnInit {
@@ -231,5 +233,26 @@ export class TimesheetPageComponent implements OnInit {
           },
         });
     }
+  }
+
+  exportTimesheet() {
+    this.apiService
+      .exportUserTimesheet(this.selectedYear!, this.selectedMonth!)
+      .subscribe({
+        next: (response) => {
+          const blob = new Blob([response], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `timesheet ${this.selectedYear}-${this.selectedMonth}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        },
+        error: () => {},
+      });
   }
 }

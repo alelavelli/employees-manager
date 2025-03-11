@@ -5,6 +5,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+use rust_xlsxwriter::XlsxError;
 use serde::Serialize;
 use tracing::error;
 
@@ -49,10 +50,13 @@ impl IntoResponse for AppError {
                 // This error is caused by bad user input so don't log it
                 (rejection.status(), rejection.body_text())
             }
-            AppError::InternalServerError(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Internal Server Error".into(),
-            ),
+            AppError::InternalServerError(error_message) => {
+                error!(error_message);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal Server Error".into(),
+                )
+            }
             AppError::AuthorizationError(auth_error) => auth_error.to_status_message(),
             AppError::DoesNotExist(message) => (StatusCode::NOT_FOUND, message),
             AppError::AccessControlError(message) => (StatusCode::FORBIDDEN, message),
@@ -165,6 +169,12 @@ impl From<web_app_response::CompanyInfoBuilderError> for ServiceAppError {
                 ServiceAppError::ResponseBuildError(message)
             }
         }
+    }
+}
+
+impl From<XlsxError> for ServiceAppError {
+    fn from(value: XlsxError) -> Self {
+        ServiceAppError::InternalServerError(value.to_string())
     }
 }
 

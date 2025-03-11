@@ -13,6 +13,15 @@
           <mat-option *ngFor="let month of months" [value]="month">{{month}}</mat-option>
         </mat-select>
       </mat-form-field>
+      <div>
+        <button mat-raised-button class="clickable" color="primary" (click)="exportTimesheet()"
+          [disabled]="selectedMonth === null || selectedYear === null">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+            <mat-icon>download</mat-icon>
+            Export
+          </div>
+        </button>
+      </div>
     </div>
     <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
     <div class="timesheet-header-days" *ngIf="!loading && openTimesheet">

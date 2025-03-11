@@ -3,13 +3,15 @@ use crate::{
     dtos::{
         web_app_request,
         web_app_response::{self, AppNotification, CompanyInfo, UserInCompanyInfo},
-        AppJson,
+        AppJson, ResponseWithHeader,
     },
     DocumentId,
 };
 
 use axum::{
     extract::{Path, Query},
+    http::header,
+    response::IntoResponse,
     routing::{delete, get, patch, post},
     Json, Router,
 };
@@ -114,6 +116,7 @@ pub static WEB_APP_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/corporate-group", post(create_corporate_group))
         .route("/corporate-group/{id}", delete(delete_corporate_group))
         .route("/corporate-group/{id}", patch(edit_corporate_group))
+        .route("/user/timesheet-export", get(export_personal_timesheet))
 });
 
 /// Authorize a user with username and password providing jwt token
@@ -484,4 +487,21 @@ async fn edit_corporate_group(
     facade::edit_corporate_group(jwt_claim, id, payload)
         .await
         .map(AppJson)
+}
+
+async fn export_personal_timesheet(
+    jwt_claim: JWTAuthClaim,
+    query: Query<web_app_request::GetUserTimesheetExport>,
+) -> Result<impl IntoResponse, AppError> {
+    facade::export_personal_timesheet(jwt_claim, query.year, query.month)
+        .await
+        .map(|content| {
+            ResponseWithHeader::new(content).with_header(
+                header::CONTENT_TYPE,
+                header::HeaderValue::from_str(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+                .unwrap(),
+            )
+        })
 }
