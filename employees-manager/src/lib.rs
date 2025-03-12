@@ -6,7 +6,7 @@ mod enums;
 mod error;
 mod facade;
 pub mod middleware;
-mod model;
+pub mod model;
 pub mod router;
 pub mod service;
 

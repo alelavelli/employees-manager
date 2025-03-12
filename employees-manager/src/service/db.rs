@@ -4,7 +4,7 @@ use futures::TryStreamExt;
 use mongodb::{
     bson::{doc, Document},
     options::{ClientOptions, FindOneOptions, FindOptions},
-    Client, ClientSession, Database,
+    Client, ClientSession, Database, IndexModel,
 };
 
 use tracing::debug;
@@ -374,6 +374,19 @@ pub trait DatabaseDocument: Sized + Send + Sync + Serialize + DeserializeOwned {
     fn get_id(&self) -> Option<&DocumentId>;
     fn set_id(&mut self, document_id: &str) -> Result<(), DatabaseError>;
     fn collection_name() -> &'static str;
+
+    fn set_indexes(
+        keys: Document,
+    ) -> impl std::future::Future<Output = Result<(), ServiceAppError>> {
+        async {
+            let index = IndexModel::builder().keys(keys).build();
+
+            let db_service = get_database_service().await;
+            let collection = db_service.db.collection::<Self>(Self::collection_name());
+            collection.create_index(index).await?;
+            Ok(())
+        }
+    }
 
     /// Reload the document from the database
     fn reload(&mut self) -> impl std::future::Future<Output = Result<(), ServiceAppError>> {

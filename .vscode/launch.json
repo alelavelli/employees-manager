@@ -40,6 +40,29 @@
       },
       "args": [],
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "MongoDB Index Setup",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=mongodb_index_setup",
+          "--package=employees-manager"
+        ],
+        "filter": {
+          "name": "mongodb_index_setup",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "DEPLOY_ENVIRONMENT": "dev",
+        "LOCAL": "true",
+        "RUST_BACKTRACE": "1"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

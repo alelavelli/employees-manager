@@ -1,5 +1,6 @@
 [package]
 name = "employees-manager"
+default-run = "employees-manager"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
