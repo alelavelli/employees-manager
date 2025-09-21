@@ -1,0 +1,49 @@
+@import "colors";
+
+.clickable {
+  cursor: pointer;
+}
+
+.home-page-container {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  justify-content: center;
+  gap: 2rem;
+
+  .home-page-header {
+    display: flex;
+    flex-direction: column;
+    margin: 0rem 2rem 0rem 2rem;
+  }
+
+  .companies {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+
+    .mat-mdc-form-field {
+      font-size: 14px;
+    }
+
+    .companies-filter-component {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: left;
+      gap: 1rem;
+
+      .companies-filter-label {
+        color: $themePrimary;
+        font-size: 1rem;
+      }
+    }
+
+    .companies-header-row {
+      color: $themePrimary;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+  }
+}

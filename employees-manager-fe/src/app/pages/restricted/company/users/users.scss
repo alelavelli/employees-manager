@@ -1,0 +1,62 @@
+@import "colors";
+
+.clickable {
+  cursor: pointer;
+}
+
+.users {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-bottom: 2rem;
+
+  .users-content {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+
+    .users-content-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      width: 65%;
+    }
+
+    .users-content-right {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+  }
+
+  .mat-mdc-form-field {
+    font-size: 14px;
+  }
+
+  .users-filter-component {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 1rem;
+
+    .users-filter-label {
+      color: $themePrimary;
+      font-size: 1rem;
+    }
+  }
+
+  .users-header-row {
+    color: $themePrimary;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+}
+
+.change-job-title-form-container {
+  margin-top: 0.5;
+  padding: 0.125rem 1rem 0.125rem 1rem;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,65 @@
+<div class="notifications-page-container page-with-padding">
+    <div class="h1-title">Notifications</div>
+
+    <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+
+    <ng-container *ngIf="!loading">
+        <div class="notifications-container">
+            <form [formGroup]="notificationsFilterForm">
+                <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
+                    <mat-form-field style="width: 50%;">
+                        <mat-label>Filter</mat-label>
+                        <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+                    </mat-form-field>
+                    <div class="notifications-filter-component">
+                        <div class="notifications-filter-label">Notification Type</div>
+                        <mat-button-toggle-group name="notificationType" aria-label="Notification Type" multiple
+                            formControlName="notificationType">
+                            <mat-button-toggle *ngFor="let notificationType of NotificationType | keyvalue"
+                                value={{notificationType.value}}>{{notificationType.value}}</mat-button-toggle>
+                        </mat-button-toggle-group>
+                    </div>
+                </div>
+            </form>
+
+            <div class="mat-elevation-z8">
+                <table mat-table [dataSource]="notificationsTableDataSource" matSort>
+                    <ng-container matColumnDef="notificationType">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Type </th>
+                        <td mat-cell *matCellDef="let element"> {{notificationTypeToTitle(element.notificationType)}}
+                        </td>
+                    </ng-container>
+                    <ng-container matColumnDef="message">
+                        <th mat-header-cell *matHeaderCellDef mat-sort-header> Description </th>
+                        <td mat-cell *matCellDef="let element"> {{element.message}} </td>
+                    </ng-container>
+                    <ng-container matColumnDef="actionMenu">
+                        <th mat-header-cell *matHeaderCellDef> Actions </th>
+                        <td mat-cell *matCellDef="let element">
+                            <mat-icon class="clickable" [matMenuTriggerFor]="menu"
+                                [matMenuTriggerData]="{ row: element }">more_vert</mat-icon>
+                        </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="displayedNotificationsInfoColumns"
+                        class="notifications-header-row"></tr>
+                    <tr mat-row *matRowDef="let row; columns: displayedNotificationsInfoColumns;"></tr>
+                </table>
+
+                <mat-paginator [pageSizeOptions]="[5, 10]" aria-label="Select page of notifications"></mat-paginator>
+
+                <mat-menu #menu="matMenu">
+                    <ng-template matMenuContent let-row="row">
+                        <button mat-menu-item (click)="acceptInviteAddCompany(row)"
+                            *ngIf="row.notificationType == NotificationType.InviteAddCompany"><mat-icon>done</mat-icon>Accept</button>
+                        <button mat-menu-item (click)="declineInviteAddCompany(row)"
+                            *ngIf="row.notificationType == NotificationType.InviteAddCompany"><mat-icon>close</mat-icon>Decline</button>
+                        <button mat-menu-item (click)="setAsRead(row)"
+                            *ngIf="row.notificationType == NotificationType.InviteAddCompanyAnswer"><mat-icon>mark_email_read</mat-icon>Mark
+                            as read</button>
+                    </ng-template>
+                </mat-menu>
+            </div>
+        </div>
+    </ng-container>
+</div>

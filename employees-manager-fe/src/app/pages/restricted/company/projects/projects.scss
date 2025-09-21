@@ -1,0 +1,59 @@
+@import "colors";
+
+.clickable {
+  cursor: pointer;
+}
+
+.company-projects {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-bottom: 2rem;
+
+  .company-projects-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+
+    .company-projects-content-section {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+  }
+
+  .company-projects-filter-component {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 1rem;
+
+    .company-projects-filter-label {
+      color: $themePrimary;
+      font-size: 1rem;
+    }
+  }
+
+  .company-projects-header-row {
+    color: $themePrimary;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+
+  .company-project-allocations-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .company-project-allocation-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: 30rem;
+    overflow: auto;
+  }
+}

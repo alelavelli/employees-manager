@@ -1,0 +1,119 @@
+@import "colors";
+
+.clickable {
+  cursor: pointer;
+}
+
+.day-name {
+  display: flex;
+  justify-content: center;
+  font-weight: bold;
+  margin: 1rem;
+}
+
+.timesheet-page-container {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  justify-content: center;
+  //gap: 5rem;
+
+  .timesheet-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .timesheet-header-days {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0rem 5rem 0rem 5rem;
+    font-weight: bold;
+  }
+
+  .timesheet-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: 0.01rem;
+    column-gap: 0.01rem;
+    margin-top: 1rem;
+    gap: 0.1rem;
+
+    .timesheet-day {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 1rem;
+      height: 9rem;
+      width: 13.5rem;
+      //aspect-ratio: 3 / 1;
+      border: 0.05rem solid $granata;
+      background-color: #ffffff;
+      cursor: pointer;
+      border-radius: 0.2rem;
+      &:hover {
+        background-color: #fff7f3;
+        transform: scale(1.05);
+      }
+
+      .timesheet-day-header {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+
+        .timesheet-day-header-label {
+          color: $granata;
+          font-size: large;
+        }
+
+        .timesheet-day-header-icon {
+          transform: scale(0.8);
+        }
+      }
+
+      .timesheet-day-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 1rem;
+
+        .timesheet-day-body-content {
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          width: 80%;
+          gap: 1rem;
+          padding: 0.2rem 1rem 0.2rem 1rem;
+
+          background-color: #a76968;
+          color: #ffffff;
+
+          border-radius: 1rem;
+
+          .timesheet-day-body-content-label {
+            font-size: 0.8rem;
+          }
+
+          .timesheet-day-body-content-value {
+            font-size: 0.8rem;
+          }
+        }
+      }
+    }
+
+    .timesheet-disabled-day {
+      background-color: #c3c3c3;
+
+      cursor: default;
+      &:hover {
+        background-color: #c3c3c3;
+        transform: scale(1);
+      }
+    }
+  }
+}

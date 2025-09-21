@@ -1,0 +1,19 @@
+@import "variables";
+
+*:not(ul) {
+  margin: 0;
+  padding: 0;
+}
+
+.only-for-light-theme {
+  display: block;
+  .dark-mode & {
+    display: none;
+  }
+}
+.only-for-dark-theme {
+  display: none;
+  .dark-mode & {
+    display: block;
+  }
+}

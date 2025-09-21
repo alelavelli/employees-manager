@@ -1,0 +1,21 @@
+<h1 mat-dialog-title>Create project</h1>
+
+<div mat-dialog-content class="create-project-modal-container">
+    <form [formGroup]="newProjectForm" (ngSubmit)="onSubmit()" class="form-container">
+        <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput placeholder="Name" formControlName="name">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Code</mat-label>
+            <input matInput placeholder="Code" formControlName="code">
+        </mat-form-field>
+    </form>
+    <div mat-dialog-actions align="end" class="action-buttons">
+        <button mat-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-raised-button type="submit" [disabled]="newProjectForm.invalid" color="primary"
+            (click)="onSubmit()">
+            Create
+        </button>
+    </div>
+</div>

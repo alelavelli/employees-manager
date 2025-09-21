@@ -1,0 +1,24 @@
+<div class="user-widget-container">
+  <mat-icon class="user-icon" [matMenuTriggerFor]="userWidgetMenu" #menuTrigger="matMenuTrigger">person</mat-icon>
+  <mat-menu #userWidgetMenu="matMenu" class="user-widget-menu">
+    <div class="user-info-container">
+      <div class="user-info">
+        <div class="user-info-name">{{userData?.username}}</div>
+        <div class="user-info-email">{{userData?.email}}</div>
+      </div>
+    </div>
+    <hr class="separator" />
+    <div class="menu-item-container">
+      <div class="menu-item" routerLink="admin" *ngIf="isPlatformAdmin()">
+        <mat-icon>admin_panel_settings</mat-icon>
+        Admin Panel
+      </div>
+      <div class="logout-button-container">
+        <button mat-raised-button color="primary" class="menu-item menu-item-logout" (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          Logout
+        </button>
+      </div>
+    </div>
+  </mat-menu>
+</div>

@@ -1,0 +1,24 @@
+<div class="company-page-container page-with-padding">
+  <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+  <ng-container *ngIf="!loading">
+    <div class="company-header">
+      <mat-form-field appearance="outline">
+        <mat-label>Select a company</mat-label>
+        <mat-select [(value)]="companyId" (selectionChange)="loadData()">
+          <mat-option *ngFor="let company of companies" [value]="company.id">{{company.name}}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+    <mat-tab-group mat-stretch-tabs animationDuration="0ms" class="section-container">
+      <mat-tab label="Projects">
+        <company-projects [userData]="userData" [company]="selectedCompany" [usersInCompany]="usersInCompany"
+          *ngIf="userData && selectedCompany && usersInCompany"></company-projects>
+      </mat-tab>
+      <mat-tab label="Users">
+        <company-users [userData]="userData" [company]="selectedCompany" [usersInCompany]="usersInCompany"
+          *ngIf="userData && selectedCompany && usersInCompany"></company-users>
+      </mat-tab>
+    </mat-tab-group>
+
+  </ng-container>
+</div>

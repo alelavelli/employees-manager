@@ -1,0 +1,137 @@
+<div class="admin-page-container page-with-padding">
+  <div class="admin-page-header">
+    <div class="h1-title">Admin Panel</div>
+  </div>
+
+  <!-- case "it is loading stuff" -->
+  <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+
+  <!-- case "everything has been loaded" -->
+  <ng-container *ngIf="!loading">
+    <div class="overview" *ngIf="overview !== null">
+      <div class="overview-item">
+        <div class="overview-item-title">Users</div>
+        <div class="overview-item-value">{{ overview.totalUsers }}</div>
+      </div>
+      <div class="overview-item">
+        <div class="overview-item-title">Admins</div>
+        <div class="overview-item-value">{{ overview.totalAdmins }}</div>
+      </div>
+      <div class="overview-item">
+        <div class="overview-item-title">Active Users</div>
+        <div class="overview-item-value">{{ overview.totalActiveUsers }}</div>
+      </div>
+      <div class="overview-item">
+        <div class="overview-item-title">Inactive Users</div>
+        <div class="overview-item-value">{{ overview.totalInactiveUsers }}</div>
+      </div>
+      <div class="overview-item">
+        <div class="overview-item-title">Companies</div>
+        <div class="overview-item-value">{{ overview.totalCompanies }}</div>
+      </div>
+    </div>
+
+    <div class="users section-container">
+      <div class="h2-title">Users</div>
+      <div>
+        <button mat-raised-button class="clickable" color="primary" (click)="openCreateUserDialog()">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+            <mat-icon>add</mat-icon>
+            Create User
+          </div>
+        </button>
+      </div>
+      <form [formGroup]="userFilterForm">
+        <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
+          <mat-form-field style="width: 50%;">
+            <mat-label>Filter</mat-label>
+            <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+          </mat-form-field>
+          <div class="users-filter-component">
+            <div class="users-filter-label">Active User</div>
+            <mat-button-toggle-group name="activeUser" aria-label="Active User" multiple formControlName="activeUser"
+              (change)="onActiveUserFilterChange($event)">
+              <mat-button-toggle value="true">True</mat-button-toggle>
+              <mat-button-toggle value="false">False</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+
+          <div class="users-filter-component">
+            <div class="users-filter-label">Platform Admin</div>
+            <mat-button-toggle-group name="platformAdmin" aria-label="Platform Admin" multiple
+              formControlName="platformAdmin" (change)="onPlatformAdminFilterChange($event)">
+              <mat-button-toggle value="true">True</mat-button-toggle>
+              <mat-button-toggle value="false">False</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+        </div>
+      </form>
+
+      <div class="mat-elevation-z8">
+        <table mat-table [dataSource]="usersTableDataSource" matSort>
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+            <td mat-cell *matCellDef="let element"> {{element.id}} </td>
+          </ng-container>
+          <ng-container matColumnDef="username">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Username </th>
+            <td mat-cell *matCellDef="let element"> {{element.username}} </td>
+          </ng-container>
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Email </th>
+            <td mat-cell *matCellDef="let element"> {{element.email}} </td>
+          </ng-container>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+            <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+          </ng-container>
+          <ng-container matColumnDef="surname">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Surname </th>
+            <td mat-cell *matCellDef="let element"> {{element.surname}} </td>
+          </ng-container>
+          <ng-container matColumnDef="platformAdmin">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Platform Admin </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon [fontIcon]="element.platformAdmin ? 'done' : 'close'"></mat-icon>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="active">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Active </th>
+            <td mat-cell *matCellDef="let element"> <mat-icon [fontIcon]="element.active ? 'done' : 'close'"></mat-icon>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="totalCompanies">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Companies </th>
+            <td mat-cell *matCellDef="let element"> {{element.totalCompanies}} </td>
+          </ng-container>
+          <ng-container matColumnDef="actionMenu">
+            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon class="clickable" [matMenuTriggerFor]="menu"
+                [matMenuTriggerData]="{ row: element }">more_vert</mat-icon>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedUsersInfoColumns" class="users-header-row"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedUsersInfoColumns;"></tr>
+        </table>
+
+        <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of users"></mat-paginator>
+
+        <mat-menu #menu="matMenu">
+          <ng-template matMenuContent let-row="row">
+            <button mat-menu-item (click)="setPlatformAdminUser(row)" *ngIf="!row.platformAdmin">Set Platform
+              Admin</button>
+            <button mat-menu-item (click)="unsetPlatformAdminUser(row)" *ngIf="row.platformAdmin">Unset Platform
+              Admin</button>
+            <button mat-menu-item (click)="activateUser(row)" *ngIf="!row.active">Activate</button>
+            <button mat-menu-item (click)="deactivateUser(row)" *ngIf="row.active">Deactivate</button>
+            <button mat-menu-item (click)="deleteUser(row)">Delete</button>
+          </ng-template>
+        </mat-menu>
+
+
+      </div>
+    </div>
+  </ng-container>
+</div>

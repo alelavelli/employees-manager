@@ -1,0 +1,83 @@
+@import "colors.scss";
+
+.user-widget-container {
+  .user-icon {
+    cursor: pointer;
+    transition: all 0.25s ease-in-out;
+    &:hover {
+      scale: 1.2;
+    }
+  }
+}
+.user-widget-menu {
+  max-width: none !important;
+  padding: 0.5rem 1rem;
+  .separator {
+    border: none;
+    height: 0.05rem;
+    background-color: $granata-brown;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    margin-right: 2rem;
+    margin-left: 2rem;
+  }
+  .user-info-container {
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    justify-content: left;
+    align-items: center;
+    gap: 1rem;
+
+    $userInfoIconSize: 2.5rem;
+    .user-info-icon {
+      min-width: $userInfoIconSize;
+      width: $userInfoIconSize;
+      min-height: $userInfoIconSize;
+      height: $userInfoIconSize;
+      border-radius: 40px;
+      color: #092b09;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 400;
+      font-size: 1.25rem;
+      color: $white;
+      background-color: $themePrimary;
+    }
+
+    .user-info-labels {
+      .user-info-name {
+      }
+
+      .user-info-email {
+      }
+    }
+  }
+
+  .menu-item-container {
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    .menu-item {
+      height: 2.5rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0rem 1rem;
+      gap: 0.5rem;
+      border-radius: 1rem;
+
+      &.menu-item-logout {
+        justify-content: left;
+      }
+    }
+    .logout-button-container {
+      display: flex;
+      justify-content: center;
+    }
+  }
+}

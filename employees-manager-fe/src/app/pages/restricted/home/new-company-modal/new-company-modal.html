@@ -1,0 +1,21 @@
+<h1 mat-dialog-title>Create new company</h1>
+
+<div mat-dialog-content class="modal-container">
+    <form [formGroup]="newCompanyForm" (ngSubmit)="onSubmit()" class="form-container">
+        <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput placeholder="Name" formControlName="name">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+            <mat-label>Job Title</mat-label>
+            <input matInput placeholder="Job Title" formControlName="jobTitle">
+        </mat-form-field>
+    </form>
+    <div mat-dialog-actions align="end" class="action-buttons">
+        <button mat-button (click)="dialogRef.close()">Cancel</button>
+        <button mat-raised-button type="submit" [disabled]="newCompanyForm.invalid" color="primary"
+            (click)="onSubmit()">
+            Create
+        </button>
+    </div>
+</div>

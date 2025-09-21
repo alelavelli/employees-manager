@@ -1,0 +1,69 @@
+[package]
+name = "employees-manager"
+default-run = "employees-manager"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+
+[dependencies]
+# error handling
+# anyhow = "1.0"
+# thiserror = "1.0"
+# logging
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3", features = ["std", "env-filter"] }
+tracing-appender = "0.2.3"
+# asyncio
+tokio = { version = "1.43.0", features = ["full"] }
+futures = "0.3"
+# http client
+# reqwest = "0.12.2"
+# http server
+axum = { version = "0.8.1", features = ["macros"] }
+axum-extra = { version = "0.10.0", features = ["typed-header"] }
+async-trait = "0.1.84"
+headers = "0.4"
+tower = { version = "0.5.2", features = ["timeout"] }
+tower-http = { version = "0.6.2", features = ["trace", "cors"] }
+# jwt
+jsonwebtoken = "8.0"
+# time
+chrono = { version = "0.4.39", features = ["serde"] }
+# serialization
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+# random
+#rand = "0.8.5"
+# enums
+#strum = "0.26"
+#strum_macros = "0.26"
+# itertools
+#itertools = "0.12.1"
+# parallelization
+#rayon = "1.10.0"
+# lazy data objects
+once_cell = "1.20.3"
+# database
+mongodb = { version = "3.2" }                            #, features = ["tokio-runtime"] }
+bson = { version = "2.13.0", features = ["chrono-0_4"] }
+# utils
+regex = "1.10.4"
+# endcoding
+base64ct = { version = "1.6.0", features = ["alloc"] }
+# queue rabbitmq
+#amqprs = "1.5.4"
+uuid = { version = "1.8.0", features = ["v4"] }
+# password hashing
+bcrypt = "0.15.1"
+
+derive_builder = "0.20.2"
+# macro
+paste = "1.0.15"
+# excel
+rust_xlsxwriter = { version = "0.84.0", features = ["serde", "chrono"] }
+
+[dev-dependencies]
+#mockall = "0.12.1"
+#mockall_double = "0.3.1"

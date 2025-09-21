@@ -1,0 +1,43 @@
+@import "colors";
+
+.clickable {
+  cursor: pointer;
+}
+
+.notifications-page-container {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  justify-content: center;
+  gap: 5rem;
+}
+.notifications-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin: 0rem 5rem 0rem 5rem;
+
+  .mat-mdc-form-field {
+    font-size: 14px;
+  }
+
+  .notifications-filter-component {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 1rem;
+
+    .notifications-filter-label {
+      color: $themePrimary;
+      font-size: 1rem;
+    }
+  }
+
+  .notifications-header-row {
+    color: $themePrimary;
+    font-weight: bold;
+    font-size: 1rem;
+  }
+}

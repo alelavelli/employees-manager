@@ -1,0 +1,39 @@
+@use "sass:map";
+@use "@angular/material" as mat;
+
+@import "colors";
+@import "palette-generator";
+
+@include mat.all-component-typographies();
+@include mat.core();
+
+/* ======== Angular material custom themes ======== */
+
+$light-theme: mat.define-light-theme(
+  (
+    color: (
+      primary: mat.define-palette(createPalette($themePrimary)),
+      accent: mat.define-palette(createPalette($themeAccent)),
+      warn: mat.define-palette(createPalette($themeWarn)),
+    ),
+  )
+);
+$dark-theme: mat.define-dark-theme(
+  (
+    color: (
+      primary: mat.define-palette(createPalette($themePrimary)),
+      accent: mat.define-palette(createPalette($themeAccent)),
+      warn: mat.define-palette(createPalette($themeWarn)),
+    ),
+  )
+);
+
+@include mat.all-component-themes($light-theme);
+
+.dark-mode {
+  @include mat.all-component-colors($dark-theme);
+}
+
+/*
+to toggle between light and dark theme add class dark-mode to document body
+*/

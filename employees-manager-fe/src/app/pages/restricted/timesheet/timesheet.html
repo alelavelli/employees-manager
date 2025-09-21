@@ -1,0 +1,81 @@
+<div class="timesheet-page-container page-with-padding">
+  <ng-container>
+    <div class="timesheet-header">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Select a year</mat-label>
+        <mat-select [(value)]="selectedYear" (valueChange)="loadData()">
+          <mat-option *ngFor="let year of years" [value]="year">{{year}}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Select a month</mat-label>
+        <mat-select [(value)]="selectedMonth" (valueChange)="loadData()">
+          <mat-option *ngFor="let month of months" [value]="month">{{month}}</mat-option>
+        </mat-select>
+      </mat-form-field>
+      <div>
+        <button mat-raised-button class="clickable" color="primary" (click)="exportTimesheet()"
+          [disabled]="selectedMonth === null || selectedYear === null">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+            <mat-icon>download</mat-icon>
+            Export
+          </div>
+        </button>
+      </div>
+    </div>
+    <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+    <div class="timesheet-header-days" *ngIf="!loading && openTimesheet">
+      <!-- <div *ngFor="let day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']">
+        {{day}}
+      </div> -->
+    </div>
+    <div class="timesheet-grid" *ngIf="!loading && openTimesheet">
+      <div class="day-name">Monday</div>
+      <div class="day-name">Tuesday</div>
+      <div class="day-name">Wednesday</div>
+      <div class="day-name">Thursday</div>
+      <div class="day-name">Friday</div>
+      <div class="day-name">Saturday</div>
+      <div class="day-name">Sunday</div>
+      <div class="offset-day" *ngFor="let item of offsetDays"></div>
+      <div *ngFor="let day of calendarDays" class="timesheet-day" [ngClass]="{'timesheet-disabled-day': day.isWeekend}"
+        (click)="openEditTimesheetDay(day)">
+        <div class="timesheet-day-header">
+          <div class="timesheet-day-header-label">
+            {{day.dayNumber}}
+          </div>
+          <div class="timesheet-day-header-icon" *ngIf="!day.isWeekend">
+            {{getWorkType(day)}}
+          </div>
+        </div>
+        <div class="timesheet-day-body" *ngIf="!day.isWeekend">
+          <div class="timesheet-day-body-content">
+            <div class="timesheet-day-body-content-label">
+              Working
+            </div>
+            <div class="timesheet-day-body-content-value">
+              {{getTotalWorkHours(day)}}
+            </div>
+          </div>
+          <div class="timesheet-day-body-content">
+            <div class="timesheet-day-body-content-label">
+              Permit
+            </div>
+            <div class="timesheet-day-body-content-value">
+              {{getPermitHours(day)}}
+            </div>
+          </div>
+
+          <div class="timesheet-day-body-content">
+            <div class="timesheet-day-body-content-label">
+              Projects
+            </div>
+            <div class="timesheet-day-body-content-value">
+              {{getNumberOfProjects(day)}}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

@@ -1,0 +1,11 @@
+@import "colors";
+
+.maintenance-layout-container {
+  width: 100vw;
+  height: 100vh;
+  background-color: $blue900;
+
+  .dark-mode & {
+    background-color: $blue900;
+  }
+}

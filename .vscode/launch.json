@@ -1,0 +1,68 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend mocked",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run start:mocked",
+      "cwd": "${workspaceFolder}/employees-manager-fe"
+    },
+    {
+      "name": "Frontend",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm start",
+      "cwd": "${workspaceFolder}/employees-manager-fe"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Backend",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=employees-manager",
+          "--package=employees-manager"
+        ],
+        "filter": {
+          "name": "employees-manager",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "DEPLOY_ENVIRONMENT": "dev",
+        "LOCAL": "true",
+        "RUST_BACKTRACE": "1"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "MongoDB Index Setup",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=mongodb_index_setup",
+          "--package=employees-manager"
+        ],
+        "filter": {
+          "name": "mongodb_index_setup",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "DEPLOY_ENVIRONMENT": "dev",
+        "LOCAL": "true",
+        "RUST_BACKTRACE": "1"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

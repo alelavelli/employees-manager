@@ -1,0 +1,145 @@
+<div class="home-page-container page-with-padding">
+  <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+
+  <ng-container *ngIf="!loading">
+    <div class="home-page-header">
+      <div class="h1-title">Welcome {{userData?.name}} {{userData?.surname}}
+      </div>
+    </div>
+    <div class="companies section-container">
+      <div class="h2-title">Companies</div>
+      <div>
+        <button mat-raised-button class="clickable" color="primary" (click)="openCreateCompanyDialog()">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+            <mat-icon>add</mat-icon>
+            Create Company
+          </div>
+        </button>
+      </div>
+      <form [formGroup]="companiesFilterForm">
+        <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
+          <mat-form-field style="width: 50%;">
+            <mat-label>Filter</mat-label>
+            <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+          </mat-form-field>
+          <div class="companies-filter-component">
+            <div class="companies-filter-label">Active Company</div>
+            <mat-button-toggle-group name="activeCompany" aria-label="Active Company" multiple
+              formControlName="activeCompany" (change)="onActiveCompanyFilterChange($event)">
+              <mat-button-toggle value="true">True</mat-button-toggle>
+              <mat-button-toggle value="false">False</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+        </div>
+      </form>
+
+      <div class="mat-elevation-z8">
+        <table mat-table [dataSource]="companiesTableDataSource" matSort>
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+            <td mat-cell *matCellDef="let element"> {{element.id}} </td>
+          </ng-container>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+            <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+          </ng-container>
+          <ng-container matColumnDef="active">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Active </th>
+            <td mat-cell *matCellDef="let element"> <mat-icon [fontIcon]="element.active ? 'done' : 'close'"></mat-icon>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="totalUsers">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Users </th>
+            <td mat-cell *matCellDef="let element"> {{ element.totalUsers }} </td>
+          </ng-container>
+          <ng-container matColumnDef="actionMenu">
+            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon class="clickable" [matMenuTriggerFor]="menu"
+                [matMenuTriggerData]="{ row: element }">more_vert</mat-icon>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedCompaniesInfoColumns" class="companies-header-row"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedCompaniesInfoColumns;"></tr>
+        </table>
+
+        <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of companies"></mat-paginator>
+
+        <mat-menu #menu="matMenu">
+          <ng-template matMenuContent let-row="row">
+            <button mat-menu-item [routerLink]="'/calendar'"
+              [queryParams]="{companyId: row.id}"><mat-icon>calendar_month</mat-icon>Calendar</button>
+            <button mat-menu-item [routerLink]="'/timesheet'"
+              [queryParams]="{companyId: row.id}"><mat-icon>schedule</mat-icon>Time sheet</button>
+            <button mat-menu-item [routerLink]="'/expenses'"
+              [queryParams]="{companyId: row.id}"><mat-icon>attach_money</mat-icon>Work Expenses</button>
+            <button mat-menu-item [routerLink]="'/company'" [queryParams]="{companyId: row.id}" *ngIf=" row.role===CompanyRole.Admin ||
+              row.role===CompanyRole.Owner"><mat-icon>settings</mat-icon>Settings</button>
+          </ng-template>
+        </mat-menu>
+
+      </div>
+    </div>
+
+    <div class="companies section-container">
+      <div class="h2-title">Corporate Groups</div>
+      <div>
+        <button mat-raised-button class="clickable primary-button" (click)="openCreateCorporateGroupDialog()">
+          <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+            <mat-icon>add</mat-icon>
+            Create Corporate Group
+          </div>
+        </button>
+      </div>
+      <form [formGroup]="corporateGroupsFilterForm">
+        <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
+          <mat-form-field style="width: 50%;">
+            <mat-label>Filter</mat-label>
+            <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+          </mat-form-field>
+        </div>
+      </form>
+
+      <div class="mat-elevation-z8">
+        <table mat-table [dataSource]="corporateGroupsTableDataSource" matSort>
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
+            <td mat-cell *matCellDef="let element"> {{element.groupId}} </td>
+          </ng-container>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
+            <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+          </ng-container>
+          <ng-container matColumnDef="totalCompanies">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header> Companies </th>
+            <td mat-cell *matCellDef="let element"> {{ element.companyIds.length }} </td>
+          </ng-container>
+          <ng-container matColumnDef="actionMenu">
+            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon class="clickable" [matMenuTriggerFor]="corporateGroupMenu"
+                [matMenuTriggerData]="{ row: element }">more_vert</mat-icon>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedCorporateGroupInfoColumns" class="corporate-header-row"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedCorporateGroupInfoColumns;"></tr>
+        </table>
+
+        <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]"
+          aria-label="Select page of corporate groups"></mat-paginator>
+
+        <mat-menu #corporateGroupMenu="matMenu">
+          <ng-template matMenuContent let-row="row">
+            <button mat-menu-item [routerLink]="'/corporate-group'" [queryParams]="{corporateGroupId: row.groupId}">
+              <mat-icon>settings</mat-icon>
+              Settings
+            </button>
+          </ng-template>
+        </mat-menu>
+
+      </div>
+    </div>
+  </ng-container>
+</div>

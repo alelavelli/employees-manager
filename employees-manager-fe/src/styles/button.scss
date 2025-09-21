@@ -1,0 +1,28 @@
+.primary-button {
+  background-color: $themePrimary !important;
+  color: $white !important;
+  border: none;
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+  &:hover {
+    background-color: $themeAccent !important;
+  }
+}
+
+.secondary-button {
+  background-color: $white !important;
+  color: $themePrimary !important;
+  border-color: $themePrimary !important;
+
+  padding: 0.5rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+  &:hover {
+    background-color: $themeAccentSecondary !important;
+  }
+}

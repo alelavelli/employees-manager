@@ -1,0 +1,9 @@
+@import "colors.scss";
+
+.dark-mode-widget-container {
+  cursor: pointer;
+  transition: all 0.25s ease-in-out;
+  &:hover {
+    scale: 1.2;
+  }
+}
