@@ -97,13 +97,13 @@ impl DatabaseService {
         } else {
             debug!(
                 "Connecting to database with connection string: {}",
-                ENVIRONMENT.database.connection_string
+                ENVIRONMENT.get_database_connection_string()
             );
             let client_options =
-                ClientOptions::parse(&ENVIRONMENT.database.connection_string).await?;
+                ClientOptions::parse(ENVIRONMENT.get_database_connection_string()).await?;
             let client = Client::with_options(client_options)?;
 
-            let db = client.database(&ENVIRONMENT.database.db_name);
+            let db = client.database(ENVIRONMENT.get_database_db_name());
             Ok(DatabaseService { client, db })
         }
     }

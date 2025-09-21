@@ -127,6 +127,42 @@
             <button mat-menu-item (click)="activateUser(row)" *ngIf="!row.active">Activate</button>
             <button mat-menu-item (click)="deactivateUser(row)" *ngIf="row.active">Deactivate</button>
             <button mat-menu-item (click)="deleteUser(row)">Delete</button>
+            <button mat-menu-item [matMenuTriggerFor]="setUserPasswordMenu" [matMenuTriggerData]="{row: row}">Set
+              password</button>
+          </ng-template>
+        </mat-menu>
+
+        <mat-menu #setUserPasswordMenu class="set-password-menu" (closed)="clearSetUserPasswordForm()">
+          <ng-template matMenuContent let-row="row">
+            <div (click)="$event.stopPropagation();" class="set-password-form-container">
+              <form class="set-password-form-container" [formGroup]="setUserPasswordForm"
+                (ngSubmit)="setUserPassword(row)">
+                <mat-form-field appearance="outline">
+                  <mat-label>New Password</mat-label>
+                  <input matInput placeholder="New password" formControlName="password"
+                    (click)="$event.stopPropagation();">
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Confirm Password</mat-label>
+                  <input matInput placeholder="Confirm password" formControlName="confirmPassword"
+                    (click)="$event.stopPropagation();">
+                </mat-form-field>
+                <div class="reset-password-welcome-text" style="text-align: left;">
+                  The password must respect the following security requirements:
+                  <ul class="constraints-list">
+                    <li class="constraint" *ngFor="let constraint of passwordConstraints"
+                      [class]="constraint.respected ? 'constraint-respected' : 'constraint-not-respected'">
+                      <span>
+                        <mat-icon [fontIcon]="constraint.respected ? 'done' : 'close'"></mat-icon>
+                        &nbsp;{{constraint.message}}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+              </form>
+              <button mat-raised-button type="submit" [disabled]="setUserPasswordForm.invalid" color="primary"
+                class="clickable" (click)="setUserPassword(row)">Set</button>
+            </div>
           </ng-template>
         </mat-menu>
 

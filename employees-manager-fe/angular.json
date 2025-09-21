@@ -72,7 +72,7 @@
                 }
               ]
             },
-            "preprod": {
+            "pre": {
               "budgets": [
                 {
                   "type": "initial",
@@ -89,7 +89,7 @@
               "fileReplacements": [
                 {
                   "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.preprod.ts"
+                  "with": "src/environments/environment.pre.ts"
                 }
               ]
             },
@@ -150,8 +150,8 @@
             "dev": {
               "buildTarget": "employees-manager-fe:build:dev"
             },
-            "preprod": {
-              "buildTarget": "employees-manager-fe:build:preprod"
+            "pre": {
+              "buildTarget": "employees-manager-fe:build:pre"
             },
             "prod": {
               "buildTarget": "employees-manager-fe:build:prod"

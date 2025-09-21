@@ -1,0 +1,59 @@
+name: employees-manager
+
+# To run this docker-compose file, you need to set up a .env
+# file with the variables shown in .env.example
+# See also Deploy.md to understand how to use this file
+
+services:
+  mongodb:
+    image: mongo:7.0.14
+    container_name: em-database
+    command: mongod --replSet rs0
+    ports:
+      - "27117:27017"
+    networks:
+      - em-network
+    healthcheck:
+      test: echo 'db.stats().ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - em_database_data:/data/db
+      - em_database_logs:/data/logs
+
+  backend:
+    image: employees-manager-app
+    container_name: em-backend
+    environment:
+      LOCAL: "false"
+      DEPLOY_ENVIRONMENT: "pre"
+      JWT_SECRET: "secret"
+      OBJECT_STORAGE_BACKEND: "localfilesystem"
+      OBJECT_STORAGE_PREFIX_PATH: "./objects"
+      MONGODB_CONNECTION_STRING: "mongodb://em-database/{}?replicaSet=rs0&directConnection=true"
+      MONGODB_DB_NAME: application-database-pre
+    healthcheck:
+      test: curl -f "http://localhost:3000/"
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 10s
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - em-network
+    volumes:
+      - em_backend_logs:/app/logs
+
+networks:
+  em-network:
+
+volumes:
+  em_database_data:
+  em_database_logs:
+  em_backend_logs:

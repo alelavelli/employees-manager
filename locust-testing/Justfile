@@ -1,0 +1,11 @@
+open-locust:
+    locust
+
+run-locust-simple:
+    locust --headless --users 200 --spawn-rate 10 -t 5m -H http://localhost:3000
+
+reportFolder := "reports"
+
+# Example: just reportFolder=reports run-locust run-123 --headless
+run-locust runId *args:
+    locust --config locust.conf --csv "{{reportFolder}}/{{runId}}" --html "{{reportFolder}}/{{runId}}.html" --json-file "{{reportFolder}}/{{runId}}" {{args}}

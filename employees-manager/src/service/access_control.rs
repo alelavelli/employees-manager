@@ -14,7 +14,7 @@ pub struct AccessControl<'a, T: AuthInfo> {
     auth_info: &'a T,
 }
 
-impl<'a, T: AuthInfo> AccessControl<'a, T> {
+impl<T: AuthInfo> AccessControl<'_, T> {
     pub async fn new(auth_info: &T) -> Result<AccessControl<T>, AppError> {
         let user = get_user(auth_info.user_id()).await.map_err(|e| match e {
             ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),

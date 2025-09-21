@@ -115,6 +115,15 @@ export class ApiService {
         );
   }
 
+  setUserPassword(userId: string, newPassword: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.patch<void>(
+          API_URL + `/admin/user/${userId}/password`,
+          { password: newPassword }
+        );
+  }
+
   activateUser(userId: string): Observable<void> {
     return MOCKED
       ? buildMocked()
@@ -156,7 +165,7 @@ export class ApiService {
                 : NotificationType.InviteAddCompanyAnswer,
             message:
               i % 2 == 0
-                ? `You has been invited to Company ${i}`
+                ? `You have been invited to Company ${i}`
                 : `The user accepted to join in Company ${i}`,
           }))
         )

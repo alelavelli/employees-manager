@@ -21,5 +21,5 @@
   },
   "peacock.color": "#61dafb",
   "git.ignoreLimitWarning": true,
-  "cSpell.words": ["chrono"]
+  "cSpell.words": ["chrono", "jsonwebtoken", "Xslx"]
 }

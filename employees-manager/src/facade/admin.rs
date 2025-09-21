@@ -129,6 +129,31 @@ pub async fn deactivate_platform_admin(
     })
 }
 
+pub async fn set_user_password(
+    auth_info: impl AuthInfo,
+    user_id: DocumentId,
+    password: String,
+) -> Result<(), AppError> {
+    AccessControl::new(&auth_info)
+        .await?
+        .is_platform_admin()
+        .await?;
+
+    if *auth_info.user_id() == user_id {
+        return Err(AppError::InvalidRequest(
+            "You cannot set password of yourself via this method. You must use reset password."
+                .into(),
+        ));
+    }
+
+    user::update_user(&user_id, None, Some(password), None, None)
+        .await
+        .map_err(|e| match e {
+            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+            _ => AppError::InternalServerError(e.to_string()),
+        })
+}
+
 pub async fn get_user(
     auth_info: impl AuthInfo,
     user_id: DocumentId,

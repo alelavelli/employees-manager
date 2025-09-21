@@ -1,0 +1,29 @@
+# Build frontend app
+
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app
+COPY ./employees-manager-fe/package*.json ./
+RUN npm install
+COPY ./employees-manager-fe .
+ARG BUILD_ENVIRONMENT
+
+RUN npm run build:${BUILD_ENVIRONMENT}
+
+# Build backend app
+
+FROM rust:1 AS backend-builder
+WORKDIR /app
+COPY employees-manager /app/employees-manager
+COPY Cargo.toml /app/Cargo.toml
+COPY Cargo.lock /app/Cargo.lock
+
+RUN cargo build --release
+
+# create final image with built files
+
+FROM gcr.io/distroless/cc-debian12
+COPY --from=frontend-builder /app/dist/employees-manager-fe/browser /frontend-files
+COPY --from=backend-builder /app/target/release/employees-manager /
+ENV FRONTEND_MODE="integrated:frontend-files"
+CMD ["./employees-manager"]

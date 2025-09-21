@@ -407,7 +407,7 @@ pub async fn invite_user(
         let mut notification = db_entities::AppNotification::new(
             invited_user_id,
             NotificationType::InviteAddCompany,
-            format!("You has been invited to Company {}", company.name()),
+            format!("You have been invited to Company {}", company.name()),
             false,
             invite.get_id().cloned(),
         );
@@ -561,6 +561,7 @@ pub async fn get_company_project_allocations(
     #[derive(Serialize, Deserialize)]
     struct QueryResult {
         user_id: DocumentId,
+        #[serde(skip_serializing_if = "Vec::is_empty", default)]
         project_ids: Vec<DocumentId>,
     }
 

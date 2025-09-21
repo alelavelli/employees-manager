@@ -26,6 +26,12 @@ pub struct CreateUser {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SetUserPassword {
+    pub password: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateCompany {
     pub name: String,
     /// Job Title the User has on the Company he creates

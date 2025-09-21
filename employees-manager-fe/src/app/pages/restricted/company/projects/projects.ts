@@ -556,6 +556,7 @@ export class CompanyProjects implements OnInit {
               progressBar: true,
             }
           );
+          this.projectUnderEdit = null;
           this.loadData();
         },
         error: () => {},

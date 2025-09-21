@@ -398,21 +398,28 @@ pub async fn update_user(
     name: Option<String>,
     surname: Option<String>,
 ) -> Result<(), ServiceAppError> {
-    let mut update = doc! {};
-    if let Some(email_str) = email {
-        update.insert("email", email_str);
+    let user = db_entities::User::find_one(doc! {"_id": user_id}).await?;
+    if user.is_some() {
+        let mut update = doc! {};
+        if let Some(email_str) = email {
+            update.insert("email", email_str);
+        }
+        if let Some(password_str) = password {
+            update.insert("password_hash", hash_password(&password_str)?);
+        }
+        if let Some(name_str) = name {
+            update.insert("name", name_str);
+        }
+        if let Some(surname_str) = surname {
+            update.insert("surname", surname_str);
+        }
+        let update = doc! {"$set": update};
+        db_entities::User::update_one(doc! {"_id": user_id}, update, None).await
+    } else {
+        Err(ServiceAppError::EntityDoesNotExist(format!(
+            "User with id {user_id} does not exist"
+        )))
     }
-    if let Some(password_str) = password {
-        update.insert("password_hash", hash_password(&password_str)?);
-    }
-    if let Some(name_str) = name {
-        update.insert("name", name_str);
-    }
-    if let Some(surname_str) = surname {
-        update.insert("surname", surname_str);
-    }
-    let update = doc! {"$set": update};
-    db_entities::User::update_one(doc! {"_id": user_id}, update, None).await
 }
 
 pub async fn set_platform_admin(user_id: &DocumentId) -> Result<(), ServiceAppError> {

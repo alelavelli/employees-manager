@@ -16,5 +16,6 @@ pub mod corporate_group;
 pub mod db;
 pub mod environment;
 pub mod notification;
+pub mod object_storage;
 pub mod timesheet;
 pub mod user;

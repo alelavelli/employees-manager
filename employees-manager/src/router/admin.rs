@@ -10,7 +10,7 @@ use crate::{
 
 use axum::{
     extract::Path,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use once_cell::sync::Lazy;
@@ -29,6 +29,7 @@ pub static ADMIN_ROUTER: Lazy<Router> = Lazy::new(|| {
         .route("/user/{id}/activate", delete(deactivate_platform_admin))
         .route("/user/{id}", delete(delete_user))
         .route("/user/{id}", get(get_user))
+        .route("/user/{id}/password", patch(set_user_password))
 });
 
 /// Returns overview of all users and companies in application
@@ -98,4 +99,12 @@ async fn deactivate_platform_admin(
     Path(id): Path<DocumentId>,
 ) -> Result<(), AppError> {
     facade::deactivate_platform_admin(jwt_claim, id).await
+}
+
+async fn set_user_password(
+    jwt_claim: JWTAuthClaim,
+    Path(id): Path<DocumentId>,
+    Json(payload): Json<web_app_request::SetUserPassword>,
+) -> Result<(), AppError> {
+    facade::set_user_password(jwt_claim, id, payload.password).await
 }

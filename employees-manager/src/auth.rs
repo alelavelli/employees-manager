@@ -38,7 +38,7 @@ pub struct JWTAuthClaim {
 
 impl JWTAuthClaim {
     pub fn build_token(&self, header: &Header) -> Result<String, AuthError> {
-        let token = encode(header, &self, &ENVIRONMENT.authentication.jwt_encoding)
+        let token = encode(header, &self, ENVIRONMENT.get_authentication_jwt_encoding())
             .map_err(|_| AuthError::TokenCreation)?;
         Ok(token)
     }
@@ -57,11 +57,10 @@ where
             .extract::<TypedHeader<Authorization<Bearer>>>()
             .await
             .map_err(|_| AuthError::InvalidToken)?;
-        tracing::debug!("Got bearer token {}", bearer.token());
         // Decode the user data
         let token_data = decode::<JWTAuthClaim>(
             bearer.token(),
-            &ENVIRONMENT.authentication.jwt_decoding,
+            ENVIRONMENT.authentication_jwt_decoding(),
             &Validation::default(),
         )
         .map_err(|e| {

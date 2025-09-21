@@ -1,5 +1,0 @@
-region           = ""
-project_id       = ""
-project_number   = ""
-zone             = ""
-network_tag      = "http-server"

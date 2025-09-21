@@ -25,6 +25,7 @@ import { TimesheetDayWorkType } from '../../../../types/enums';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 interface Company {
   name: string;
@@ -57,6 +58,7 @@ interface Activity {
     MatSelectModule,
     MatTableModule,
     MatMenuModule,
+    MatTooltipModule,
   ],
   encapsulation: ViewEncapsulation.None,
 })

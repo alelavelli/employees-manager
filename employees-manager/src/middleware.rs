@@ -29,12 +29,12 @@ pub fn add_logging_middleware(router: Router) -> Router {
     router.layer(
         TraceLayer::new_for_http()
             .make_span_with(
-                DefaultMakeSpan::new().include_headers(ENVIRONMENT.logging.include_headers),
+                DefaultMakeSpan::new().include_headers(ENVIRONMENT.get_logging_include_headers()),
             )
-            .on_request(DefaultOnRequest::new().level(ENVIRONMENT.logging.level))
+            .on_request(DefaultOnRequest::new().level(ENVIRONMENT.get_logging_level()))
             .on_response(
                 DefaultOnResponse::new()
-                    .level(ENVIRONMENT.logging.level)
+                    .level(ENVIRONMENT.get_logging_level())
                     .latency_unit(LatencyUnit::Micros),
             ),
     )

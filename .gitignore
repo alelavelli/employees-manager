@@ -22,3 +22,19 @@ target/
 *.DS_Store*
 infra/terraform_template/.terraform/*
 infra/terraform_template/.terraform.lock.hcl
+app-objects/
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# tf lock file
+.terraform.lock.hcl
+
+.env
+**/reports/
+**/__pycache__/**
+

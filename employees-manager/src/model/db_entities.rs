@@ -1,5 +1,7 @@
 use crate::{
-    enums::{CompanyRole, EmployeeRequest, NotificationType, WorkingDayType},
+    enums::{
+        CompanyRole, EmployeeRequest, FileType, NotificationType, ObjectSourceType, WorkingDayType,
+    },
     error::DatabaseError,
     service::db::DatabaseDocument,
     DocumentId,
@@ -130,6 +132,7 @@ database_document!(
     password_hash: String,
     name: String,
     surname: String,
+    #[serde(skip_serializing_if="Option::is_none")]
     api_key: Option<String>,
     platform_admin: bool,
     active: bool
@@ -147,6 +150,7 @@ database_document!(
     company_id: DocumentId,
     role: CompanyRole,
     job_title: String,
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
     project_ids: Vec<DocumentId>
 );
 
@@ -155,6 +159,7 @@ database_document!(
     CompanyManagementTeam,
     "company_management_team",
     company_id: DocumentId,
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
     user_ids: Vec<DocumentId>
 );
 
@@ -183,6 +188,7 @@ database_document!(
     notification_type: NotificationType,
     message: String,
     read: bool,
+    #[serde(skip_serializing_if="Option::is_none")]
     entity_id: Option<DocumentId>
 );
 
@@ -195,7 +201,9 @@ database_document!(
     company_id: DocumentId,
     company_role: CompanyRole,
     job_title: String,
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
     project_ids: Vec<DocumentId>,
+    #[serde(skip_serializing_if="Option::is_none")]
     answer: Option<bool>
 );
 
@@ -225,6 +233,7 @@ database_document!(
     ProjectActivityAssignment,
     "project_activity_assignment",
     project_id: DocumentId,
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
     activity_ids: Vec<DocumentId>
 );
 
@@ -274,6 +283,7 @@ database_document!(
     date: DateTime<Utc>,
     permit_hours: u32,
     working_type: WorkingDayType,
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
     activities: Vec<TimesheetActivityHours>
 );
 
@@ -283,7 +293,48 @@ database_document!(
     CorporateGroup,
     "corporate_group",
     name: String,
+    #[serde(skip_serializing_if="Vec::is_empty", default)]
     company_ids: Vec<DocumentId>,
     #[doc = "The user that created the corporate group"]
     owner: DocumentId
 );
+
+database_document!(
+    #[doc = "Object endpoint document that contains information to retrieve it."]
+    #[doc = "Path must contain a prefix with the scheme that indicates the source."]
+    #[doc = "Examples:"]
+    #[doc = "- local filesystem: file:///folder/file.csv"]
+    #[doc = "- Google Cloud Storage: gs://bucket/path/file.csv"]
+    #[doc = "- AWS S3: s3://bucket/path/file.csv"]
+    ObjectEndpoint,
+    "object_endpoint",
+    path: String,
+    file_type: FileType,
+    source_type: ObjectSourceType
+);
+
+#[cfg(test)]
+mod tests {
+    use bson::oid::ObjectId;
+
+    use crate::{
+        model::db_entities::CorporateGroup,
+        service::db::{get_database_service, DatabaseDocument},
+    };
+
+    #[tokio::test]
+    async fn test_create_corporate_group() {
+        let mut first_group =
+            CorporateGroup::new("ciao".to_string(), vec![ObjectId::new()], ObjectId::new());
+        first_group.save(None).await.unwrap();
+        first_group.reload().await.unwrap();
+        println!("{:?}", first_group);
+        let mut second_group = CorporateGroup::new("ciao".to_string(), vec![], ObjectId::new());
+        second_group.save(None).await.unwrap();
+        second_group.reload().await.unwrap();
+        println!("{:?}", second_group);
+
+        let drop_result = get_database_service().await.db.drop().await;
+        assert!(drop_result.is_ok());
+    }
+}

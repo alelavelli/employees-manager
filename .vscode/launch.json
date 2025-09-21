@@ -36,6 +36,7 @@
       "env": {
         "DEPLOY_ENVIRONMENT": "dev",
         "LOCAL": "true",
+        "FRONTEND_MODE": "external",
         "RUST_BACKTRACE": "1"
       },
       "args": [],

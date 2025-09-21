@@ -71,3 +71,33 @@
     font-size: 1rem;
   }
 }
+
+.constraint > span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.constraint-respected {
+  color: $green400;
+}
+
+.constraint-not-respected {
+  opacity: 0.5;
+}
+
+.constraints-list {
+  list-style-type: none;
+  padding-left: 32px;
+}
+
+.set-password-menu {
+  min-width: 30rem !important;
+  max-width: 40rem !important;
+}
+
+.set-password-form-container {
+  margin-top: 0.5;
+  padding: 0.125rem 1rem 0.125rem 1rem;
+  display: flex;
+  flex-direction: column;
+}

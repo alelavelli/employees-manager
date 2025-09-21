@@ -19,4 +19,5 @@ async fn main() {
         .init();
 
     create_index::<db_entities::UserCompanyAssignment>(doc! {"company_id": 1, "user_id": 1}).await;
+    create_index::<db_entities::User>(doc! {"username": 1}).await;
 }

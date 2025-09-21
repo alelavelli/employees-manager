@@ -11,8 +11,8 @@ terraform {
 
   }
   backend "gcs" {
-    bucket = "ml3-terraform-state"
-    prefix = "employees-manager"
+    bucket = ""
+    prefix = ""
   }
 
   required_version = ">= 1.10.2"

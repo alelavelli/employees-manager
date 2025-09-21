@@ -7,15 +7,31 @@
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use once_cell::sync::Lazy;
 
+use crate::enums::{FrontendMode, ObjectSourceType};
+
 /// ENVIRONMENT struct containing application variables
 pub static ENVIRONMENT: Lazy<EnvironmentVariables> = Lazy::new(EnvironmentVariables::new);
 
 /// Struct containing application environment variables that is initialized from
 /// environment or accessing external services
+///
+/// Required environment variables:
+///
+/// - LOCAL: if the application is running in local debug running mode. For instance, from vscode debugger
+/// - DEPLOY_ENVIRONMENT: in which context the application is running, it is used to specify some resources according to it
+///
+/// Required variables when LOCAL is False:
+/// - JWT_SECRET: string used as secret to sign jwt
+/// - MONGODB_CONNECTION_STRING: authenticated connection string to the mongodb cluster
+/// - MONGODB_DB_NAME: name of mongodb database to use as prefix by adding deploy environment
+/// - OBJECT_STORAGE_BACKEND: which type of backend to use as object storage
+/// - OBJECT_STORAGE_PREFIX_PATH: prefix path to store objects. In case of remote object storage it contains also the bucket name
 pub struct EnvironmentVariables {
-    pub logging: LoggingVariables,
-    pub authentication: AuthenticationVariables,
-    pub database: DatabaseVariables,
+    logging: LoggingVariables,
+    authentication: AuthenticationVariables,
+    database: DatabaseVariables,
+    storage: ObjectStorageVariables,
+    frontend: FrontendVariables,
 }
 
 impl EnvironmentVariables {
@@ -39,6 +55,8 @@ impl EnvironmentVariables {
             logging: Self::build_logging(&local, &deploy_environment),
             authentication: Self::build_authentication(&local, &deploy_environment),
             database: Self::build_database(&local, &deploy_environment),
+            storage: Self::build_storage(&local, &deploy_environment),
+            frontend: Self::build_frontend(&local, &deploy_environment),
         }
     }
 
@@ -97,26 +115,121 @@ impl EnvironmentVariables {
             db_name,
         }
     }
+
+    /// Storage variables determine where data objects are stored. According to an
+    /// environment variable the final location can be different. In local testing
+    /// environment it is the local file system
+    fn build_storage(local: &bool, _deploy_environment: &str) -> ObjectStorageVariables {
+        if *local {
+            ObjectStorageVariables {
+                storage_backend: ObjectSourceType::LocalFileSystem,
+                prefix_path: "../app-objects".into(),
+            }
+        } else {
+            let storage_backend_var = std::env::var("OBJECT_STORAGE_BACKEND")
+                .expect("OBJECT_STORAGE_BACKEND must be set.");
+            ObjectStorageVariables {
+                storage_backend: ObjectSourceType::try_from(storage_backend_var.as_str())
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Invalid OBJECT_STORAGE_BACKEND value. Got {}",
+                            storage_backend_var
+                        )
+                    }),
+                prefix_path: std::env::var("OBJECT_STORAGE_PREFIX_PATH")
+                    .expect("OBJECT_STORAGE_PREFIX_PATH must be set"),
+            }
+        }
+    }
+
+    fn build_frontend(local: &bool, _deploy_environment: &str) -> FrontendVariables {
+        if *local {
+            FrontendVariables {
+                frontend_mode: FrontendMode::External,
+            }
+        } else {
+            let frontend_mode = std::env::var("FRONTEND_MODE").expect("FRONTEND_MODE must be set.");
+            FrontendVariables {
+                frontend_mode: FrontendMode::try_from(frontend_mode.as_str()).unwrap_or_else(
+                    |_| panic!("Invalid FRONTEND_MODE value. Got `{frontend_mode}`"),
+                ),
+            }
+        }
+    }
+
+    pub fn get_database_connection_string(&self) -> &str {
+        &self.database.connection_string
+    }
+
+    pub fn get_database_db_name(&self) -> &str {
+        &self.database.db_name
+    }
+
+    pub fn get_authentication_jwt_encoding(&self) -> &EncodingKey {
+        &self.authentication.jwt_encoding
+    }
+
+    pub fn authentication_jwt_decoding(&self) -> &DecodingKey {
+        &self.authentication.jwt_decoding
+    }
+
+    pub fn get_logging_include_headers(&self) -> bool {
+        self.logging.include_headers
+    }
+
+    pub fn get_logging_level(&self) -> tracing::Level {
+        self.logging.level
+    }
+
+    pub fn get_object_storage_source_type(&self) -> &ObjectSourceType {
+        &self.storage.storage_backend
+    }
+
+    pub fn get_object_storage_prefix_path(&self) -> &str {
+        &self.storage.prefix_path
+    }
+
+    pub fn get_frontend_mode(&self) -> &FrontendMode {
+        &self.frontend.frontend_mode
+    }
 }
 
 /// Struct containing logging variables like logging level
-pub struct LoggingVariables {
+struct LoggingVariables {
     /// application logging level
-    pub level: tracing::Level,
+    level: tracing::Level,
     /// if true, we include headers in every log coming from a http request
-    pub include_headers: bool,
+    include_headers: bool,
 }
 
 /// Struct containing variables for authentication
 ///
 /// It contains two keys used to encode and decode jwt tokens for web application
-pub struct AuthenticationVariables {
-    pub jwt_encoding: EncodingKey,
-    pub jwt_decoding: DecodingKey,
+struct AuthenticationVariables {
+    jwt_encoding: EncodingKey,
+    jwt_decoding: DecodingKey,
 }
 
 /// Struct containing variables for data base like connection string
-pub struct DatabaseVariables {
-    pub connection_string: String,
-    pub db_name: String,
+struct DatabaseVariables {
+    connection_string: String,
+    db_name: String,
+}
+
+/// Variables with information to store objects of the application
+struct ObjectStorageVariables {
+    storage_backend: ObjectSourceType,
+    prefix_path: String,
+}
+
+/// Frontend configuration
+///
+/// Frontend can be served as static content from the web server or
+/// as an external entity. These variables defines which type of
+/// configuration is used.
+///
+/// FrontendMode::Internal contains a string variable that represents
+/// the path of the root folder containing static files
+struct FrontendVariables {
+    frontend_mode: FrontendMode,
 }

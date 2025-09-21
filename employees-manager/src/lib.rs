@@ -2,7 +2,7 @@ use mongodb::bson::oid::ObjectId;
 
 mod auth;
 mod dtos;
-mod enums;
+pub mod enums;
 mod error;
 mod facade;
 pub mod middleware;

@@ -107,6 +107,8 @@ pub enum ServiceAppError {
     InvalidRequest(String),
     /// InternalServerError
     InternalServerError(String),
+    /// Error that can occur when dealing with object storage service
+    ObjectStorageError(String),
 }
 
 impl Display for ServiceAppError {
@@ -123,6 +125,7 @@ impl Display for ServiceAppError {
                 Self::ResponseBuildError(message) => format!("ResponseBuildError: {message}"),
                 Self::InternalServerError(message) => format!("InternalServerError: {message}"),
                 Self::AccessControlError(message) => format!("AccessControlError: {message}"),
+                Self::ObjectStorageError(message) => format!("ObjectStorageError: {message}"),
             }
         )
     }
@@ -175,6 +178,12 @@ impl From<web_app_response::CompanyInfoBuilderError> for ServiceAppError {
 impl From<XlsxError> for ServiceAppError {
     fn from(value: XlsxError) -> Self {
         ServiceAppError::InternalServerError(value.to_string())
+    }
+}
+
+impl From<object_store::Error> for ServiceAppError {
+    fn from(value: object_store::Error) -> Self {
+        ServiceAppError::ObjectStorageError(value.to_string())
     }
 }
 

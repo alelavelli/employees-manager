@@ -19,7 +19,15 @@ import {
   MatButtonToggleChange,
   MatButtonToggleModule,
 } from '@angular/material/button-toggle';
-import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import {
+  AbstractControlOptions,
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  FormsModule,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { MatMenuModule } from '@angular/material/menu';
 import { ToastrService } from 'ngx-toastr';
 import { NewUserDialogComponent } from './new-user-modal/new-user-modal';
@@ -44,6 +52,7 @@ import { MatButtonModule } from '@angular/material/button';
     ReactiveFormsModule,
     MatMenuModule,
     MatButtonModule,
+    FormsModule,
   ],
   encapsulation: ViewEncapsulation.None,
 })
@@ -67,6 +76,30 @@ export class AdminPageComponent implements OnInit {
     'active',
     'totalCompanies',
     'actionMenu',
+  ];
+
+  setUserPasswordForm: FormGroup = this.formBuilder.group(
+    {
+      password: new FormControl('', [
+        Validators.required,
+        Validators.minLength(8),
+        Validators.pattern(/[a-z]/), // At least 1 lowercase
+        Validators.pattern(/[A-Z]/), // At least 1 uppercase
+        Validators.pattern(/\d/), // At least 1 digit
+        Validators.pattern(/[^a-zA-Z0-9]/), // At least 1 symbol
+      ]),
+      confirmPassword: new FormControl('', [Validators.required]),
+    },
+    <AbstractControlOptions>{ validators: [this.passwordMatchValidator] }
+  );
+
+  passwordConstraints = [
+    { respected: false, message: 'at least 8 characters long' },
+    { respected: false, message: 'at least one lowercase letter' },
+    { respected: false, message: 'at least one uppercase letter' },
+    { respected: false, message: 'at least one digit' },
+    { respected: false, message: 'at least one symbol' },
+    { respected: false, message: 'passwords must match' },
   ];
 
   @ViewChild(MatSort, { static: false }) sort!: MatSort;
@@ -98,10 +131,60 @@ export class AdminPageComponent implements OnInit {
       } as string;
       this.usersTableDataSource.filter = filter;
     });
+
+    this.setUserPasswordForm.valueChanges.subscribe((form) => {
+      const password: string = form.password;
+      this.passwordConstraints[0].respected = password.length >= 8;
+      this.passwordConstraints[1].respected = password.match(/[a-z]/) !== null;
+      this.passwordConstraints[2].respected = password.match(/[A-Z]/) !== null;
+      this.passwordConstraints[3].respected = password.match(/\d/) !== null;
+      this.passwordConstraints[4].respected =
+        password.match(/[^a-zA-Z0-9]/) !== null;
+      this.passwordConstraints[5].respected = password === form.confirmPassword;
+    });
   }
 
   ngOnInit(): void {
     this.loadData();
+  }
+
+  passwordMatchValidator(formGroup: FormGroup) {
+    const password: string = formGroup.get('password')!.value;
+    const confirmPassword: string = formGroup.get('confirmPassword')!.value;
+
+    if (password !== confirmPassword) {
+      formGroup.get('confirmPassword')!.setErrors({ passwordMismatch: true });
+    } else {
+      formGroup.get('confirmPassword')!.setErrors(null);
+    }
+  }
+
+  setUserPassword(user: AdminPanelUserInfo) {
+    this.apiService
+      .setUserPassword(user.id, this.setUserPasswordForm.value['password'])
+      .subscribe({
+        next: () => {
+          this.toastr.success(
+            'Updated password for user with id ' + user.id,
+            'Update success',
+            {
+              timeOut: 5000,
+              progressBar: true,
+            }
+          );
+          this.clearSetUserPasswordForm();
+        },
+        error: () => {
+          this.clearSetUserPasswordForm();
+        },
+      });
+  }
+
+  clearSetUserPasswordForm() {
+    this.setUserPasswordForm.reset();
+    for (let obj of this.passwordConstraints) {
+      obj.respected = false;
+    }
   }
 
   loadData() {
