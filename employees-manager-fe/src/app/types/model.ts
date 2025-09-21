@@ -159,6 +159,13 @@ export interface CorporateGroupInfo {
   companyNames: string[];
 }
 
+export interface AdminCorporateGroupInfo {
+  id: string;
+  name: string;
+  active: boolean;
+  ownerId: string | null;
+}
+
 export interface CorporateGroupCompanyInfo {
   name: string;
   id: string;
@@ -166,10 +173,14 @@ export interface CorporateGroupCompanyInfo {
 
 export interface CreateCorporateGroupParameters {
   name: string;
-  companyIds: string[];
 }
 
 export interface EditCorporateGroupParameters {
   name: string;
   companyIds: string[];
+}
+
+export interface IdLabelElement {
+  label: string;
+  id: string;
 }

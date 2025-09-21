@@ -45,6 +45,30 @@
     {
       "type": "lldb",
       "request": "launch",
+      "name": "Backend Opt",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=employees-manager",
+          "--package=employees-manager",
+          "--release"
+        ],
+        "filter": {
+          "name": "employees-manager",
+          "kind": "bin"
+        }
+      },
+      "env": {
+        "DEPLOY_ENVIRONMENT": "dev",
+        "LOCAL": "true",
+        "RUST_BACKTRACE": "1"
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
       "name": "MongoDB Index Setup",
       "cargo": {
         "args": [

@@ -1,5 +1,5 @@
 use bson::{doc, Document};
-use employees_manager::{model::db_entities, service::db::DatabaseDocument};
+use employees_manager::{model::db_entities, service::db::document::DatabaseDocument};
 use tracing::{error, info};
 
 async fn create_index<T: 'static + DatabaseDocument>(keys: Document) {
@@ -18,6 +18,6 @@ async fn main() {
         .with_ansi(true)
         .init();
 
-    create_index::<db_entities::UserCompanyAssignment>(doc! {"company_id": 1, "user_id": 1}).await;
+    create_index::<db_entities::UserEmploymentContract>(doc! {"company_id": 1, "user_id": 1}).await;
     create_index::<db_entities::User>(doc! {"username": 1}).await;
 }

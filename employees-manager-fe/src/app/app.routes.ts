@@ -28,8 +28,8 @@ export const routes: Routes = environment.maintenance
   : [
       {
         path: '',
-        component: SplashPageComponent,
-        data: { layoutType: LayoutType.Splash },
+        component: LoginPageComponent,
+        data: { layoutType: LayoutType.Guest },
       },
       {
         path: 'login',

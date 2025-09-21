@@ -6,6 +6,8 @@ use crate::{
     DocumentId,
 };
 
+pub mod corporate_group;
+
 /// Authorization payload for jwt token
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -34,8 +36,7 @@ pub struct SetUserPassword {
 #[serde(rename_all = "camelCase")]
 pub struct CreateCompany {
     pub name: String,
-    /// Job Title the User has on the Company he creates
-    pub job_title: String,
+    pub corporate_group_id: DocumentId,
 }
 
 #[derive(Deserialize)]
@@ -132,6 +133,7 @@ pub struct ChangeProjectActivityAssignmentByProject {
 pub struct TimesheetActivityHours {
     pub company_id: DocumentId,
     pub project_id: DocumentId,
+    pub work_package_id: DocumentId,
     pub activity_id: DocumentId,
     pub notes: String,
     pub hours: u32,
@@ -151,20 +153,6 @@ pub struct CreateTimesheetDay {
 pub struct GetUserTimesheetDays {
     pub year: i32,
     pub month: u32,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateCorporateGroup {
-    pub name: String,
-    pub company_ids: Vec<DocumentId>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EditCorporateGroup {
-    pub name: String,
-    pub company_ids: Vec<DocumentId>,
 }
 
 #[derive(Deserialize)]

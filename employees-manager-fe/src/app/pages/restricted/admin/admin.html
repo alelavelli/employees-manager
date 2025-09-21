@@ -4,7 +4,11 @@
   </div>
 
   <!-- case "it is loading stuff" -->
-  <mat-progress-bar mode="indeterminate" color="primary" *ngIf="loading"></mat-progress-bar>
+  <mat-progress-bar
+    mode="indeterminate"
+    color="primary"
+    *ngIf="loading"
+  ></mat-progress-bar>
 
   <!-- case "everything has been loaded" -->
   <ng-container *ngIf="!loading">
@@ -31,35 +35,70 @@
       </div>
     </div>
 
-    <div class="users section-container">
+    <div class="admin-section-container section-container">
       <div class="h2-title">Users</div>
       <div>
-        <button mat-raised-button class="clickable" color="primary" (click)="openCreateUserDialog()">
-          <div style="display: flex; flex-direction: row; align-items: center; gap: 0.5rem; margin: 0.5rem;">
+        <button
+          mat-raised-button
+          class="clickable"
+          color="primary"
+          (click)="openCreateUserDialog()"
+        >
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              gap: 0.5rem;
+              margin: 0.5rem;
+            "
+          >
             <mat-icon>add</mat-icon>
             Create User
           </div>
         </button>
       </div>
       <form [formGroup]="userFilterForm">
-        <div style="display: flex; flex-direction: row; align-items: baseline; gap: 2rem;">
-          <mat-form-field style="width: 50%;">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: baseline;
+            gap: 2rem;
+          "
+        >
+          <mat-form-field style="width: 50%">
             <mat-label>Filter</mat-label>
-            <input matInput placeholder="Filter by string fields" formControlName="valueString" #input>
+            <input
+              matInput
+              placeholder="Filter by string fields"
+              formControlName="valueString"
+              #input
+            />
           </mat-form-field>
-          <div class="users-filter-component">
-            <div class="users-filter-label">Active User</div>
-            <mat-button-toggle-group name="activeUser" aria-label="Active User" multiple formControlName="activeUser"
-              (change)="onActiveUserFilterChange($event)">
+          <div class="admin-filter-component">
+            <div class="admin-filter-label">Active User</div>
+            <mat-button-toggle-group
+              name="activeUser"
+              aria-label="Active User"
+              multiple
+              formControlName="activeUser"
+              (change)="onActiveUserFilterChange($event)"
+            >
               <mat-button-toggle value="true">True</mat-button-toggle>
               <mat-button-toggle value="false">False</mat-button-toggle>
             </mat-button-toggle-group>
           </div>
 
-          <div class="users-filter-component">
-            <div class="users-filter-label">Platform Admin</div>
-            <mat-button-toggle-group name="platformAdmin" aria-label="Platform Admin" multiple
-              formControlName="platformAdmin" (change)="onPlatformAdminFilterChange($event)">
+          <div class="admin-filter-component">
+            <div class="admin-filter-label">Platform Admin</div>
+            <mat-button-toggle-group
+              name="platformAdmin"
+              aria-label="Platform Admin"
+              multiple
+              formControlName="platformAdmin"
+              (change)="onPlatformAdminFilterChange($event)"
+            >
               <mat-button-toggle value="true">True</mat-button-toggle>
               <mat-button-toggle value="false">False</mat-button-toggle>
             </mat-button-toggle-group>
@@ -70,103 +109,366 @@
       <div class="mat-elevation-z8">
         <table mat-table [dataSource]="usersTableDataSource" matSort>
           <ng-container matColumnDef="id">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> ID </th>
-            <td mat-cell *matCellDef="let element"> {{element.id}} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+            <td mat-cell *matCellDef="let element">{{element.id}}</td>
           </ng-container>
           <ng-container matColumnDef="username">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Username </th>
-            <td mat-cell *matCellDef="let element"> {{element.username}} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Username</th>
+            <td mat-cell *matCellDef="let element">{{element.username}}</td>
           </ng-container>
           <ng-container matColumnDef="email">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Email </th>
-            <td mat-cell *matCellDef="let element"> {{element.email}} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Email</th>
+            <td mat-cell *matCellDef="let element">{{element.email}}</td>
           </ng-container>
           <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Name </th>
-            <td mat-cell *matCellDef="let element"> {{element.name}} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+            <td mat-cell *matCellDef="let element">{{element.name}}</td>
           </ng-container>
           <ng-container matColumnDef="surname">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Surname </th>
-            <td mat-cell *matCellDef="let element"> {{element.surname}} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Surname</th>
+            <td mat-cell *matCellDef="let element">{{element.surname}}</td>
           </ng-container>
           <ng-container matColumnDef="platformAdmin">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Platform Admin </th>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>
+              Platform Admin
+            </th>
             <td mat-cell *matCellDef="let element">
-              <mat-icon [fontIcon]="element.platformAdmin ? 'done' : 'close'"></mat-icon>
+              <mat-icon
+                [fontIcon]="element.platformAdmin ? 'done' : 'close'"
+              ></mat-icon>
             </td>
           </ng-container>
           <ng-container matColumnDef="active">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Active </th>
-            <td mat-cell *matCellDef="let element"> <mat-icon [fontIcon]="element.active ? 'done' : 'close'"></mat-icon>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Active</th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon
+                [fontIcon]="element.active ? 'done' : 'close'"
+              ></mat-icon>
             </td>
           </ng-container>
           <ng-container matColumnDef="totalCompanies">
-            <th mat-header-cell *matHeaderCellDef mat-sort-header> Companies </th>
-            <td mat-cell *matCellDef="let element"> {{element.totalCompanies}} </td>
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Companies</th>
+            <td mat-cell *matCellDef="let element">
+              {{element.totalCompanies}}
+            </td>
           </ng-container>
           <ng-container matColumnDef="actionMenu">
-            <th mat-header-cell *matHeaderCellDef> Actions </th>
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
             <td mat-cell *matCellDef="let element">
-              <mat-icon class="clickable" [matMenuTriggerFor]="menu"
-                [matMenuTriggerData]="{ row: element }">more_vert</mat-icon>
+              <mat-icon
+                class="clickable"
+                [matMenuTriggerFor]="userMenu"
+                [matMenuTriggerData]="{ row: element }"
+                >more_vert</mat-icon
+              >
             </td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="displayedUsersInfoColumns" class="users-header-row"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedUsersInfoColumns;"></tr>
+          <tr
+            mat-header-row
+            *matHeaderRowDef="displayedUsersInfoColumns"
+            class="admin-header-row"
+          ></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: displayedUsersInfoColumns;"
+          ></tr>
         </table>
 
-        <mat-paginator [pageSizeOptions]="[5, 10, 25, 100]" aria-label="Select page of users"></mat-paginator>
+        <mat-paginator
+          [pageSizeOptions]="[5, 10, 25, 100]"
+          aria-label="Select page of users"
+        ></mat-paginator>
 
-        <mat-menu #menu="matMenu">
+        <mat-menu #userMenu="matMenu">
           <ng-template matMenuContent let-row="row">
-            <button mat-menu-item (click)="setPlatformAdminUser(row)" *ngIf="!row.platformAdmin">Set Platform
-              Admin</button>
-            <button mat-menu-item (click)="unsetPlatformAdminUser(row)" *ngIf="row.platformAdmin">Unset Platform
-              Admin</button>
-            <button mat-menu-item (click)="activateUser(row)" *ngIf="!row.active">Activate</button>
-            <button mat-menu-item (click)="deactivateUser(row)" *ngIf="row.active">Deactivate</button>
+            <button
+              mat-menu-item
+              (click)="setPlatformAdminUser(row)"
+              *ngIf="!row.platformAdmin"
+            >
+              Set Platform Admin
+            </button>
+            <button
+              mat-menu-item
+              (click)="unsetPlatformAdminUser(row)"
+              *ngIf="row.platformAdmin"
+            >
+              Unset Platform Admin
+            </button>
+            <button
+              mat-menu-item
+              (click)="activateUser(row)"
+              *ngIf="!row.active"
+            >
+              Activate
+            </button>
+            <button
+              mat-menu-item
+              (click)="deactivateUser(row)"
+              *ngIf="row.active"
+            >
+              Deactivate
+            </button>
             <button mat-menu-item (click)="deleteUser(row)">Delete</button>
-            <button mat-menu-item [matMenuTriggerFor]="setUserPasswordMenu" [matMenuTriggerData]="{row: row}">Set
-              password</button>
+            <button
+              mat-menu-item
+              [matMenuTriggerFor]="setUserPasswordMenu"
+              [matMenuTriggerData]="{row: row}"
+            >
+              Set password
+            </button>
           </ng-template>
         </mat-menu>
 
-        <mat-menu #setUserPasswordMenu class="set-password-menu" (closed)="clearSetUserPasswordForm()">
+        <mat-menu
+          #setUserPasswordMenu
+          class="admin-internal-menu"
+          (closed)="clearSetUserPasswordForm()"
+        >
           <ng-template matMenuContent let-row="row">
-            <div (click)="$event.stopPropagation();" class="set-password-form-container">
-              <form class="set-password-form-container" [formGroup]="setUserPasswordForm"
-                (ngSubmit)="setUserPassword(row)">
+            <div
+              (click)="$event.stopPropagation();"
+              class="admin-internal-menu-form-container"
+            >
+              <form
+                class="admin-internal-menu-form-container"
+                [formGroup]="setUserPasswordForm"
+                (ngSubmit)="setUserPassword(row)"
+              >
                 <mat-form-field appearance="outline">
                   <mat-label>New Password</mat-label>
-                  <input matInput placeholder="New password" formControlName="password"
-                    (click)="$event.stopPropagation();">
+                  <input
+                    matInput
+                    placeholder="New password"
+                    formControlName="password"
+                    (click)="$event.stopPropagation();"
+                  />
                 </mat-form-field>
                 <mat-form-field appearance="outline">
                   <mat-label>Confirm Password</mat-label>
-                  <input matInput placeholder="Confirm password" formControlName="confirmPassword"
-                    (click)="$event.stopPropagation();">
+                  <input
+                    matInput
+                    placeholder="Confirm password"
+                    formControlName="confirmPassword"
+                    (click)="$event.stopPropagation();"
+                  />
                 </mat-form-field>
-                <div class="reset-password-welcome-text" style="text-align: left;">
+                <div
+                  class="reset-password-welcome-text"
+                  style="text-align: left"
+                >
                   The password must respect the following security requirements:
                   <ul class="constraints-list">
-                    <li class="constraint" *ngFor="let constraint of passwordConstraints"
-                      [class]="constraint.respected ? 'constraint-respected' : 'constraint-not-respected'">
+                    <li
+                      class="constraint"
+                      *ngFor="let constraint of passwordConstraints"
+                      [class]="constraint.respected ? 'constraint-respected' : 'constraint-not-respected'"
+                    >
                       <span>
-                        <mat-icon [fontIcon]="constraint.respected ? 'done' : 'close'"></mat-icon>
+                        <mat-icon
+                          [fontIcon]="constraint.respected ? 'done' : 'close'"
+                        ></mat-icon>
                         &nbsp;{{constraint.message}}
                       </span>
                     </li>
                   </ul>
                 </div>
               </form>
-              <button mat-raised-button type="submit" [disabled]="setUserPasswordForm.invalid" color="primary"
-                class="clickable" (click)="setUserPassword(row)">Set</button>
+              <button
+                mat-raised-button
+                type="submit"
+                [disabled]="setUserPasswordForm.invalid"
+                color="primary"
+                class="clickable"
+                (click)="setUserPassword(row)"
+              >
+                Set
+              </button>
             </div>
           </ng-template>
         </mat-menu>
+      </div>
+    </div>
 
+    <div class="admin-section-container section-container">
+      <div class="h2-title">Corporate Groups</div>
+      <div>
+        <button
+          mat-raised-button
+          class="clickable primary-button"
+          (click)="openCreateCorporateGroupDialog()"
+        >
+          <div
+            style="
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              gap: 0.5rem;
+              margin: 0.5rem;
+            "
+          >
+            <mat-icon>add</mat-icon>
+            Create Corporate Group
+          </div>
+        </button>
+      </div>
+      <form [formGroup]="corporateGroupsFilterForm">
+        <div
+          style="
+            display: flex;
+            flex-direction: row;
+            align-items: baseline;
+            gap: 2rem;
+          "
+        >
+          <mat-form-field style="width: 50%">
+            <mat-label>Filter</mat-label>
+            <input
+              matInput
+              placeholder="Filter by string fields"
+              formControlName="valueString"
+              #input
+            />
+          </mat-form-field>
+          <div class="admin-filter-component">
+            <div class="admin-filter-label">Active Corporate Group</div>
+            <mat-button-toggle-group
+              name="activeCorporateGroup"
+              aria-label="Active Corporate Group"
+              multiple
+              formControlName="activeCorporateGroup"
+              (change)="onActiveCorporateGroupFilterChange($event)"
+            >
+              <mat-button-toggle value="true">True</mat-button-toggle>
+              <mat-button-toggle value="false">False</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+        </div>
+      </form>
 
+      <div class="mat-elevation-z8">
+        <table mat-table [dataSource]="corporateGroupsTableDataSource" matSort>
+          <ng-container matColumnDef="id">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+            <td mat-cell *matCellDef="let element">{{element.id}}</td>
+          </ng-container>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+            <td mat-cell *matCellDef="let element">{{element.name}}</td>
+          </ng-container>
+          <ng-container matColumnDef="active">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Active</th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon
+                [fontIcon]="element.active ? 'done' : 'close'"
+              ></mat-icon>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="owner">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header>Owner Id</th>
+            <td mat-cell *matCellDef="let element">{{element.ownerId}}</td>
+          </ng-container>
+          <ng-container matColumnDef="actionMenu">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let element">
+              <mat-icon
+                class="clickable"
+                [matMenuTriggerFor]="corporateGroupMenu"
+                [matMenuTriggerData]="{ row: element }"
+                >more_vert</mat-icon
+              >
+            </td>
+          </ng-container>
+
+          <tr
+            mat-header-row
+            *matHeaderRowDef="displayedCorporateGroupInfoColumns"
+            class="admin-header-row"
+          ></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: displayedCorporateGroupInfoColumns;"
+          ></tr>
+        </table>
+
+        <mat-paginator
+          [pageSizeOptions]="[5, 10, 25, 100]"
+          aria-label="Select page of corporate groups"
+        ></mat-paginator>
+
+        <mat-menu #corporateGroupMenu="matMenu">
+          <ng-template matMenuContent let-row="row">
+            <button
+              mat-menu-item
+              (click)="activateCorporateGroup(row)"
+              *ngIf="!row.active"
+            >
+              Activate
+            </button>
+            <button
+              mat-menu-item
+              (click)="deactivateCorporateGroup(row)"
+              *ngIf="row.active"
+            >
+              Deactivate
+            </button>
+            <button mat-menu-item (click)="deleteCorporateGroup(row)">
+              Delete
+            </button>
+            <button
+              mat-menu-item
+              [matMenuTriggerFor]="setCorporateGroupOwnerMenu"
+              [matMenuTriggerData]="{row: row}"
+            >
+              Set owner
+            </button>
+          </ng-template>
+        </mat-menu>
+
+        <mat-menu #setCorporateGroupOwnerMenu class="admin-internal-menu">
+          <ng-template matMenuContent let-row="row">
+            <div
+              (click)="$event.stopPropagation();"
+              class="admin-internal-menu-form-container"
+            >
+              <form
+                [formGroup]="setCorporateGroupOwnerForm"
+                class="admin-internal-menu-form-container"
+              >
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Select a Corporate Group Owner</mat-label>
+                  <input
+                    matInput
+                    type="text"
+                    placeholder="Select a user"
+                    formControlName="username"
+                    [matAutocomplete]="auto"
+                  />
+
+                  <mat-autocomplete #auto="matAutocomplete">
+                    @for (user of setCorporateGroupOwnerFormFilteredUsers |
+                    async; track user) {
+                    <mat-option [value]="user.username"
+                      >{{user.username}}</mat-option
+                    >
+                    }
+                  </mat-autocomplete>
+                </mat-form-field>
+              </form>
+              <button
+                mat-raised-button
+                type="submit"
+                [disabled]="setCorporateGroupOwnerForm.invalid"
+                color="primary"
+                class="clickable"
+                (click)="setCorporateGroupOwner(row)"
+              >
+                Set
+              </button>
+            </div>
+          </ng-template>
+        </mat-menu>
       </div>
     </div>
   </ng-container>

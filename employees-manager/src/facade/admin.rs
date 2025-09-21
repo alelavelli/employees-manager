@@ -5,210 +5,266 @@ use crate::{
         web_app_response::{self},
     },
     error::{AppError, ServiceAppError},
-    service::{access_control::AccessControl, company, user},
+    model::db_entities,
+    service::{
+        access_control::AccessControl,
+        admin,
+        corporate_group::CorporateGroupService,
+        db::document::{DatabaseDocument, SmartDocumentReference},
+        user::UserService,
+    },
     DocumentId,
 };
 
-pub async fn get_admin_panel_overview(
-    auth_info: impl AuthInfo,
-) -> Result<web_app_response::AdminPanelOverview, AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    let users_info = user::get_admin_panel_overview_users_info()
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-
-    let companies_info = company::get_admin_panel_overview_companies_info()
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-
-    Ok(web_app_response::AdminPanelOverview::from((
-        users_info,
-        companies_info,
-    )))
+/// Struct containing information of the logged user and
+/// that perform access control during initialization
+pub struct AdminFacade<T>
+where
+    T: AuthInfo,
+{
+    access_control: AccessControl<T>,
 }
 
-pub async fn get_admin_panel_users_info(
-    auth_info: impl AuthInfo,
-) -> Result<Vec<web_app_response::AdminPanelUserInfo>, AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    user::get_admin_panel_users_info()
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))
-        .map(|info| info.into_iter().map(|user_info| user_info.into()).collect())
-}
-
-pub async fn set_platform_admin(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    if *auth_info.user_id() == user_id {
-        return Err(AppError::InvalidRequest(
-            "You cannot set yourself as platform admin".into(),
-        ));
+impl<T: AuthInfo> AdminFacade<T> {
+    /// Creates a AdminFacade object verifying that the user has the required permissions.
+    ///
+    /// The user needs to be Platform Administrator
+    pub async fn new(auth_info: T) -> Result<AdminFacade<T>, AppError> {
+        let access_control = AccessControl::new(auth_info)
+            .await?
+            .is_platform_admin()
+            .await?;
+        Ok(AdminFacade { access_control })
     }
 
-    user::set_platform_admin(&user_id)
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))
-}
-
-pub async fn unset_platform_admin(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    if *auth_info.user_id() == user_id {
-        return Err(AppError::InvalidRequest(
-            "You cannot unset yourself as platform admin".into(),
-        ));
+    pub async fn create_corporate_group(&self, name: String) -> Result<(), AppError> {
+        // Do not provide the user id because we are creating the corporate group
+        // from the admin panel and we don't want that this user will become the owner
+        CorporateGroupService::create_corporate_group(None, name)
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })
     }
 
-    user::unset_platform_admin(&user_id)
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))
-}
+    pub async fn get_admin_panel_overview(
+        &self,
+    ) -> Result<web_app_response::admin_panel::AdminPanelOverview, AppError> {
+        let users_info = admin::get_admin_panel_overview_users_info()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
-pub async fn activate_platform_admin(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
+        let companies_info = admin::get_admin_panel_overview_companies_info()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
-    if *auth_info.user_id() == user_id {
-        return Err(AppError::InvalidRequest(
-            "You cannot activate yourself".into(),
-        ));
+        Ok(web_app_response::admin_panel::AdminPanelOverview::from((
+            users_info,
+            companies_info,
+        )))
     }
 
-    user::activate_user(&user_id).await.map_err(|e| match e {
-        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-        _ => AppError::InternalServerError(e.to_string()),
-    })
-}
-
-pub async fn deactivate_platform_admin(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    if *auth_info.user_id() == user_id {
-        return Err(AppError::InvalidRequest(
-            "You cannot deactivate yourself".into(),
-        ));
+    pub async fn get_admin_panel_users_info(
+        &self,
+    ) -> Result<Vec<web_app_response::admin_panel::AdminPanelUserInfo>, AppError> {
+        admin::get_admin_panel_users_info()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))
+            .map(|info| info.into_iter().map(|user_info| user_info.into()).collect())
     }
 
-    user::deactivate_user(&user_id).await.map_err(|e| match e {
-        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-        _ => AppError::InternalServerError(e.to_string()),
-    })
-}
-
-pub async fn set_user_password(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-    password: String,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    if *auth_info.user_id() == user_id {
-        return Err(AppError::InvalidRequest(
-            "You cannot set password of yourself via this method. You must use reset password."
-                .into(),
-        ));
+    pub async fn get_admin_panel_corporate_groups_info(
+        &self,
+    ) -> Result<Vec<web_app_response::admin_panel::AdminPanelCorporateGroupInfo>, AppError> {
+        admin::get_admin_corporate_groups_info()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))
+            .map(|doc_vec| {
+                doc_vec
+                    .into_iter()
+                    .map(
+                        |doc| web_app_response::admin_panel::AdminPanelCorporateGroupInfo {
+                            name: doc.name().into(),
+                            id: doc
+                                .get_id()
+                                .expect("Document id must be present after a query")
+                                .to_string(),
+                            active: *doc.active(),
+                        },
+                    )
+                    .collect()
+            })
     }
 
-    user::update_user(&user_id, None, Some(password), None, None)
+    /// Set the user as corporate group owner
+    ///
+    /// Since this operation can happen at the creation of
+    /// the corporate group, is it possible that the user is
+    /// not inside the corporate group.
+    ///
+    /// If not, then he is added and the role created.
+    /// If an owner is already present then he is changed to Admin
+    pub async fn set_corporate_group_owner(
+        &self,
+        corporate_group_id: SmartDocumentReference<db_entities::CorporateGroup>,
+        user_id: SmartDocumentReference<db_entities::User>,
+    ) -> Result<(), AppError> {
+        admin::set_corporate_group_owner(&corporate_group_id, &user_id)
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })
+    }
+
+    pub async fn set_platform_admin(&self, user_id: DocumentId) -> Result<(), AppError> {
+        if *self.access_control.auth_info().user_id() == user_id {
+            return Err(AppError::InvalidRequest(
+                "You cannot set yourself as platform admin".into(),
+            ));
+        }
+
+        UserService::new(SmartDocumentReference::Id(user_id))
+            .set_platform_admin()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))
+    }
+
+    pub async fn unset_platform_admin(&self, user_id: DocumentId) -> Result<(), AppError> {
+        if *self.access_control.auth_info().user_id() == user_id {
+            return Err(AppError::InvalidRequest(
+                "You cannot unset yourself as platform admin".into(),
+            ));
+        }
+
+        UserService::new(SmartDocumentReference::Id(user_id))
+            .unset_platform_admin()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))
+    }
+
+    pub async fn activate_user(&self, user_id: DocumentId) -> Result<(), AppError> {
+        if *self.access_control.auth_info().user_id() == user_id {
+            return Err(AppError::InvalidRequest(
+                "You cannot activate yourself".into(),
+            ));
+        }
+
+        UserService::new(SmartDocumentReference::Id(user_id))
+            .activate()
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })
+    }
+
+    pub async fn deactivate_user(&self, user_id: DocumentId) -> Result<(), AppError> {
+        if *self.access_control.auth_info().user_id() == user_id {
+            return Err(AppError::InvalidRequest(
+                "You cannot deactivate yourself".into(),
+            ));
+        }
+
+        UserService::new(SmartDocumentReference::Id(user_id))
+            .deactivate()
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })
+    }
+
+    pub async fn set_user_password(
+        &self,
+        user_id: DocumentId,
+        password: String,
+    ) -> Result<(), AppError> {
+        if *self.access_control.auth_info().user_id() == user_id {
+            return Err(AppError::InvalidRequest(
+                "You cannot set password of yourself via this method. You must use reset password."
+                    .into(),
+            ));
+        }
+
+        UserService::new(SmartDocumentReference::Id(user_id))
+            .update(None, Some(password), None, None)
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })
+    }
+
+    pub async fn get_user(&self, user_id: DocumentId) -> Result<web_app_response::User, AppError> {
+        let user_model = UserService::new(SmartDocumentReference::Id(user_id))
+            .get()
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })?;
+
+        web_app_response::User::try_from(user_model).map_err(|_| {
+            AppError::InternalServerError(
+                "Error in building the response from User document".into(),
+            )
+        })
+    }
+
+    pub async fn create_user(
+        &self,
+        payload: web_app_request::CreateUser,
+    ) -> Result<String, AppError> {
+        UserService::create(
+            payload.username,
+            payload.password,
+            payload.email,
+            payload.name,
+            payload.surname,
+        )
         .await
         .map_err(|e| match e {
-            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
             _ => AppError::InternalServerError(e.to_string()),
         })
-}
-
-pub async fn get_user(
-    auth_info: impl AuthInfo,
-    user_id: DocumentId,
-) -> Result<web_app_response::User, AppError> {
-    // access control over auth info
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-    let user_model = user::get_user(&user_id).await.map_err(|e| match e {
-        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-        _ => AppError::InternalServerError(e.to_string()),
-    })?;
-
-    web_app_response::User::try_from(user_model).map_err(|_| {
-        AppError::InternalServerError("Error in building the response from User document".into())
-    })
-}
-
-pub async fn create_user(
-    auth_info: impl AuthInfo,
-    payload: web_app_request::CreateUser,
-) -> Result<String, AppError> {
-    // access control over auth info
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-    user::create_user(
-        payload.username,
-        payload.password,
-        payload.email,
-        payload.name,
-        payload.surname,
-    )
-    .await
-    .map_err(|e| match e {
-        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-        _ => AppError::InternalServerError(e.to_string()),
-    })
-}
-
-pub async fn delete_user(auth_info: impl AuthInfo, user_id: DocumentId) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .is_platform_admin()
-        .await?;
-
-    if *auth_info.user_id() == user_id {
-        return Err(AppError::InvalidRequest(
-            "You cannot delete yourself".into(),
-        ));
     }
-    user::delete_user(&user_id).await.map_err(|e| match e {
-        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-        _ => AppError::InternalServerError(e.to_string()),
-    })
+
+    pub async fn delete_user(&self, user_id: DocumentId) -> Result<(), AppError> {
+        if *self.access_control.auth_info().user_id() == user_id {
+            return Err(AppError::InvalidRequest(
+                "You cannot delete yourself".into(),
+            ));
+        }
+        UserService::new(SmartDocumentReference::Id(user_id))
+            .delete()
+            .await
+            .map_err(|e| match e {
+                ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
+                _ => AppError::InternalServerError(e.to_string()),
+            })
+    }
+
+    pub async fn activate_corporate_group(
+        &self,
+        corporate_group_id: SmartDocumentReference<db_entities::CorporateGroup>,
+    ) -> Result<(), AppError> {
+        CorporateGroupService::new(corporate_group_id)
+            .activate()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))
+    }
+
+    pub async fn deactivate_corporate_group(
+        &self,
+        corporate_group_id: SmartDocumentReference<db_entities::CorporateGroup>,
+    ) -> Result<(), AppError> {
+        CorporateGroupService::new(corporate_group_id)
+            .deactivate()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))
+    }
 }

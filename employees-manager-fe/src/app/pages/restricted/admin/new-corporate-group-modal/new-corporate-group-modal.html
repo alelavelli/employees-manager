@@ -1,0 +1,28 @@
+<h1 mat-dialog-title>Create new corporate group</h1>
+
+<div mat-dialog-content class="modal-container">
+  <div class="cg-modal-body">
+    <form
+      [formGroup]="newCorporateGroupForm"
+      (ngSubmit)="onSubmit()"
+      class="cg-form-container"
+    >
+      <mat-form-field appearance="outline">
+        <mat-label>Name</mat-label>
+        <input matInput placeholder="Name" formControlName="name" />
+      </mat-form-field>
+    </form>
+  </div>
+  <div mat-dialog-actions align="end" class="action-buttons">
+    <button mat-button (click)="dialogRef.close()">Cancel</button>
+    <button
+      mat-raised-button
+      type="submit"
+      [disabled]="newCorporateGroupForm.invalid"
+      color="primary"
+      (click)="onSubmit()"
+    >
+      Create
+    </button>
+  </div>
+</div>

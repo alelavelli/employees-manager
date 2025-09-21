@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mongodb::bson::doc;
 use serde::{Deserialize, Serialize};
 
@@ -6,10 +8,10 @@ use crate::{
     error::ServiceAppError,
     model::db_entities,
     service::{company, db::get_database_service},
-    DocumentId,
+    DocumentId, TRANSACTION,
 };
 
-use super::db::DatabaseDocument;
+use super::db::document::DatabaseDocument;
 
 pub async fn get_unread_notifications(
     user_id: &DocumentId,
@@ -27,6 +29,11 @@ pub async fn set_notification_as_read(
     mut notification: db_entities::AppNotification,
 ) -> Result<(), ServiceAppError> {
     notification.set_read(true);
+    let transaction = TRANSACTION
+        .try_with(|transaction| Arc::clone(transaction))
+        .map_err(|e| ServiceAppError::InternalServerError(e.to_string()))?;
+    // TODO: per alleggerire il codice potrei addirittura prelevare le transaction internamente e se non è settata
+    // lavorare come se fosse a None
     notification.save(None).await?;
     Ok(())
 }
@@ -35,6 +42,8 @@ pub async fn answer_to_invite_add_company(
     mut notification: db_entities::AppNotification,
     answer: bool,
 ) -> Result<(), ServiceAppError> {
+    todo!();
+    /*
     let db_service = get_database_service().await;
     let mut transaction = db_service.new_transaction().await?;
     transaction.start_transaction().await?;
@@ -54,7 +63,7 @@ pub async fn answer_to_invite_add_company(
             db_entities::InviteAddCompany::find_one(doc! {"_id": notification.entity_id()}).await?;
         if let Some(invite_add_company) = invite_add_company_doc_result {
             if answer {
-                company::add_user_to_company(
+                company::create_user_contract_with_company(
                     *invite_add_company.invited_user_id(),
                     *invite_add_company.company_id(),
                     *invite_add_company.company_role(),
@@ -123,6 +132,7 @@ pub async fn answer_to_invite_add_company(
 
     transaction.commit_transaction().await?;
     Ok(())
+    */
 }
 
 pub async fn cancel_invite_user_to_company(

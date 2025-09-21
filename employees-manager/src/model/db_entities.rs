@@ -1,9 +1,10 @@
 use crate::{
     enums::{
-        CompanyRole, EmployeeRequest, FileType, NotificationType, ObjectSourceType, WorkingDayType,
+        CompanyRole, CorporateGroupRole, EmployeeRequest, FileType, NotificationType,
+        ObjectSourceType, WorkingDayType,
     },
     error::DatabaseError,
-    service::db::DatabaseDocument,
+    service::db::document::DatabaseDocument,
     DocumentId,
 };
 use bson::{self, doc, Bson};
@@ -134,33 +135,53 @@ database_document!(
     surname: String,
     #[serde(skip_serializing_if="Option::is_none")]
     api_key: Option<String>,
+    #[doc = "true if the user is administrator of the entire platform applications."]
     platform_admin: bool,
-    active: bool
+    active: bool,
 );
 
 database_document!(
-    #[doc = "Assignment of a user to a company"]
+    #[doc = "This document links a user with a corporate group "]
+    #[doc = "defining his role in it."]
+    UserCorporateGroupRole,
+    "user_corporate_group_assignment",
+    user_id: DocumentId,
+    corporate_group_id: DocumentId,
+    role: CorporateGroupRole,
+);
+
+database_document!(
+    #[doc = "Employment contract between the user and the company"]
     #[doc = ""]
-    #[doc = "A User has a CompanyRole in the Company and a Job Title"]
-    #[doc = "the user has a list of projects that he is assigned to that"]
-    #[doc = "he can select in the timesheet"]
-    UserCompanyAssignment,
-    "user_company_assignment",
+    #[doc = "For now a contract only contains the job title but in future it "]
+    #[doc = "will contain every contract information."]
+    UserEmploymentContract,
+    "user_employment_contract",
     user_id: DocumentId,
     company_id: DocumentId,
-    role: CompanyRole,
     job_title: String,
-    #[serde(skip_serializing_if="Vec::is_empty", default)]
-    project_ids: Vec<DocumentId>
 );
 
 database_document!(
-    #[doc = "Management Team is a list of Company Employees that has special permissions"]
-    CompanyManagementTeam,
-    "company_management_team",
+    #[doc = "Role the user has for a specific company"]
+    #[doc = ""]
+    #[doc = "If the document is not present in database then it defaults "]
+    #[doc = "to standard user"]
+    UserCompanyRole,
+    "user_company_role",
+    user_id: DocumentId,
     company_id: DocumentId,
+    role: CompanyRole
+);
+
+database_document!(
+    #[doc = "Assignment of company projects to the user"]
+    #[doc = "Projects can belong to any company in the CorporateGroup"]
+    UserProjects,
+    "user_projects",
+    user_id: DocumentId,
     #[serde(skip_serializing_if="Vec::is_empty", default)]
-    user_ids: Vec<DocumentId>
+    project_ids: Vec<DocumentId>,
 );
 
 database_document!(
@@ -192,6 +213,7 @@ database_document!(
     entity_id: Option<DocumentId>
 );
 
+// TODO: remote this collection
 database_document!(
     #[doc = "Invite for the user in the app"]
     InviteAddCompany,
@@ -218,6 +240,15 @@ database_document!(
 );
 
 database_document!(
+    #[doc = "Work Package inside a project to which a set of activities is associated"]
+    WorkPackage,
+    "work_package",
+    project_id: DocumentId,
+    name: String,
+    description: String
+);
+
+database_document!(
     #[doc = "Define a type of activity that can be done in the Project."]
     #[doc  = "It is defined at Company level and can be associated to any Project."]
     #[doc = "The User specify it during the timesheet compilation."]
@@ -225,14 +256,14 @@ database_document!(
     "project_activity",
     name: String,
     description: String,
-    company_id: DocumentId
+    corporate_group_id: DocumentId,
 );
 
 database_document!(
     #[doc = "Assigns the activity to the Project."]
-    ProjectActivityAssignment,
-    "project_activity_assignment",
-    project_id: DocumentId,
+    WPActivityAssignment,
+    "wp_activity_assignment",
+    work_package_id: DocumentId,
     #[serde(skip_serializing_if="Vec::is_empty", default)]
     activity_ids: Vec<DocumentId>
 );
@@ -243,6 +274,7 @@ embedded_document!(
     TimesheetActivityHours,
     company_id: DocumentId,
     project_id: DocumentId,
+    work_package_id: DocumentId,
     activity_id: DocumentId,
     notes: String,
     hours: u32
@@ -253,6 +285,7 @@ impl From<TimesheetActivityHours> for Bson {
         Bson::Document(doc! {
             "company_id": value.company_id,
             "project_id": value.project_id,
+            "work_package_id": value.work_package_id,
             "activity_id": value.activity_id,
             "notes": value.notes,
             "hours": value.hours
@@ -265,6 +298,7 @@ impl From<internal::TimesheetActivityHours> for TimesheetActivityHours {
         Self {
             company_id: value.company_id,
             project_id: value.project_id,
+            work_package_id: value.work_package_id,
             activity_id: value.activity_id,
             notes: value.notes,
             hours: value.hours,
@@ -293,10 +327,9 @@ database_document!(
     CorporateGroup,
     "corporate_group",
     name: String,
+    active: bool,
     #[serde(skip_serializing_if="Vec::is_empty", default)]
     company_ids: Vec<DocumentId>,
-    #[doc = "The user that created the corporate group"]
-    owner: DocumentId
 );
 
 database_document!(
@@ -312,29 +345,3 @@ database_document!(
     file_type: FileType,
     source_type: ObjectSourceType
 );
-
-#[cfg(test)]
-mod tests {
-    use bson::oid::ObjectId;
-
-    use crate::{
-        model::db_entities::CorporateGroup,
-        service::db::{get_database_service, DatabaseDocument},
-    };
-
-    #[tokio::test]
-    async fn test_create_corporate_group() {
-        let mut first_group =
-            CorporateGroup::new("ciao".to_string(), vec![ObjectId::new()], ObjectId::new());
-        first_group.save(None).await.unwrap();
-        first_group.reload().await.unwrap();
-        println!("{:?}", first_group);
-        let mut second_group = CorporateGroup::new("ciao".to_string(), vec![], ObjectId::new());
-        second_group.save(None).await.unwrap();
-        second_group.reload().await.unwrap();
-        println!("{:?}", second_group);
-
-        let drop_result = get_database_service().await.db.drop().await;
-        assert!(drop_result.is_ok());
-    }
-}

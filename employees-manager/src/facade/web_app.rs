@@ -2,7 +2,6 @@ use std::collections::{hash_map::Entry, HashMap};
 
 use jsonwebtoken::Header;
 use mongodb::bson::doc;
-use tracing::debug;
 
 use crate::{
     auth::{AuthInfo, JWTAuthClaim},
@@ -11,45 +10,14 @@ use crate::{
     error::{AppError, ServiceAppError},
     model::{db_entities, internal},
     service::{
-        access_control::AccessControl, company, corporate_group, db::DatabaseDocument,
-        notification, timesheet, user,
+        access_control::AccessControl,
+        company,
+        db::document::{DatabaseDocument, SmartDocumentReference},
+        notification, timesheet,
+        user::UserService,
     },
     DocumentId,
 };
-
-pub async fn authenticate_user(
-    username: &str,
-    password: &str,
-) -> Result<web_app_response::JWTAuthResponse, AppError> {
-    let user_model = user::login(username, password).await?;
-
-    let claims = JWTAuthClaim {
-        exp: 2000000000,
-        user_id: *user_model.get_id().expect("User id must be not missing"),
-        username: user_model.username().clone(),
-    };
-    let token = claims.build_token(&Header::default())?;
-
-    Ok(web_app_response::JWTAuthResponse {
-        token,
-        token_type: "Bearer".into(),
-    })
-}
-
-pub async fn get_auth_user_data(
-    auth_info: impl AuthInfo,
-) -> Result<web_app_response::AuthUserData, AppError> {
-    AccessControl::new(&auth_info).await?;
-    let user_model = user::get_user(auth_info.user_id())
-        .await
-        .map_err(|e| match e {
-            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-            _ => AppError::InternalServerError(e.to_string()),
-        })?;
-    web_app_response::AuthUserData::try_from(user_model).map_err(|_| {
-        AppError::InternalServerError("Error in building response from User document".into())
-    })
-}
 
 pub async fn get_unread_notifications(
     auth_info: impl AuthInfo,
@@ -130,14 +98,17 @@ pub async fn answer_to_invite_add_company(
 pub async fn create_company(
     auth_info: impl AuthInfo,
     payload: web_app_request::CreateCompany,
-) -> Result<String, AppError> {
+) -> Result<(), AppError> {
     AccessControl::new(&auth_info).await?;
-    company::create_company(auth_info.user_id(), payload.name, payload.job_title)
-        .await
-        .map_err(|e| match e {
-            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-            _ => AppError::InternalServerError(e.to_string()),
-        })
+    company::create_company(
+        SmartDocumentReference::Id(payload.corporate_group_id),
+        payload.name,
+    )
+    .await
+    .map_err(|e| match e {
+        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+        _ => AppError::InternalServerError(e.to_string()),
+    })
 }
 
 pub async fn invite_user_to_company(
@@ -147,7 +118,11 @@ pub async fn invite_user_to_company(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::invite_user(
@@ -173,7 +148,11 @@ pub async fn get_users_to_invite_in_company(
 ) -> Result<Vec<web_app_response::UserToInviteInCompany>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     Ok(company::get_users_to_invite_in_company(company_id)
@@ -191,14 +170,18 @@ pub async fn remove_company_user(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
     if auth_info.user_id() == &user_id {
         return Err(AppError::InvalidRequest(
             "You cannot remove yourself from the company".into(),
         ));
     }
-    let company_assignment = db_entities::UserCompanyAssignment::find_one(
+    let company_assignment = db_entities::UserEmploymentContract::find_one(
         doc! {"company_id": company_id, "user_id": user_id},
     )
     .await.map_err(|e| {
@@ -218,90 +201,25 @@ pub async fn remove_company_user(
     }
 }
 
-pub async fn get_companies_of_user(
-    auth_info: impl AuthInfo,
-) -> Result<Vec<web_app_response::CompanyInfo>, AppError> {
-    AccessControl::new(&auth_info).await?;
-    let companies = company::get_user_companies(auth_info.user_id())
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-    let mut to_return = vec![];
-    for doc in companies {
-        let id = *doc
-            .get_id()
-            .expect("expecting document id since it has been loaded from db.");
-        to_return.push(
-            web_app_response::CompanyInfoBuilder::default()
-                .id(id.to_string())
-                .name(doc.name().clone())
-                .active(*doc.active())
-                .total_users(
-                    company::get_users_in_company(&id)
-                        .await
-                        .map_err(|e| AppError::InternalServerError(e.to_string()))?
-                        .len() as u16,
-                )
-                .role(
-                    *company::get_user_company_role(auth_info.user_id(), &id)
-                        .await
-                        .map_err(|e| match e {
-                            ServiceAppError::EntityDoesNotExist(message) => {
-                                AppError::DoesNotExist(message)
-                            }
-                            _ => AppError::InternalServerError(e.to_string()),
-                        })?
-                        .role(),
-                )
-                .build()
-                .map_err(|_| {
-                    AppError::InternalServerError(
-                        "Error in building response for companies of user".into(),
-                    )
-                })?,
-        );
-    }
-    Ok(to_return)
-}
-
 pub async fn get_users_in_company(
     auth_info: impl AuthInfo,
     company_id: DocumentId,
 ) -> Result<Vec<web_app_response::UserInCompanyInfo>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
-    Ok(company::get_users_in_company(&company_id)
+    Ok(company::get_users_with_contract_in_company(&company_id)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))?
         .into_iter()
         .map(web_app_response::UserInCompanyInfo::from)
         .collect())
-}
-
-pub async fn change_user_company_role(
-    auth_info: impl AuthInfo,
-    company_id: DocumentId,
-    payload: web_app_request::ChangeUserCompanyRole,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
-        .await?;
-    // A user cannot change the role of himself
-    if auth_info.user_id() == &payload.user_id {
-        Err(AppError::InvalidRequest(
-            "You cannot change your own role".into(),
-        ))
-    } else {
-        company::update_user_in_company(&payload.user_id, &company_id, Some(payload.role), None)
-            .await
-            .map_err(|e| match e {
-                ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-                _ => AppError::InternalServerError(e.to_string()),
-            })
-    }
 }
 
 pub async fn change_user_company_job_title(
@@ -311,28 +229,22 @@ pub async fn change_user_company_job_title(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
-    company::update_user_in_company(&payload.user_id, &company_id, None, Some(payload.job_title))
-        .await
-        .map_err(|e| match e {
-            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-            _ => AppError::InternalServerError(e.to_string()),
-        })
-}
-
-pub async fn change_user_company_manager(
-    auth_info: impl AuthInfo,
-    company_id: DocumentId,
-    payload: web_app_request::ChangeUserCompanyManager,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info)
-        .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
-        .await?;
-    company::change_user_company_manager(&payload.user_id, &company_id, payload.manager)
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))
+    company::update_user_contract_with_company(
+        &payload.user_id,
+        &company_id,
+        Some(payload.job_title),
+    )
+    .await
+    .map_err(|e| match e {
+        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
+        _ => AppError::InternalServerError(e.to_string()),
+    })
 }
 
 pub async fn get_pending_invited_users_in_company(
@@ -341,7 +253,11 @@ pub async fn get_pending_invited_users_in_company(
 ) -> Result<Vec<web_app_response::InvitedUserInCompanyInfo>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
     Ok(company::get_pending_invited_users(&company_id)
         .await
@@ -358,7 +274,11 @@ pub async fn cancel_invite_user_to_company(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
     notification::cancel_invite_user_to_company(notification_id)
         .await
@@ -374,7 +294,11 @@ pub async fn get_company_projects(
 ) -> Result<Vec<web_app_response::CompanyProjectInfo>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     Ok(company::get_company_projects(&company_id)
@@ -392,7 +316,11 @@ pub async fn get_company_project_allocations_by_project(
 ) -> Result<Vec<String>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
     // TODO: optimize this by filtering directly the query
     let allocation: Option<Vec<String>> = company::get_company_project_allocations(company_id)
@@ -417,7 +345,11 @@ pub async fn get_company_project_allocations_by_user(
 ) -> Result<Vec<String>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
     // TODO: optimize this by filtering directly the query
     let allocation: Vec<String> = company::get_company_project_allocations(company_id)
@@ -438,7 +370,11 @@ pub async fn create_company_project(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::create_project(company_id, payload.name, payload.code)
@@ -458,7 +394,11 @@ pub async fn edit_company_project(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::edit_project(
@@ -484,7 +424,11 @@ pub async fn delete_company_project(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
     company::delete_project(company_id, project_id)
         .await
@@ -503,7 +447,11 @@ pub async fn edit_company_project_allocations_by_project(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::edit_company_project_allocations(company_id, project_id, payload.user_ids)
@@ -522,7 +470,11 @@ pub async fn edit_company_project_allocations_by_user(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::edit_company_project_allocations_for_user(company_id, user_id, payload.project_ids)
@@ -540,7 +492,11 @@ pub async fn create_project_activity(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::create_company_project_activity(company_id, payload.name, payload.description)
@@ -557,7 +513,11 @@ pub async fn get_project_activities(
 ) -> Result<Vec<web_app_response::ProjectActivityInfo>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::User,
+            true,
+        )
         .await?;
 
     Ok(company::get_company_project_activities(company_id)
@@ -576,7 +536,11 @@ pub async fn edit_project_activity(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::edit_company_project_activity(
@@ -602,7 +566,11 @@ pub async fn delete_project_activity(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::delete_company_project_activity(company_id, activity_id)
@@ -623,7 +591,11 @@ pub async fn get_project_activity_assignment_by_activity(
 ) -> Result<Vec<String>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::User,
+            true,
+        )
         .await?;
 
     company::get_projects_with_activity(activity_id)
@@ -638,7 +610,11 @@ pub async fn get_project_activity_assignment_by_project(
 ) -> Result<Vec<String>, AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::User)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::User,
+            true,
+        )
         .await?;
 
     Ok(company::get_projects_activity_assignment(&project_id)
@@ -657,7 +633,11 @@ pub async fn edit_project_activity_assignment_by_activity(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::edit_project_activity_assignment_by_activity(activity_id, project_ids)
@@ -676,7 +656,11 @@ pub async fn edit_project_activity_assignment_by_project(
 ) -> Result<(), AppError> {
     AccessControl::new(&auth_info)
         .await?
-        .has_company_role_or_higher(&company_id, CompanyRole::Admin)
+        .has_company_role_or_higher(
+            &SmartDocumentReference::from(company_id),
+            CompanyRole::Admin,
+            true,
+        )
         .await?;
 
     company::edit_project_activity_assignment(company_id, project_id, activity_ids)
@@ -901,120 +885,4 @@ pub async fn export_personal_timesheet(
     timesheet::export_as_excel(auth_info.user_id(), &year, &month)
         .await
         .map_err(|e| AppError::InternalServerError(e.to_string()))
-}
-
-pub async fn get_eligible_companies_for_corporate_group(
-    auth_info: impl AuthInfo,
-) -> Result<Vec<web_app_response::CorporateGroupCompanyInfo>, AppError> {
-    AccessControl::new(&auth_info).await?;
-    Ok(
-        corporate_group::get_eligible_companies_for_corporate_group(auth_info.user_id())
-            .await
-            .map_err(|e| AppError::InternalServerError(e.to_string()))?
-            .into_iter()
-            .flat_map(|e| e.try_into())
-            .collect::<Vec<web_app_response::CorporateGroupCompanyInfo>>(),
-    )
-}
-
-pub async fn get_user_corporate_groups(
-    auth_info: impl AuthInfo,
-) -> Result<Vec<web_app_response::CorporateGroupInfo>, AppError> {
-    AccessControl::new(&auth_info).await?;
-
-    let corporate_groups = corporate_group::get_corporate_groups_for_user(auth_info.user_id())
-        .await
-        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-
-    let mut result = vec![];
-
-    for group in corporate_groups.into_iter() {
-        if let Some(group_id) = group.get_id() {
-            debug!("Ready to call get_company_names");
-            let company_names_mapping = company::get_company_names(group.company_ids())
-                .await
-                .map_err(|e| AppError::InternalServerError(e.to_string()))?;
-            debug!("After call get_company_names");
-            let mut company_names: Vec<String> = vec![];
-            for company_id in group.company_ids() {
-                if let Some(name) = company_names_mapping.get(company_id) {
-                    company_names.push(name.into());
-                } else {
-                    return Err(AppError::InternalServerError(format!("Missing company name entry in company name hashmap for company with id {company_id}")));
-                }
-            }
-
-            let company_names = group
-                .company_ids()
-                .iter()
-                .map(|elem| company_names_mapping.get(elem).unwrap().into())
-                .collect();
-            result.push(web_app_response::CorporateGroupInfo {
-                group_id: group_id.to_hex(),
-                name: group.name().clone(),
-                company_ids: group
-                    .company_ids()
-                    .iter()
-                    .map(|elem| elem.to_hex())
-                    .collect(),
-                company_names,
-            })
-        } else {
-            return Err(AppError::InternalServerError(
-                "Expected object id from group read from database".into(),
-            ));
-        }
-    }
-
-    Ok(result)
-}
-
-pub async fn create_corporate_group(
-    auth_info: impl AuthInfo,
-    payload: web_app_request::CreateCorporateGroup,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info).await?;
-
-    corporate_group::create_corporate_group(auth_info.user_id(), payload.name, payload.company_ids)
-        .await
-        .map_err(|e| match e {
-            ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-            _ => AppError::InternalServerError(e.to_string()),
-        })
-}
-
-pub async fn edit_corporate_group(
-    auth_info: impl AuthInfo,
-    corporate_group_id: DocumentId,
-    payload: web_app_request::EditCorporateGroup,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info).await?;
-
-    corporate_group::edit_corporate_group(
-        auth_info.user_id(),
-        &corporate_group_id,
-        payload.name,
-        payload.company_ids,
-    )
-    .await
-    .map_err(|e| match e {
-        ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-        ServiceAppError::InvalidRequest(message) => AppError::InvalidRequest(message),
-        _ => AppError::InternalServerError(e.to_string()),
-    })
-}
-
-pub async fn delete_corporate_group(
-    auth_info: impl AuthInfo,
-    corporate_group_id: DocumentId,
-) -> Result<(), AppError> {
-    AccessControl::new(&auth_info).await?;
-
-    corporate_group::delete_corporate_group(auth_info.user_id(), &corporate_group_id)
-        .await
-        .map_err(|e| match e {
-            ServiceAppError::EntityDoesNotExist(message) => AppError::DoesNotExist(message),
-            ServiceAppError::AccessControlError(message) => AppError::AccessControlError(message),
-            _ => AppError::InternalServerError(e.to_string()),
-        })
 }

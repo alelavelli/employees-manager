@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use crate::{
     auth::APIKeyAuthClaim,
     dtos::{sdk_request, sdk_response, AppJson},
-    DocumentId,
+    AppState, DocumentId,
 };
 
 use axum::{
@@ -14,7 +16,7 @@ use once_cell::sync::Lazy;
 use crate::error::AppError;
 use crate::facade::sdk as facade;
 
-pub static SDK_ROUTER: Lazy<Router> = Lazy::new(|| {
+pub static SDK_ROUTER: Lazy<Router<Arc<AppState>>> = Lazy::new(|| {
     Router::new()
         .route("/user/{id}", get(get_user))
         .route("/user", post(create_user))

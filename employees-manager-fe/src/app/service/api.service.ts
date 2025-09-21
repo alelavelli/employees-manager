@@ -24,9 +24,11 @@ import {
   CreateCorporateGroupParameters,
   CorporateGroupCompanyInfo,
   EditCorporateGroupParameters,
+  AdminCorporateGroupInfo,
 } from '../types/model';
 import {
   CompanyRole,
+  CorporateGroupRole,
   NotificationType,
   TimesheetDayWorkType,
 } from '../types/enums';
@@ -97,6 +99,21 @@ export class ApiService {
       : this.httpClient.get<AdminPanelUserInfo[]>(API_URL + '/admin/user');
   }
 
+  getAdminCorporateGroupsInfo(): Observable<AdminCorporateGroupInfo[]> {
+    return MOCKED
+      ? buildMocked(
+          [...Array(50).keys()].map((i) => ({
+            id: `my-id-${i}`,
+            name: `my-corporate-group-name-${i}`,
+            active: i % 3 === 0,
+            ownerId: i % 2 === 0 ? 'this owner' : null,
+          }))
+        )
+      : this.httpClient.get<AdminCorporateGroupInfo[]>(
+          API_URL + '/admin/corporate-group'
+        );
+  }
+
   setPlatformAdminUser(userId: string): Observable<void> {
     return MOCKED
       ? buildMocked()
@@ -112,6 +129,19 @@ export class ApiService {
       : this.httpClient.delete<void>(
           API_URL + `/admin/user/${userId}/platform-admin`,
           {}
+        );
+  }
+
+  setCorporateGroupOwner(
+    corporateGroupId: string,
+    userId: string
+  ): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          API_URL +
+            `/admin/corporate-group/${corporateGroupId}/owner/${userId}`,
+          { role: CorporateGroupRole.Owner }
         );
   }
 
@@ -146,6 +176,33 @@ export class ApiService {
     return MOCKED
       ? buildMocked()
       : this.httpClient.delete<void>(API_URL + `/admin/user/${userId}`, {});
+  }
+
+  activateCorporateGroup(corporateGroupId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.post<void>(
+          API_URL + `/corporate-group/${corporateGroupId}/activate`,
+          {}
+        );
+  }
+
+  deactivateCorporateGroup(corporateGroupId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/admin/corporate-group/${corporateGroupId}/activate`,
+          {}
+        );
+  }
+
+  deleteCorporateGroup(corporateGroupId: string): Observable<void> {
+    return MOCKED
+      ? buildMocked()
+      : this.httpClient.delete<void>(
+          API_URL + `/corporate-group/${corporateGroupId}`,
+          {}
+        );
   }
 
   createUser(user: CreateUserParameters): Observable<string> {
@@ -259,14 +316,6 @@ export class ApiService {
         );
   }
 
-  deleteCorporateGroup(corporateGroupId: string): Observable<void> {
-    return MOCKED
-      ? buildMocked()
-      : this.httpClient.delete<void>(
-          API_URL + `/corporate-group/${corporateGroupId}`
-        );
-  }
-
   editCorporateGroup(
     corporateGroupId: string,
     updatedGroup: EditCorporateGroupParameters
@@ -284,7 +333,10 @@ export class ApiService {
   ): Observable<void> {
     return MOCKED
       ? buildMocked()
-      : this.httpClient.post<void>(API_URL + `/corporate-group`, newGroup);
+      : this.httpClient.post<void>(
+          API_URL + `/admin/corporate-group`,
+          newGroup
+        );
   }
 
   getUsersInCompany(companyId: string): Observable<UserInCompanyInfo[]> {

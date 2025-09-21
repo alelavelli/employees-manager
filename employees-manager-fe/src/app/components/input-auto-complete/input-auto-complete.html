@@ -1,0 +1,36 @@
+<mat-form-field
+  appearance="outline"
+  subscriptSizing="dynamic"
+  style="width: 100%; height: 6rem"
+>
+  <mat-label>{{elementName}}</mat-label>
+  <mat-chip-grid #chipGrid>
+    @for (element of selectedElements(); track $index) {
+    <mat-chip-row (removed)="removeElement(element)">
+      {{element | ellipsis : 30}}
+      <button matChipRemove [attr.aria-label]="'remove ' + element">
+        <mat-icon>cancel</mat-icon>
+      </button>
+    </mat-chip-row>
+    }
+  </mat-chip-grid>
+  <input
+    appearance="outline"
+    name="currentElement"
+    [placeholder]="'Add ' + elementName + '...'"
+    [value]="currentElement()"
+    (input)="currentElement.set($any($event.target).value)"
+    [matChipInputFor]="chipGrid"
+    [matAutocomplete]="autoElement"
+    [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+    (matChipInputTokenEnd)="addElement($event)"
+  />
+  <mat-autocomplete
+    #autoElement="matAutocomplete"
+    (optionSelected)="selectedElement($event)"
+  >
+    @for (element of filteredElements(); track element) {
+    <mat-option [value]="element">{{element.label}}</mat-option>
+    }
+  </mat-autocomplete>
+</mat-form-field>

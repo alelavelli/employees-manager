@@ -73,6 +73,74 @@ impl Ord for CompanyRole {
     }
 }
 
+/// Enumeration with roles assigned to Users for a Corporate Group
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+pub enum CorporateGroupRole {
+    /// Basic user
+    ///
+    /// A User is a standard employee that uses the application functionalities
+    User,
+    /// Admin user
+    ///
+    /// A user that has administration privileges, he can assign Users to the Company
+    Admin,
+    /// Owner user, it is like the Admin but it cannot be removed
+    Owner,
+}
+
+impl Display for CorporateGroupRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                CorporateGroupRole::Admin => "Admin",
+                CorporateGroupRole::Owner => "Owner",
+                CorporateGroupRole::User => "User",
+            }
+        )
+    }
+}
+
+impl From<CorporateGroupRole> for Bson {
+    fn from(value: CorporateGroupRole) -> Self {
+        match value {
+            CorporateGroupRole::User => Bson::String("User".to_string()),
+            CorporateGroupRole::Admin => Bson::String("Admin".to_string()),
+            CorporateGroupRole::Owner => Bson::String("Owner".to_string()),
+        }
+    }
+}
+
+impl Eq for CorporateGroupRole {}
+
+impl PartialOrd<CorporateGroupRole> for CorporateGroupRole {
+    fn partial_cmp(&self, other: &CorporateGroupRole) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CorporateGroupRole {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self == other {
+            std::cmp::Ordering::Equal
+        } else if *self == CorporateGroupRole::User {
+            match other {
+                CorporateGroupRole::Admin | CorporateGroupRole::Owner => std::cmp::Ordering::Less,
+                _ => std::cmp::Ordering::Equal,
+            }
+        } else if *self == CorporateGroupRole::Admin {
+            match other {
+                CorporateGroupRole::Owner => std::cmp::Ordering::Less,
+                _ => std::cmp::Ordering::Greater,
+            }
+        } else {
+            // self == CompanyRole::Owner
+            std::cmp::Ordering::Greater
+        }
+    }
+}
+
 /// Enumeration with employee request for permission or other
 /// it has an outcome which is another enumeration that defines
 /// how the request is
@@ -225,7 +293,7 @@ impl Display for ObjectSourceType {
 /// External is preferred in production environments since the
 /// decoupling allows to scale and update separately the frontend
 /// and the backend.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum FrontendMode {
     /// Integrated means that the frontend pages are served
     /// as static content directly by the web server.

@@ -29,12 +29,10 @@ pub struct AdminPanelOverviewCompanyInfo {
 pub struct UserInCompanyInfo {
     pub user_id: DocumentId,
     pub company_id: DocumentId,
-    pub role: CompanyRole,
     pub username: String,
     pub name: String,
     pub surname: String,
     pub job_title: String,
-    pub management_team: bool,
 }
 
 pub struct InvitedUserInCompanyInfo {
@@ -50,6 +48,7 @@ pub struct InvitedUserInCompanyInfo {
 pub struct TimesheetActivityHours {
     pub company_id: DocumentId,
     pub project_id: DocumentId,
+    pub work_package_id: DocumentId,
     pub activity_id: DocumentId,
     pub notes: String,
     pub hours: u32,
@@ -60,6 +59,7 @@ impl From<web_app_request::TimesheetActivityHours> for TimesheetActivityHours {
         Self {
             company_id: value.company_id,
             project_id: value.project_id,
+            work_package_id: value.work_package_id,
             activity_id: value.activity_id,
             notes: value.notes,
             hours: value.hours,

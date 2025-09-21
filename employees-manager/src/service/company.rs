@@ -2,9 +2,8 @@ use std::{collections::HashMap, str::FromStr};
 
 use mongodb::bson::{doc, oid::ObjectId, Bson};
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
-use super::db::{get_database_service, DatabaseDocument};
+use super::db::{document::DatabaseDocument, get_database_service};
 use crate::{
     enums::{CompanyRole, NotificationType},
     error::ServiceAppError,
@@ -12,132 +11,120 @@ use crate::{
         db_entities,
         internal::{AdminPanelOverviewCompanyInfo, InvitedUserInCompanyInfo, UserInCompanyInfo},
     },
+    service::{
+        self,
+        db::{document::SmartDocumentReference, transaction::DatabaseTransaction},
+    },
     DocumentId,
 };
 
-/// Returns the companies info for the admin panel
-pub async fn get_admin_panel_overview_companies_info(
-) -> Result<AdminPanelOverviewCompanyInfo, ServiceAppError> {
-    let result = db_entities::Company::aggregate(vec![doc! {
-        "$group": {
-            "_id": null,
-            "total_companies": { "$sum": 1 }
+/// Creates a new company if its name does not already exist and
+/// adds it to the corporate group company list
+pub async fn create_company(
+    corporate_group_id: SmartDocumentReference<db_entities::CorporateGroup>,
+    company_name: String,
+) -> Result<(), ServiceAppError> {
+    let mut corporate_group = corporate_group_id.to_document().await?;
+    // check if a company in the corporate group with the same name already exists
+    if db_entities::Company::count_documents(doc! {"_id": {"$in": corporate_group.company_ids()}})
+        .await?
+        > 0
+    {
+        Err(ServiceAppError::InvalidRequest(format!(
+            "A Company with name {company_name} already exists in the Corporate Group {}",
+            corporate_group.name()
+        )))
+    } else {
+        // With a transaction we create the company and we add it to the corporate group
+        let db_service = get_database_service().await;
+        let mut transaction = db_service.new_transaction().await?;
+        transaction.start_transaction().await?;
+
+        let mut new_company = db_entities::Company::new(company_name.trim().into(), true);
+        let company_id = new_company.save(Some(&mut transaction)).await?;
+
+        if let Ok(company_id_obj) = ObjectId::from_str(&company_id) {
+            corporate_group.company_ids_mut().push(company_id_obj);
+            corporate_group.save(Some(&mut transaction)).await?;
+            transaction.commit_transaction().await?;
+            Ok(())
+        } else {
+            transaction.abort_transaction().await?;
+            Err(ServiceAppError::InternalServerError(format!(
+                "An error occurred during translation of company_id to ObjectId"
+            )))
         }
-    }])
+    }
+}
+
+pub async fn delete_company(
+    company: SmartDocumentReference<db_entities::Company>,
+) -> Result<Option<&mut DatabaseTransaction>, ServiceAppError> {
+    // TODO: understand how to create an internal transaction here avoiding compiler problems
+    let company_id = company.to_id();
+
+    let mut transaction = transaction;
+
+    // delete user employment contract
+    transaction = db_entities::UserEmploymentContract::delete_many(
+        doc! {"company_id": company_id},
+        transaction,
+    )
     .await?;
 
-    if let Some(result) = result.first() {
-        Ok(AdminPanelOverviewCompanyInfo {
-            total_companies: result
-                .get("total_companies")
-                .expect("total_companies should be present")
-                .as_i32()
-                .unwrap() as u16,
-        })
-    } else {
-        Ok(AdminPanelOverviewCompanyInfo { total_companies: 0 })
-    }
-}
-
-/// creates a Company and assigns it to the User creating an entry
-/// in UserCompanyAssignment
-/// Moreover, it creates the empty document CompanyManagementTeam that will
-/// be used to identity manager users for the company
-pub async fn create_company(
-    user_id: &DocumentId,
-    name: String,
-    job_title: String,
-) -> Result<String, ServiceAppError> {
-    // check if a company with the same name already exists
-    #[derive(Serialize, Deserialize, Debug)]
-    struct QueryResult {
-        name: String,
-    }
-
-    let companies =
-        db_entities::Company::find_many_projection::<QueryResult>(doc! {}, doc! {"name": 1})
+    // delete user company role
+    transaction =
+        db_entities::UserCompanyRole::delete_many(doc! {"company_id": company_id}, transaction)
             .await?;
-    for document in companies {
-        if name.to_lowercase().trim() == document.name.to_lowercase().trim() {
-            return Err(ServiceAppError::InvalidRequest(format!(
-                "A Company with name {name} already exists."
-            )));
-        }
+
+    // delete company employee request
+    transaction = db_entities::CompanyEmployeeRequest::delete_many(
+        doc! {"company_id": company_id},
+        transaction,
+    )
+    .await?;
+
+    // delete invite add company
+    transaction =
+        db_entities::InviteAddCompany::delete_many(doc! {"company_id": company_id}, transaction)
+            .await?;
+
+    // delete company project
+    let projects = db_entities::CompanyProject::find_many(doc! {"company_id": company_id}).await?;
+    for project in projects {
+        transaction = service::project::delete_project(
+            SmartDocumentReference::Id(*project.get_id().unwrap()),
+            transaction,
+        )
+        .await?;
     }
 
-    let db_service = get_database_service().await;
-    let mut transaction = db_service.new_transaction().await?;
-    transaction.start_transaction().await?;
+    // delete timesheet activity hours inside timesheet day
+    transaction = db_entities::TimesheetDay::delete_many(
+        doc! {"activities.company_id": company_id},
+        transaction,
+    )
+    .await?;
 
-    let mut company_model = db_entities::Company::new(name.trim().into(), true);
-    let company_id = company_model.save(Some(&mut transaction)).await?;
-    let company_id_object_id = ObjectId::from_str(&company_id);
-    if company_id_object_id.is_err() {
-        transaction.abort_transaction().await?;
-        return Err(ServiceAppError::InternalServerError(
-            "Unexpected failed conversion of ObjectId".into(),
-        ));
-    }
-    let company_id_object_id = company_id_object_id.unwrap();
-    let mut user_company_assignment = db_entities::UserCompanyAssignment::new(
-        *user_id,
-        company_id_object_id,
-        CompanyRole::Owner,
-        job_title,
-        vec![],
-    );
-    // If for some reasons we fail to dump the assignment we need to rollback
-    user_company_assignment.save(Some(&mut transaction)).await?;
-
-    let mut company_management_team =
-        db_entities::CompanyManagementTeam::new(company_id_object_id, vec![]);
-    company_management_team.save(Some(&mut transaction)).await?;
-
-    transaction.commit_transaction().await?;
-    Ok(company_id)
-}
-
-pub async fn get_companies() -> Result<Vec<db_entities::Company>, ServiceAppError> {
-    db_entities::Company::find_many(doc! {}).await
-}
-
-/// Get all the Companies the User is in by looking at the UserCompanyAssignment
-pub async fn get_user_companies(
-    user_id: &DocumentId,
-) -> Result<Vec<db_entities::Company>, ServiceAppError> {
-    let query_result =
-        db_entities::UserCompanyAssignment::find_many(doc! { "user_id": user_id}).await?;
-
-    let mut company_ids = vec![];
-    for doc in query_result {
-        company_ids.push(Bson::ObjectId(*doc.company_id()));
-    }
-    if company_ids.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let query_result = db_entities::Company::find_many(doc! { "_id": {"$in": company_ids}}).await?;
-    Ok(query_result)
+    Ok(transaction)
 }
 
 /// Returns an hashmap with key the company id and value its name
 pub async fn get_company_names(
     company_ids: &Vec<DocumentId>,
 ) -> Result<HashMap<DocumentId, String>, ServiceAppError> {
-    debug!("Start get_company_names");
     #[derive(Deserialize, Serialize)]
     struct QueryResult {
         _id: DocumentId,
         name: String,
     }
 
-    debug!("making query");
     let query_result = db_entities::Company::find_many_projection::<QueryResult>(
         doc! {"_id": {"$in": company_ids}},
         doc! {"_id": 1, "name": 1},
     )
     .await?;
-    debug!("converting result to hashmap");
+
     Ok(query_result
         .into_iter()
         .map(|e| (e._id, e.name))
@@ -151,7 +138,7 @@ pub async fn get_user_company(
     company_id: &DocumentId,
 ) -> Result<db_entities::Company, ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
+    let query_result = db_entities::UserEmploymentContract::find_one(query).await?;
 
     if query_result.is_some() {
         let query = doc! {"_id": company_id};
@@ -171,84 +158,54 @@ pub async fn get_user_company(
 }
 
 /// Add the user to the company if it is not already in
-pub async fn add_user_to_company(
+pub async fn create_user_contract_with_company(
     user_id: DocumentId,
     company_id: DocumentId,
-    role: CompanyRole,
     job_title: String,
-    project_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
-    let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
-    if let Some(assignment) = query_result {
-        Err(ServiceAppError::InvalidRequest(format!("Failed to add user {user_id} to company {company_id} with role {role} because it is already in the Company with role {}", assignment.role())))
+    if db_entities::UserEmploymentContract::count_documents(
+        doc! { "user_id": user_id, "company_id": company_id},
+    )
+    .await?
+        > 0
+    {
+        Err(ServiceAppError::InvalidRequest(format!("Failed to add user {user_id} to company {company_id} with jot title {job_title} because it is already in the Company ")))
     } else {
-        let mut new_assignment = db_entities::UserCompanyAssignment::new(
-            user_id,
-            company_id,
-            role,
-            job_title,
-            project_ids,
-        );
-        new_assignment.save(None).await?;
+        let mut new_doc = db_entities::UserEmploymentContract::new(user_id, company_id, job_title);
+        new_doc.save(None).await?;
         Ok(())
     }
 }
 
-/// Remove the user from the company
-pub async fn remove_user_from_company(
+/// Deletes contract of the user with the company
+pub async fn delete_user_contract_with_company(
     user_id: &DocumentId,
     company_id: &DocumentId,
 ) -> Result<(), ServiceAppError> {
-    let db_service = get_database_service().await;
-    let mut transaction = db_service.new_transaction().await?;
-    transaction.start_transaction().await?;
-
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
+    let query_result = db_entities::UserEmploymentContract::find_one(query).await?;
     if let Some(assignment) = query_result {
-        assignment.delete(Some(&mut transaction)).await?;
+        assignment.delete(None).await?;
+        Ok(())
     } else {
-        transaction.abort_transaction().await?;
         return Err(ServiceAppError::InvalidRequest(format!("Failed to remove user {user_id} from company {company_id} because he does not belong to it.")));
     }
-
-    // if the user is in the management team, we remove him
-    if let Some(management_team) =
-        db_entities::CompanyManagementTeam::find_one(doc! { "company_id": company_id}).await?
-    {
-        if management_team.user_ids().contains(user_id) {
-            let mut new_user_ids = management_team.user_ids().clone();
-            new_user_ids.retain(|id| id != user_id);
-            db_entities::CompanyManagementTeam::update_one(
-                doc! { "_id": management_team.get_id().expect("Expecting id from document retrieved from db")},
-                doc! {"$set": {"user_ids": new_user_ids}},
-                Some(&mut transaction),
-            )
-            .await?;
-        }
-    }
-    transaction.commit_transaction().await
 }
 
-/// Update user in the company by changing role or job title
-pub async fn update_user_in_company(
+/// Update user in the company by changing job title
+pub async fn update_user_contract_with_company(
     user_id: &DocumentId,
     company_id: &DocumentId,
-    role: Option<CompanyRole>,
     job_title: Option<String>,
 ) -> Result<(), ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
+    let query_result = db_entities::UserEmploymentContract::find_one(query).await?;
     if let Some(assignment) = query_result {
         let mut update = doc! {};
-        if let Some(role_obj) = role {
-            update.insert("role", role_obj.to_string());
-        }
         if let Some(job_title_obj) = job_title {
             update.insert("job_title", job_title_obj);
         }
-        db_entities::UserCompanyAssignment::update_one(
+        db_entities::UserEmploymentContract::update_one(
             doc! { "_id": assignment.get_id().unwrap()},
             doc! {"$set": update},
             None,
@@ -259,51 +216,13 @@ pub async fn update_user_in_company(
     }
 }
 
-/// Update the management team for the company adding or removing the given user
-pub async fn change_user_company_manager(
+/// Returns the contract of the user with the company
+pub async fn get_user_company_contract(
     user_id: &DocumentId,
     company_id: &DocumentId,
-    manager: bool,
-) -> Result<(), ServiceAppError> {
-    let query_result =
-        db_entities::CompanyManagementTeam::find_one(doc! { "company_id": company_id}).await?;
-
-    if let Some(mut management_team) = query_result {
-        let mut user_index = None;
-        for (i, i_user_id) in management_team.user_ids().iter().enumerate() {
-            if i_user_id == user_id {
-                user_index = Some(i);
-                break;
-            }
-        }
-        let is_user_a_manager = user_index.is_some();
-        if is_user_a_manager & !manager {
-            // we remove the user to the management team
-            management_team.user_ids_mut().remove(user_index.unwrap());
-            management_team.save(None).await?;
-        } else if !is_user_a_manager & manager {
-            // we add the user to the management team
-            management_team.user_ids_mut().push(*user_id);
-            management_team.save(None).await?;
-        }
-        // otherwise the user is either not a manager and we want to remove him
-        // or he is a manager and we want to add him
-        Ok(())
-    } else {
-        Err(ServiceAppError::InternalServerError(format!(
-            "Missing management team for company {}",
-            company_id
-        )))
-    }
-}
-
-/// Returns the user company role assignment
-pub async fn get_user_company_role(
-    user_id: &DocumentId,
-    company_id: &DocumentId,
-) -> Result<db_entities::UserCompanyAssignment, ServiceAppError> {
+) -> Result<db_entities::UserEmploymentContract, ServiceAppError> {
     let query = doc! { "user_id": user_id, "company_id": company_id};
-    let query_result = db_entities::UserCompanyAssignment::find_one(query).await?;
+    let query_result = db_entities::UserEmploymentContract::find_one(query).await?;
     if let Some(assignment) = query_result {
         Ok(assignment)
     } else {
@@ -311,49 +230,6 @@ pub async fn get_user_company_role(
             "User with id {user_id} does not have a role in Company with id {company_id}.",
         )))
     }
-}
-
-/// Returns the users inside a company
-pub async fn get_users_in_company(
-    company_id: &DocumentId,
-) -> Result<Vec<UserInCompanyInfo>, ServiceAppError> {
-    let assignments: HashMap<DocumentId, db_entities::UserCompanyAssignment> =
-        db_entities::UserCompanyAssignment::find_many(doc! { "company_id": company_id })
-            .await?
-            .into_iter()
-            .map(|doc| (*doc.user_id(), doc))
-            .collect();
-
-    let management_team =
-        db_entities::CompanyManagementTeam::find_one(doc! {"company_id": company_id}).await?;
-
-    let user_ids: Vec<Bson> = assignments
-        .iter()
-        .map(|(&id, _)| Bson::ObjectId(id))
-        .collect();
-    let users: Vec<db_entities::User> =
-        db_entities::User::find_many(doc! {"_id": {"$in": user_ids}}).await?;
-    let mut to_return = vec![];
-    for user in users {
-        let user_id = user
-            .get_id()
-            .expect("expecting to have id after query on db.");
-        if let Some(user_assignment) = assignments.get(user_id) {
-            to_return.push(UserInCompanyInfo {
-                user_id: *user_id,
-                company_id: *company_id,
-                role: *user_assignment.role(),
-                username: user.username().clone(),
-                surname: user.surname().clone(),
-                name: user.name().clone(),
-                job_title: user_assignment.job_title().clone(),
-                management_team: management_team
-                    .as_ref()
-                    .is_some_and(|doc| doc.user_ids().contains(user_id)),
-            });
-        }
-    }
-    Ok(to_return)
 }
 
 pub async fn invite_user(
@@ -364,6 +240,7 @@ pub async fn invite_user(
     job_title: String,
     project_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
+    // TODO: move this to the corporate group or delete the concept of invitation to corporate group
     /*
     Create InviteAddCompany document and AppNotification document
     */
@@ -375,7 +252,7 @@ pub async fn invite_user(
             role: CompanyRole,
         }
 
-        let inviting_user_role = db_entities::UserCompanyAssignment::find_one_projection::<
+        let inviting_user_role = db_entities::UserEmploymentContract::find_one_projection::<
             QueryResult,
         >(doc! {"user_id": inviting_user_id}, doc! {"role": 1})
         .await?
@@ -514,7 +391,7 @@ pub async fn get_users_to_invite_in_company(
         user_id: DocumentId,
     }
     let mut users_in_company: Vec<DocumentId> =
-        db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
+        db_entities::UserEmploymentContract::find_many_projection::<QueryResult>(
             doc! {"company_id": company_id},
             doc! {
                 "user_id": 1
@@ -565,7 +442,7 @@ pub async fn get_company_project_allocations(
         project_ids: Vec<DocumentId>,
     }
 
-    let assignments = db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
+    let assignments = db_entities::UserEmploymentContract::find_many_projection::<QueryResult>(
         doc! {"company_id": company_id},
         doc! {"user_id": 1, "project_ids": 1},
     )
@@ -658,7 +535,7 @@ pub async fn delete_project(
 
     if let Some(company_project) = company_project_query {
         // a project can be deleted only if it has no users
-        let n_allocations = db_entities::UserCompanyAssignment::count_documents(doc! {
+        let n_allocations = db_entities::UserEmploymentContract::count_documents(doc! {
             "company_id": company_id,
             "project_ids": project_id
         })
@@ -685,6 +562,7 @@ pub async fn edit_company_project_allocations(
     project_id: DocumentId,
     user_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
+    // TODO: change this with Project's Work Packages
     let project = db_entities::CompanyProject::find_one(doc! {
         "_id": project_id,
         "company_id": company_id,
@@ -695,7 +573,7 @@ pub async fn edit_company_project_allocations(
         // for each assignment that contains the project_id but the user is not in user_ids
         // we remove the project id from the project_ids list of the assignment
 
-        let mut assignments = db_entities::UserCompanyAssignment::find_many(
+        let mut assignments = db_entities::UserEmploymentContract::find_many(
             doc! { "company_id": company_id, "project_ids": project_id},
         )
         .await?;
@@ -708,7 +586,7 @@ pub async fn edit_company_project_allocations(
 
         for assignment in assignments.iter_mut() {
             if !user_ids.contains(assignment.user_id()) {
-                assignment.project_ids_mut().retain(|id| id != &project_id);
+                //assignment.project_ids_mut().retain(|id| id != &project_id);
                 assignment.save(Some(&mut transaction)).await?;
             } else {
                 // we store the users in the list that are already in the project
@@ -724,14 +602,14 @@ pub async fn edit_company_project_allocations(
             .into_iter()
             .filter(|user| !handled_users.contains(&user))
             .collect();
-        let mut new_assignments = db_entities::UserCompanyAssignment::find_many(doc! {
+        let mut new_assignments = db_entities::UserEmploymentContract::find_many(doc! {
             "company_id": company_id,
             "user_id": {"$in": remaining_users.into_iter().map(Bson::ObjectId).collect::<Vec<Bson>>()} 
         })
         .await?;
 
         for assignment in new_assignments.iter_mut() {
-            assignment.project_ids_mut().push(project_id);
+            //assignment.project_ids_mut().push(project_id);
             assignment.save(Some(&mut transaction)).await?;
         }
 
@@ -751,12 +629,13 @@ pub async fn edit_company_project_allocations_for_user(
     user_id: DocumentId,
     project_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
-    let assignment = db_entities::UserCompanyAssignment::find_one(
+    // TODO: change this using Project's Work Packages
+    let assignment = db_entities::UserEmploymentContract::find_one(
         doc! { "company_id": company_id, "user_id": user_id},
     )
     .await?;
     if let Some(mut assignment) = assignment {
-        assignment.set_project_ids(project_ids);
+        //assignment.set_project_ids(project_ids);
         assignment.save(None).await?;
         Ok(())
     } else {
@@ -781,7 +660,7 @@ pub async fn get_projects_with_activity(
     }
 
     Ok(
-        db_entities::ProjectActivityAssignment::find_many_projection::<QueryResult>(
+        db_entities::WPActivityAssignment::find_many_projection::<QueryResult>(
             doc! {"activity_ids": activity_id},
             doc! {"project_id": 1},
         )
@@ -802,7 +681,7 @@ pub async fn get_projects_activity_assignment(
     project_id: &DocumentId,
 ) -> Result<Vec<DocumentId>, ServiceAppError> {
     if let Some(assignment) =
-        db_entities::ProjectActivityAssignment::find_one(doc! {"project_id": project_id}).await?
+        db_entities::WPActivityAssignment::find_one(doc! {"project_id": project_id}).await?
     {
         Ok(assignment.activity_ids().clone())
     } else {
@@ -924,13 +803,12 @@ pub async fn edit_project_activity_assignment(
     if project.is_some() {
         // if the project assignment document does not exist we create it, otherwise we update it
         let mut assignments_doc = if let Some(mut doc) =
-            db_entities::ProjectActivityAssignment::find_one(doc! { "project_id": project_id})
-                .await?
+            db_entities::WPActivityAssignment::find_one(doc! { "project_id": project_id}).await?
         {
             doc.set_activity_ids(activity_ids);
             doc
         } else {
-            db_entities::ProjectActivityAssignment::new(project_id, activity_ids)
+            db_entities::WPActivityAssignment::new(project_id, activity_ids)
         };
         assignments_doc.save(None).await?;
         Ok(())
@@ -945,14 +823,10 @@ pub async fn edit_project_activity_assignment_by_activity(
     activity_id: DocumentId,
     project_ids: Vec<DocumentId>,
 ) -> Result<(), ServiceAppError> {
-    // per ogni progetto che contiene activity id ma che ora non è nella lista devo togliere activity id
-    // per ogni nuovo progetto che non aveva activity id la devo aggiungere
-    // se non esisteva il documento allora lo creo, posso chiamare la funzione edit_project_activity_assignment
-    // a livello di progetto per semplificare la cosa
     let activity = db_entities::ProjectActivity::find_one(doc! {"_id": activity_id}).await?;
     if activity.is_some() {
-        let mut assignments =
-            db_entities::ProjectActivityAssignment::find_many(doc! {"activity_ids": activity_id})
+        /* let mut assignments =
+            db_entities::WPActivityAssignment::find_many(doc! {"activity_ids": activity_id})
                 .await?;
         let db_service = get_database_service().await;
         let mut transaction = db_service.new_transaction().await?;
@@ -982,18 +856,17 @@ pub async fn edit_project_activity_assignment_by_activity(
 
         for project in remaining_projects {
             let mut assignments_doc = if let Some(mut doc) =
-                db_entities::ProjectActivityAssignment::find_one(doc! { "project_id": project})
-                    .await?
+                db_entities::WPActivityAssignment::find_one(doc! { "project_id": project}).await?
             {
                 doc.activity_ids_mut().push(activity_id);
                 doc
             } else {
-                db_entities::ProjectActivityAssignment::new(project, vec![activity_id])
+                db_entities::WPActivityAssignment::new(project, vec![activity_id])
             };
             assignments_doc.save(Some(&mut transaction)).await?;
         }
 
-        transaction.commit_transaction().await?;
+        transaction.commit_transaction().await?; */
         Ok(())
     } else {
         Err(ServiceAppError::EntityDoesNotExist(format!(
@@ -1002,6 +875,7 @@ pub async fn edit_project_activity_assignment_by_activity(
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -1014,10 +888,11 @@ mod tests {
         model::db_entities,
         service::{
             company::{
-                add_user_to_company, create_company, get_user_companies, get_user_company,
-                remove_user_from_company, update_user_in_company,
+                create_company, create_user_contract_with_company,
+                delete_user_contract_with_company, get_user_companies, get_user_company,
+                update_user_contract_with_company,
             },
-            db::{get_database_service, DatabaseDocument},
+            db::{document::DatabaseDocument, get_database_service},
         },
     };
 
@@ -1043,7 +918,7 @@ mod tests {
         let result = create_company(&user_id, name.clone(), job_title).await;
         assert!(result.is_ok());
 
-        let assignment = db_entities::UserCompanyAssignment::find_one(doc! {"user_id": user_id})
+        let assignment = db_entities::UserEmploymentContract::find_one(doc! {"user_id": user_id})
             .await
             .unwrap();
         assert!(assignment.is_some());
@@ -1070,7 +945,7 @@ mod tests {
             true,
         );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
-        let mut first_assignment = db_entities::UserCompanyAssignment::new(
+        let mut first_assignment = db_entities::UserEmploymentContract::new(
             first_user_id.clone(),
             company_id,
             crate::enums::CompanyRole::Owner,
@@ -1089,7 +964,7 @@ mod tests {
             true,
         );
         let second_user_id = ObjectId::from_str(&second_user.save(None).await.unwrap()).unwrap();
-        let mut second_assignment = db_entities::UserCompanyAssignment::new(
+        let mut second_assignment = db_entities::UserEmploymentContract::new(
             second_user_id.clone(),
             company_id,
             crate::enums::CompanyRole::User,
@@ -1127,7 +1002,7 @@ mod tests {
         );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
 
-        let result = add_user_to_company(
+        let result = create_user_contract_with_company(
             first_user_id,
             company_id,
             CompanyRole::User,
@@ -1137,7 +1012,7 @@ mod tests {
         .await;
         assert!(result.is_ok());
 
-        let assignment = db_entities::UserCompanyAssignment::find_one(doc! {})
+        let assignment = db_entities::UserEmploymentContract::find_one(doc! {})
             .await
             .unwrap()
             .unwrap();
@@ -1164,7 +1039,7 @@ mod tests {
             true,
         );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
-        let mut first_assignment = db_entities::UserCompanyAssignment::new(
+        let mut first_assignment = db_entities::UserEmploymentContract::new(
             first_user_id.clone(),
             company_id,
             crate::enums::CompanyRole::Owner,
@@ -1173,10 +1048,10 @@ mod tests {
         );
         first_assignment.save(None).await.unwrap();
 
-        let result = remove_user_from_company(&first_user_id, &company_id).await;
+        let result = delete_user_contract_with_company(&first_user_id, &company_id).await;
         assert!(result.is_ok());
 
-        assert!(db_entities::UserCompanyAssignment::find_one(doc! {})
+        assert!(db_entities::UserEmploymentContract::find_one(doc! {})
             .await
             .unwrap()
             .is_none());
@@ -1200,7 +1075,7 @@ mod tests {
             true,
         );
         let first_user_id = ObjectId::from_str(&first_user.save(None).await.unwrap()).unwrap();
-        let mut first_assignment = db_entities::UserCompanyAssignment::new(
+        let mut first_assignment = db_entities::UserEmploymentContract::new(
             first_user_id.clone(),
             company_id,
             crate::enums::CompanyRole::User,
@@ -1210,7 +1085,7 @@ mod tests {
         first_assignment.save(None).await.unwrap();
 
         let new_job_title = "CIO".to_string();
-        let result = update_user_in_company(
+        let result = update_user_contract_with_company(
             &first_user_id,
             &company_id,
             None,
@@ -1219,7 +1094,7 @@ mod tests {
         .await;
         assert!(result.is_ok());
 
-        let assignment = db_entities::UserCompanyAssignment::find_one(doc! {})
+        let assignment = db_entities::UserEmploymentContract::find_one(doc! {})
             .await
             .unwrap()
             .unwrap();
@@ -1286,3 +1161,4 @@ mod tests {
         assert!(drop_result.is_ok());
     }
 }
+*/

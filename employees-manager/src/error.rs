@@ -149,9 +149,9 @@ impl From<DatabaseError> for ServiceAppError {
             DatabaseError::TransactionClosed => {
                 ServiceAppError::DatabaseError("Transaction already committed".into())
             }
-            DatabaseError::TransactionError => {
-                ServiceAppError::DatabaseError("Transaction operation encountered an error".into())
-            }
+            DatabaseError::TransactionError(message) => ServiceAppError::DatabaseError(format!(
+                "Transaction operation encountered an error. {message}"
+            )),
             DatabaseError::DocumentHasAlreadyAnId => ServiceAppError::DatabaseError(
                 "Document cannot be inserted in database because it has already an id".into(),
             ),
@@ -192,6 +192,7 @@ impl From<object_store::Error> for ServiceAppError {
 /// They are translated to `AppError` when exposed to the client
 #[derive(Debug)]
 pub enum AuthError {
+    InternalServerError(String),
     WrongCredentials,
     MissingCredentials,
     TokenCreation,
@@ -202,6 +203,10 @@ pub enum AuthError {
 impl AuthError {
     fn to_status_message(&self) -> (StatusCode, String) {
         let (status, message) = match self {
+            AuthError::InternalServerError(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".into(),
+            ),
             AuthError::WrongCredentials => (StatusCode::UNAUTHORIZED, "Wrong credentials".into()),
             AuthError::InvalidApiKey => (StatusCode::UNAUTHORIZED, "Wrong credentials".into()),
 
@@ -224,6 +229,7 @@ impl Display for AuthError {
             f,
             "{}",
             match self {
+                AuthError::InternalServerError(_) => "Internal Server Error",
                 AuthError::WrongCredentials => "WrongCredentials",
                 AuthError::MissingCredentials => "MissingCredentials",
                 AuthError::TokenCreation => "TokenCreation",
@@ -241,7 +247,7 @@ pub enum DatabaseError {
     /// When an operation over a transaction is executed but the transaction is already committed
     TransactionClosed,
     /// When an operation over a transaction fails
-    TransactionError,
+    TransactionError(String),
     DocumentHasAlreadyAnId,
     InvalidObjectId,
 }

@@ -1,320 +1,375 @@
 use bson::doc;
-use serde::{Deserialize, Serialize};
 
-use crate::{enums::CompanyRole, error::ServiceAppError, model::db_entities, DocumentId};
+use crate::{
+    enums::{CompanyRole, CorporateGroupRole},
+    error::ServiceAppError,
+    model::db_entities,
+    service::db::document::SmartDocumentReference,
+    DocumentId,
+};
 
-use super::db::DatabaseDocument;
+use super::db::document::DatabaseDocument;
 
-/// Returns the list of companies the user can use to create a new Corporate Group
-///
-/// Companies are eligible if they do not belong to any other corporate group and if
-/// the user has Admin or Owner role for the Company.
-pub async fn get_eligible_companies_for_corporate_group(
-    user_id: &DocumentId,
-) -> Result<Vec<db_entities::Company>, ServiceAppError> {
-    #[derive(Serialize, Deserialize, Debug)]
-    struct CompaniesQueryResult {
-        company_id: DocumentId,
+pub struct CorporateGroupService {
+    corporate_group_id: SmartDocumentReference<db_entities::CorporateGroup>,
+}
+
+impl CorporateGroupService {
+    pub fn new(
+        corporate_group_id: SmartDocumentReference<db_entities::CorporateGroup>,
+    ) -> CorporateGroupService {
+        CorporateGroupService { corporate_group_id }
     }
-    // First retrieve the companies for which the user is Admin or Owner
-    // because they are ones that he can add in the group
-    let user_companies =
-        db_entities::UserCompanyAssignment::find_many_projection::<CompaniesQueryResult>(
-            doc! {
-                "user_id": user_id,
-                "role": {"$in": [CompanyRole::Admin, CompanyRole::Owner]},
-            },
-            doc! {"company_id": 1},
+
+    /// Creates a new corporate group verifying that its name is unique
+    ///
+    /// This function can be invoked either by a user from the web app or by
+    /// a platform admin from the admin panel.
+    ///
+    /// For the first case, user_id is Some and a role is created for the user
+    /// so that he can operate on the corporate group.
+    ///
+    /// For the second case, the admin will assign the admin role for the created
+    /// corporate group to a user
+    pub async fn create_corporate_group(
+        user_id: Option<SmartDocumentReference<db_entities::User>>,
+        name: String,
+    ) -> Result<(), ServiceAppError> {
+        // check if a corporate group with the same name already exists
+        let corporate_groups =
+            db_entities::CorporateGroup::count_documents(doc! {"name": &name}).await?;
+        if corporate_groups != 0 {
+            Err(ServiceAppError::InvalidRequest(format!(
+                "Corporate Group with name {name} already exists."
+            )))
+        } else {
+            let mut new_doc = db_entities::CorporateGroup::new(name, true, Vec::new());
+            new_doc.save().await?;
+            if let Some(user_id) = user_id {
+                let mut doc = db_entities::UserCorporateGroupRole::new(
+                    user_id.to_id(),
+                    *new_doc
+                        .get_id()
+                        .expect("Doc Id must be present after creating the document"),
+                    CorporateGroupRole::Owner,
+                );
+                doc.save().await?;
+            }
+            Ok(())
+        }
+    }
+
+    /// Deletes corporate group and all its related content
+    ///
+    /// This is a destructive operation that remove from database any entity
+    /// which is related to the corporate group
+    pub async fn delete(&self) -> Result<(), ServiceAppError> {
+        let corporate_group = self.corporate_group_id.clone().to_document().await?;
+        let corporate_group_id = self.corporate_group_id.as_ref_id();
+
+        // We delete any user assignment to the corporate group
+        db_entities::UserCorporateGroupRole::delete_many(
+            doc! {"corporate_group_id": corporate_group_id},
         )
         .await?;
 
-    // Then retrieve the companies that are already in a Corporate Group
-    // because they need to be discarded
-    let pipeline = vec![
-        doc! {
-            "$unwind": "$company_ids"
-        },
-        doc! {
-            "$group": {
-                "_id": null,
-                "all_company_ids": { "$addToSet": "$company_ids" }
-            }
-        },
-        doc! {
-            "$project": {
-                "_id": 0,
-                "all_company_ids": 1
-            }
-        },
-        doc! {"$unwind": "$all_company_ids"},
-    ];
-    // TODO: flat map can lead to silent failure if the extraction to object id returns Err.
-    // However, since the object id is retrieved from the database, the extraction should always go well
-    let company_ids_in_group: Vec<DocumentId> = db_entities::CorporateGroup::aggregate(pipeline)
-        .await?
-        .into_iter()
-        .flat_map(|elem| elem.get_object_id("all_company_ids").clone())
-        .collect();
+        // We delete any company in the corporate group
+        for company_id in corporate_group.company_ids() {
+            //company::delete_company(SmartDocumentReference::Id(*company_id)).await?;
+            todo!()
+        }
 
-    let eligible_company_ids: Vec<DocumentId> = user_companies
-        .into_iter()
-        .map(|elem| elem.company_id)
-        .filter(|elem| !company_ids_in_group.contains(elem))
-        .collect();
+        // We delete any project activity in the corporate group
+        db_entities::ProjectActivity::delete_many(doc! {"corporate_group_id": corporate_group_id})
+            .await?;
 
-    let eligible_companies = db_entities::Company::find_many(
-        doc! {"_id": {"$in": eligible_company_ids}, "active": true},
-    )
-    .await?;
-    Ok(eligible_companies)
-}
-
-/// Creates a new corporate group
-///
-/// It returns ServiceAppError::InvalidRequest:
-///     - if a corporate group with the same name already exists
-///     - if a Company already belongs to another group
-///     - if company vector is empty
-///     - if a company in the list has not this user as owner or admin
-///
-/// The user that creates the corporate group becomes the owner
-pub async fn create_corporate_group(
-    user_id: &DocumentId,
-    name: String,
-    company_ids: Vec<DocumentId>,
-) -> Result<(), ServiceAppError> {
-    if company_ids.is_empty() {
-        Err(ServiceAppError::InvalidRequest(
-            "You cannot create a Corporate Group without companies.".to_string()
-        ))
-    } else if db_entities::CorporateGroup::count_documents(doc! { "name": &name }).await? > 0 {
-        Err(ServiceAppError::InvalidRequest(format!(
-            "Corporate Group with name {name} already exist."
-        )))
-    } else if db_entities::CorporateGroup::count_documents(
-        doc! { "company_ids": {"$in": &company_ids} },
-    )
-    .await?
-        > 0
-    {
-        Err(ServiceAppError::InvalidRequest(
-            "Companies cannot belong to more than one Corporate Group".to_string()
-        ))
-    } else if db_entities::UserCompanyAssignment::count_documents(
-        doc! { "user_id": user_id, "company_id": {"$in": &company_ids}, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
-    ).await? != company_ids.len() as u64 {
-        Err(ServiceAppError::InvalidRequest("User must have at least admin role to add a company in the corporate group.".to_string()))
-    } else {
-        let mut new_doc = db_entities::CorporateGroup::new(name, company_ids, *user_id);
-        new_doc.save(None).await?;
         Ok(())
     }
-}
 
-/// Deletes corporate group if the user has permissions to do it
-pub async fn delete_corporate_group(
-    user_id: &DocumentId,
-    corporate_group_id: &DocumentId,
-) -> Result<(), ServiceAppError> {
-    let corporate_group_list = get_corporate_groups_for_user(user_id)
-        .await?
-        .into_iter()
-        .filter(|doc| {
-            doc.get_id()
-                .is_some_and(|doc_id| doc_id == corporate_group_id)
-        })
-        .collect::<Vec<db_entities::CorporateGroup>>();
-
-    if let Some(corporate_group) = corporate_group_list.first() {
-        corporate_group.delete(None).await
-    } else {
-        Err(ServiceAppError::EntityDoesNotExist(format!(
-            "Corporate group with id {corporate_group_id} does not exist."
-        )))
-    }
-}
-
-/// Returns the corporate groups visible by the user.
-/// A user can view a corporate group if it is at least admin of a Company
-/// that is in the group.
-/// A user can see more than one group because it can belong to more companies that are in different groups
-pub async fn get_corporate_groups_for_user(
-    user_id: &DocumentId,
-) -> Result<Vec<db_entities::CorporateGroup>, ServiceAppError> {
-    #[derive(Serialize, Deserialize, Debug, Clone)]
-    struct QueryResult {
-        company_id: DocumentId,
-    }
-
-    let user_companies = db_entities::UserCompanyAssignment::find_many_projection::<QueryResult>(
-        doc! {"user_id": user_id, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
-        doc! {"company_id": 1},
-    )
-    .await?
-    .into_iter()
-    .map(|elem| elem.company_id)
-    .collect::<Vec<DocumentId>>();
-
-    db_entities::CorporateGroup::find_many(doc! {"company_ids": {"$in": user_companies}}).await
-}
-
-/// Returns the corporate group that contains the company.
-/// It is None when the Company does not belong to any group.
-pub async fn get_corporate_group_for_company(
-    company_id: &DocumentId,
-) -> Result<Option<db_entities::CorporateGroup>, ServiceAppError> {
-    db_entities::CorporateGroup::find_one(doc! {"company_ids": company_id}).await
-}
-
-/// Edit corporate group by changing the name or the company list
-///
-/// It returns ServiceAppError::InvalidRequest:
-///     - if a corporate group with the same name already exists
-///     - if a Company already belongs to another group
-///     - if company vector is empty
-pub async fn edit_corporate_group(
-    user_id: &DocumentId,
-    group_id: &DocumentId,
-    name: String,
-    company_ids: Vec<DocumentId>,
-) -> Result<(), ServiceAppError> {
-    if company_ids.is_empty() {
-        Err(ServiceAppError::InvalidRequest(
-            "You cannot have a Corporate Group without companies.".to_string()
-        ))
-    } else if db_entities::CorporateGroup::count_documents(
-        doc! { "name": &name, "_id": {"$ne": group_id}},
-    )
-    .await?
-        > 0
-    {
-        Err(ServiceAppError::InvalidRequest(format!(
-            "Corporate Group with name {name} already exist."
-        )))
-    } else if db_entities::CorporateGroup::count_documents(
-        doc! { "company_ids": {"$in": &company_ids}, "_id": {"$ne": group_id}},
-    )
-    .await?
-        > 0
-    {
-        Err(ServiceAppError::InvalidRequest(
-            "Companies cannot belong to more than one Corporate Group".to_string()))
-    } else if db_entities::UserCompanyAssignment::count_documents(
-        doc! { "user_id": user_id, "company_id": {"$in": &company_ids}, "role": {"$in": [CompanyRole::Owner, CompanyRole::Admin]}},
-    ).await? != company_ids.len() as u64 {
-        Err(ServiceAppError::InvalidRequest("User must have at least admin role to add a company in the corporate group.".to_string()))
-    } else {
-        db_entities::CorporateGroup::update_one(
-            doc! {"_id": group_id},
-            doc! {"$set": {"name": name, "company_ids": company_ids}},
-            None,
-        )
-        .await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use bson::oid::ObjectId;
-
-    use crate::{
-        enums::CompanyRole,
-        model::db_entities,
-        service::{
-            corporate_group::{create_corporate_group, get_eligible_companies_for_corporate_group},
-            db::{get_database_service, DatabaseDocument},
-        },
-    };
-
-    #[tokio::test]
-    async fn test_create_corporate_group() {
-        let companies: Vec<ObjectId> = (0..5).map(|_| ObjectId::new()).collect();
-        let user = ObjectId::new();
-        let mut first_group =
-            db_entities::CorporateGroup::new("First group".into(), companies[0..3].to_vec(), user);
-
-        for (index, company_id) in companies.iter().enumerate() {
-            let mut assignment = db_entities::UserCompanyAssignment::new(
-                user,
-                company_id.clone(),
-                if index == 3 {
-                    CompanyRole::User
-                } else {
-                    CompanyRole::Admin
-                },
-                "job_title".into(),
-                vec![],
-            );
-            assignment.save(None).await.unwrap();
+    /// Edit corporate group by changing the name or the company list
+    ///
+    /// It returns ServiceAppError::InvalidRequest:
+    ///     - if a corporate group with the same name already exists
+    ///     - if a Company already belongs to another group
+    ///     - if company vector is empty
+    pub async fn update(
+        &self,
+        name: Option<String>,
+        company_ids: Option<Vec<SmartDocumentReference<db_entities::Company>>>,
+    ) -> Result<(), ServiceAppError> {
+        let group_id = self.corporate_group_id.as_ref_id();
+        // Update name
+        let mut update_query = doc! {};
+        if let Some(name) = name {
+            if db_entities::CorporateGroup::count_documents(
+                doc! { "name": &name, "_id": {"$ne": group_id}},
+            )
+            .await?
+                > 0
+            {
+                return Err(ServiceAppError::InvalidRequest(format!(
+                    "Corporate Group with name {name} already exist."
+                )));
+            } else {
+                update_query.insert("name", name);
+            }
         }
 
-        first_group.save(None).await.unwrap();
-        let result = create_corporate_group(&user, "New group".into(), companies.clone()).await;
-
-        assert!(
-            result.is_err(),
-            "expecting an error because there is already a group with companies"
-        );
-
-        let result =
-            create_corporate_group(&user, "New group".into(), companies[3..5].to_vec()).await;
-        assert!(
-            result.is_err(),
-            "expecting an error because the user is not admin of a company"
-        );
-
-        let result =
-            create_corporate_group(&user, "New group".into(), companies[4..5].to_vec()).await;
-        assert!(
-            result.is_ok(),
-            "expecting correct creation of the corporate group"
-        );
-
-        let drop_result = get_database_service().await.db.drop().await;
-        assert!(drop_result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_get_eligible_companies_for_corporate_group() {
-        let mut companies: Vec<ObjectId> = vec![];
-        for i in 0..5 {
-            let mut company = db_entities::Company::new(format!("company {i}"), true);
-            company.save(None).await.unwrap();
-            company.reload().await.unwrap();
-            companies.push(company.get_id().unwrap().clone());
+        if let Some(company_ids) = company_ids {
+            if company_ids.len() == 0 {
+                return Err(ServiceAppError::InvalidRequest(
+                    "Company ids vector must contain values.".into(),
+                ));
+            } else {
+                let company_ids: Vec<DocumentId> =
+                    company_ids.into_iter().map(|elem| elem.to_id()).collect();
+                update_query.insert("company_ids", company_ids);
+            }
         }
 
-        let user = ObjectId::new();
-        let mut first_group =
-            db_entities::CorporateGroup::new("First group".into(), companies[0..3].to_vec(), user);
-        first_group.save(None).await.unwrap();
-
-        for (index, company_id) in companies.iter().enumerate() {
-            let mut assignment = db_entities::UserCompanyAssignment::new(
-                user,
-                company_id.clone(),
-                if index == 3 {
-                    CompanyRole::User
-                } else {
-                    CompanyRole::Admin
-                },
-                "job_title".into(),
-                vec![],
-            );
-            assignment.save(None).await.unwrap();
-        }
-
-        let eligible_companies = get_eligible_companies_for_corporate_group(&user)
+        if update_query.is_empty() {
+            Err(ServiceAppError::InvalidRequest(
+                "At least corporate group name or company list must be specified".into(),
+            ))
+        } else {
+            db_entities::CorporateGroup::update_one(
+                doc! {"_id": group_id},
+                doc! {"$set": update_query},
+            )
             .await
-            .unwrap();
+        }
+    }
 
-        assert_eq!(eligible_companies.len(), 1);
-        assert_eq!(
-            eligible_companies[0].get_id().unwrap(),
-            companies.last().unwrap()
-        );
+    /// If the user is not already in the corporate group it
+    /// creates a new entry for the User Corporate Group role
+    /// Then, for each company inside the corporate group it
+    /// creates a User Company Role.
+    ///
+    /// The role cannot be owner but only Admin or User.
+    ///
+    /// Finally, it creates a new contract for the employee with one
+    /// of the companies that belong to the corporate group
+    pub async fn add_user(
+        &self,
+        user_id: SmartDocumentReference<db_entities::User>,
+        role: CorporateGroupRole,
+        company_id: Option<SmartDocumentReference<db_entities::Company>>,
+        job_title: Option<String>,
+    ) -> Result<(), ServiceAppError> {
+        // If the role is Owner then we return directly Err
+        if role == CorporateGroupRole::Owner {
+            return Err(ServiceAppError::InvalidRequest(
+                "Cannot assign role Owner to the user in the corporate group".into(),
+            ));
+        }
 
-        let drop_result = get_database_service().await.db.drop().await;
-        assert!(drop_result.is_ok());
+        // First we check if the user is already in the corporate group, if not we add it
+        // We add a user to the corporate group via adding a role
+        if db_entities::UserCorporateGroupRole::count_documents(
+        doc! {"user_id": user_id.as_ref_id(), "corporate_group_id": self.corporate_group_id.as_ref_id()},
+        )
+        .await?
+            > 0
+        {
+            Err(ServiceAppError::InvalidRequest(format!(
+                "User with id {user_id} is already inside the corporate group with id {}",
+                self.corporate_group_id.as_ref_id()
+            )))
+        } else {
+            // now we check if the company belongs to the corporate group,
+            // if not we return Err
+            if company_id.is_some() && job_title.is_some() {
+                let company_id = company_id.unwrap();
+                let job_title = job_title.unwrap();
+
+                let corporate_group_doc = self.corporate_group_id.clone().to_document().await?;
+                if !corporate_group_doc
+                    .company_ids()
+                    .contains(company_id.as_ref_id())
+                {
+                    return Err(ServiceAppError::InvalidRequest(format!(
+                        "Company with id {} is not in the corporate group with id {}",
+                        company_id.as_ref_id(),
+                        self.corporate_group_id.as_ref_id()
+                    )));
+                }
+
+                let mut contract = db_entities::UserEmploymentContract::new(
+                    *user_id.as_ref_id(),
+                    *company_id.as_ref_id(),
+                    job_title,
+                );
+                contract.save().await?;
+            }
+
+            let mut doc = db_entities::UserCorporateGroupRole::new(
+                user_id.as_ref_id().clone(),
+                self.corporate_group_id.as_ref_id().clone(),
+                role,
+            );
+            doc.save().await?;
+
+            for company_id in self.corporate_group_id.clone()
+                .to_document()
+                .await
+                .expect("Expecting corporate group after access control step.")
+                .company_ids()
+            {
+                // TODO: define the default role for users in the companies. It can be Viewer
+                let mut doc = db_entities::UserCompanyRole::new(
+                    user_id.as_ref_id().clone(),
+                    company_id.clone(),
+                    CompanyRole::User,
+                );
+                doc.save().await?;
+            }
+
+            Ok(())
+        }
+    }
+
+    /// If the user is inside the corporate group, it removes him from it by
+    /// deleting his associated the corporate group and company roles
+    pub async fn remove_user(
+        &self,
+        user_id: SmartDocumentReference<db_entities::User>,
+    ) -> Result<(), ServiceAppError> {
+        if let Some(cg_role_doc) = db_entities::UserCorporateGroupRole::find_one(
+        doc! {"user_id": user_id.as_ref_id(), "corporate_group_id": self.corporate_group_id.as_ref_id()},
+        )
+        .await?
+        {
+            cg_role_doc.delete().await?;
+
+            let corporate_group = self.corporate_group_id.clone()
+                .to_document()
+                .await
+                .expect("Expecting corporate group after access control step.");
+
+            for company_id in corporate_group.company_ids() {
+                if let Some(company_role_doc) = db_entities::UserCompanyRole::find_one(
+                    doc! { "user_id": user_id.as_ref_id(), "company_id": company_id },
+                )
+                .await?
+                {
+                    company_role_doc.delete().await?;
+                }
+            }
+
+            // if exists delete the employment contract
+            if let Some(contract_doc) = db_entities::UserEmploymentContract::find_one(
+                doc! {"user_id": user_id.as_ref_id(), "company_id": {"$in": corporate_group.company_ids()}},
+            )
+            .await?
+            {
+                contract_doc.delete().await?;
+            }
+
+
+            Ok(())
+        } else {
+            Err(ServiceAppError::InvalidRequest(format!(
+                "User with id {user_id} is already inside the corporate group with id {}",
+                self.corporate_group_id.as_ref_id()
+            )))
+        }
+    }
+
+    /// We update only fields that are Some
+    ///
+    /// If role is some than we update UserCorporateGroupRole document
+    /// If company_id and job_title are Some then we update the contract
+    pub async fn update_user(
+        &self,
+        user_id: SmartDocumentReference<db_entities::User>,
+        role: Option<CorporateGroupRole>,
+        company_id: Option<SmartDocumentReference<db_entities::Company>>,
+        job_title: Option<String>,
+    ) -> Result<(), ServiceAppError> {
+        if db_entities::UserCorporateGroupRole::count_documents(
+        doc! {"user_id": user_id.as_ref_id(), "corporate_group_id": self.corporate_group_id.as_ref_id()},
+        )
+        .await?
+            > 0
+        {
+            Err(ServiceAppError::InvalidRequest(format!(
+                "User with id {user_id} is already inside the corporate group with id {}",
+                self.corporate_group_id.as_ref_id()
+            )))
+        } else {
+            // Update the corporate group role if present
+            if let Some(role) = role {
+                db_entities::UserCorporateGroupRole::update_one(
+                    doc! { "user_id": user_id.as_ref_id(), "corporate_group_id": self.corporate_group_id.as_ref_id() },
+                    doc! { "role": role },
+                ).await?;
+            }
+
+            // if company id and job title are present, update company contract
+            if company_id.is_some() && job_title.is_some() {
+                let company_id = company_id.unwrap();
+                let job_title = job_title.unwrap();
+
+                // now we check if the company belongs to the corporate group,
+                // if not we return Err
+                let corporate_group_doc = self.corporate_group_id.clone().to_document().await?;
+                if !corporate_group_doc
+                    .company_ids()
+                    .contains(company_id.as_ref_id())
+                {
+                    return Err(ServiceAppError::InvalidRequest(format!(
+                        "Company with id {} is not in the corporate group with id {}",
+                        company_id.as_ref_id(),
+                        self.corporate_group_id.as_ref_id()
+                    )));
+                }
+
+                db_entities::UserEmploymentContract::update_one(
+                    doc! { "user_id": user_id.as_ref_id(), "company_id": company_id.as_ref_id() },
+                    doc! { "job_title": job_title, "company_id": company_id.to_id() },
+                )
+                .await?;
+            }
+
+            Ok(())
+        }
+    }
+
+    // Activate the corporate group and all the companies in it
+    pub async fn activate(&self) -> Result<(), ServiceAppError> {
+        db_entities::CorporateGroup::update_one(
+            doc! {"_id": self.corporate_group_id.as_ref_id()},
+            doc! {"$set": {"active": true}},
+        )
+        .await?;
+
+        let corporate_group = self.corporate_group_id.clone().to_document().await?;
+
+        db_entities::Company::update_many(
+            doc! {"_id": corporate_group.company_ids()},
+            doc! { "$set": {"active": true}},
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    // Deactivate the corporate group and all the companies in it
+    pub async fn deactivate(&self) -> Result<(), ServiceAppError> {
+        db_entities::CorporateGroup::update_one(
+            doc! {"_id": self.corporate_group_id.as_ref_id()},
+            doc! {"$set": {"active": false}},
+        )
+        .await?;
+
+        let corporate_group = self.corporate_group_id.clone().to_document().await?;
+
+        db_entities::Company::update_many(
+            doc! {"_id": corporate_group.company_ids()},
+            doc! { "$set": {"active": false}},
+        )
+        .await?;
+
+        Ok(())
     }
 }

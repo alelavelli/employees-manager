@@ -1,13 +1,22 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  QueryList,
+  ViewChild,
+  ViewChildren,
+  ViewEncapsulation,
+} from '@angular/core';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ApiService } from '../../../service/api.service';
 import {
+  AdminCorporateGroupInfo,
   AdminPanelOverview,
   AdminPanelUserInfo,
+  CreateCorporateGroupParameters,
   CreateUserParameters,
 } from '../../../types/model';
-import { forkJoin } from 'rxjs';
+import { forkJoin, map, Observable, of, startWith } from 'rxjs';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSort, MatSortModule } from '@angular/material/sort';
@@ -20,12 +29,15 @@ import {
   MatButtonToggleModule,
 } from '@angular/material/button-toggle';
 import {
+  AbstractControl,
   AbstractControlOptions,
   FormBuilder,
   FormControl,
   FormGroup,
   FormsModule,
   ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
   Validators,
 } from '@angular/forms';
 import { MatMenuModule } from '@angular/material/menu';
@@ -33,6 +45,9 @@ import { ToastrService } from 'ngx-toastr';
 import { NewUserDialogComponent } from './new-user-modal/new-user-modal';
 import { ConfirmDialogComponent } from '../../../components/confirm-modal/confirm-modal';
 import { MatButtonModule } from '@angular/material/button';
+import { NewCorporateGroupDialogComponent } from './new-corporate-group-modal/new-corporate-group-modal';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatOptionModule } from '@angular/material/core';
 
 @Component({
   selector: 'admin-page',
@@ -53,6 +68,8 @@ import { MatButtonModule } from '@angular/material/button';
     MatMenuModule,
     MatButtonModule,
     FormsModule,
+    MatAutocompleteModule,
+    MatOptionModule,
   ],
   encapsulation: ViewEncapsulation.None,
 })
@@ -102,8 +119,26 @@ export class AdminPageComponent implements OnInit {
     { respected: false, message: 'passwords must match' },
   ];
 
-  @ViewChild(MatSort, { static: false }) sort!: MatSort;
-  @ViewChild(MatPaginator, { static: false }) paginator!: MatPaginator;
+  corporateGroups: AdminCorporateGroupInfo[] = [];
+  corporateGroupsTableDataSource: MatTableDataSource<AdminCorporateGroupInfo> =
+    new MatTableDataSource<AdminCorporateGroupInfo>([]);
+  readonly corporateGroupsFilterForm: FormGroup;
+  displayedCorporateGroupInfoColumns: string[] = [
+    'id',
+    'name',
+    'active',
+    'owner',
+    'actionMenu',
+  ];
+
+  setCorporateGroupOwnerFormFilteredUsers: Observable<AdminPanelUserInfo[]>;
+  setCorporateGroupOwnerFormCurrentUser: string | null = null;
+  setCorporateGroupOwnerForm: FormGroup = this.formBuilder.group({
+    username: ['', Validators.required, this.validUserValidator()],
+  });
+
+  @ViewChildren(MatSort) sort = new QueryList<MatSort>();
+  @ViewChildren(MatPaginator) paginator = new QueryList<MatPaginator>();
 
   constructor(
     private apiService: ApiService,
@@ -142,6 +177,27 @@ export class AdminPageComponent implements OnInit {
         password.match(/[^a-zA-Z0-9]/) !== null;
       this.passwordConstraints[5].respected = password === form.confirmPassword;
     });
+
+    this.corporateGroupsFilterForm = formBuilder.group({
+      valueString: '',
+      activeCorporateGroup: null,
+    });
+    this.corporateGroupsFilterForm.valueChanges.subscribe((value) => {
+      const filter = {
+        ...value,
+        valueString: value.valueString.trim().toLowerCase(),
+        activeCorporateGroup:
+          value.activeCorporateGroup === null ||
+          value.activeCorporateGroup.length === 0
+            ? null
+            : value.activeCorporateGroup[
+                value.activeCorporateGroup.length - 1
+              ] === 'true',
+      } as string;
+      this.corporateGroupsTableDataSource.filter = filter;
+    });
+
+    this.setCorporateGroupOwnerFormFilteredUsers = of([]);
   }
 
   ngOnInit(): void {
@@ -157,6 +213,15 @@ export class AdminPageComponent implements OnInit {
     } else {
       formGroup.get('confirmPassword')!.setErrors(null);
     }
+  }
+
+  validUserValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const valid =
+        this.users.filter((elem) => elem.username === control.value).length ==
+        1;
+      return of(valid ? null : { userDoesNotExist: { value: control.value } });
+    };
   }
 
   setUserPassword(user: AdminPanelUserInfo) {
@@ -180,6 +245,35 @@ export class AdminPageComponent implements OnInit {
       });
   }
 
+  setCorporateGroupOwner(corporateGroup: AdminCorporateGroupInfo) {
+    const user = this.users.filter(
+      (elem) =>
+        elem.username === this.setCorporateGroupOwnerForm.value['username']
+    )[0]!;
+
+    this.apiService
+      .setCorporateGroupOwner(corporateGroup.id, user.id)
+      .subscribe({
+        next: () => {
+          this.toastr.success(
+            'User with id ' +
+              user.id +
+              ' is now corporate group owner of corporate group with id ' +
+              corporateGroup.id,
+            'Update success',
+            {
+              timeOut: 5000,
+              progressBar: true,
+            }
+          );
+          this.clearSetUserPasswordForm();
+        },
+        error: () => {
+          this.clearSetUserPasswordForm();
+        },
+      });
+  }
+
   clearSetUserPasswordForm() {
     this.setUserPasswordForm.reset();
     for (let obj of this.passwordConstraints) {
@@ -189,15 +283,21 @@ export class AdminPageComponent implements OnInit {
 
   loadData() {
     this.loading = true;
+    var sortIndex = 0;
 
     forkJoin({
       overview: this.apiService.getAdminPanelOverview(),
       users: this.apiService.getAdminUsersInfo(),
+      corporateGroups: this.apiService.getAdminCorporateGroupsInfo(),
     }).subscribe({
       next: (response) => {
         this.overview = response.overview;
         this.users = response.users;
         this.usersTableDataSource = new MatTableDataSource(this.users);
+        this.corporateGroups = response.corporateGroups;
+        this.corporateGroupsTableDataSource = new MatTableDataSource(
+          this.corporateGroups
+        );
         setTimeout(() => {
           this.usersTableDataSource.filterPredicate = (data, filter: any) => {
             const activeUserFilter =
@@ -240,22 +340,84 @@ export class AdminPageComponent implements OnInit {
                 surnameFilter)
             );
           };
-          this.usersTableDataSource.sort = this.sort;
-          this.usersTableDataSource.paginator = this.paginator;
+          this.usersTableDataSource.sort = this.sort.toArray()[sortIndex];
+          this.usersTableDataSource.paginator =
+            this.paginator.toArray()[sortIndex];
+          sortIndex += 1;
+
+          this.corporateGroupsTableDataSource.filterPredicate = (
+            data,
+            filter: any
+          ) => {
+            const activeUserFilter =
+              filter.activeCorporateGroup === null
+                ? true
+                : data.active === filter.activeCorporateGroup;
+
+            const idFilter = data.id
+              .toLocaleLowerCase()
+              .includes(filter.valueString);
+
+            const nameFilter = data.name
+              .toLocaleLowerCase()
+              .trim()
+              .includes(filter.valueString);
+
+            return activeUserFilter && nameFilter;
+          };
+          this.corporateGroupsTableDataSource.sort =
+            this.sort.toArray()[sortIndex];
+          this.corporateGroupsTableDataSource.paginator =
+            this.paginator.toArray()[sortIndex];
+          sortIndex += 1;
         });
+
+        this.setCorporateGroupOwnerFormFilteredUsers =
+          this.setCorporateGroupOwnerForm.valueChanges.pipe(
+            startWith(''),
+            map((value: { username: string }) => {
+              const username =
+                typeof value.username === 'string'
+                  ? value.username
+                  : value.username!;
+              return username
+                ? this._filterCorporateGroupOwner(username as string)
+                : this.users.slice();
+            })
+          );
+
         this.loading = false;
       },
       error: () => {
         this.overview = null;
         this.users = [];
+        this.corporateGroups = [];
         this.usersTableDataSource = new MatTableDataSource(this.users);
+        this.corporateGroupsTableDataSource = new MatTableDataSource(
+          this.corporateGroups
+        );
         setTimeout(() => {
-          this.usersTableDataSource.sort = this.sort;
-          this.usersTableDataSource.paginator = this.paginator;
+          this.usersTableDataSource.sort = this.sort.toArray()[sortIndex];
+          this.usersTableDataSource.paginator =
+            this.paginator.toArray()[sortIndex];
+          sortIndex += 1;
+          this.corporateGroupsTableDataSource.sort =
+            this.sort.toArray()[sortIndex];
+          this.corporateGroupsTableDataSource.paginator =
+            this.paginator.toArray()[sortIndex];
+          sortIndex += 1;
         });
         this.loading = false;
       },
     });
+  }
+
+  private _filterCorporateGroupOwner(username: string): AdminPanelUserInfo[] {
+    const filterValue = username.toLowerCase();
+
+    return this.users.filter((option) =>
+      option.username.toLowerCase().includes(filterValue)
+    );
   }
 
   onActiveUserFilterChange(event: MatButtonToggleChange) {
@@ -396,6 +558,107 @@ export class AdminPageComponent implements OnInit {
                   }
                 );
               },
+            });
+          }
+        },
+      });
+  }
+
+  openCreateCorporateGroupDialog() {
+    this.dialog
+      .open(NewCorporateGroupDialogComponent, {
+        width: '40rem',
+        data: {},
+      })
+      .afterClosed()
+      .subscribe({
+        next: (
+          newCorporateGroup: CreateCorporateGroupParameters | undefined
+        ) => {
+          if (newCorporateGroup !== undefined) {
+            this.apiService.createCorporateGroup(newCorporateGroup).subscribe({
+              next: () => {
+                this.loadData();
+                this.toastr.success('New corporate group created', 'Sent', {
+                  timeOut: 5000,
+                  progressBar: true,
+                });
+              },
+            });
+          }
+        },
+      });
+  }
+
+  onActiveCorporateGroupFilterChange(event: MatButtonToggleChange) {
+    const toggle = event.source;
+    if (toggle && event.value.some((item: string) => item === toggle.value)) {
+      toggle.buttonToggleGroup.value = [toggle.value];
+    }
+  }
+
+  activateCorporateGroup(element: AdminCorporateGroupInfo) {
+    this.apiService.activateCorporateGroup(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'Corporate Group with id ' + element.id + ' activated',
+          'Activated',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {},
+    });
+  }
+
+  deactivateCorporateGroup(element: any) {
+    this.apiService.deactivateCorporateGroup(element.id).subscribe({
+      next: () => {
+        this.toastr.success(
+          'Corporate Group with id ' + element.id + ' deactivated',
+          'Deactivated',
+          {
+            timeOut: 5000,
+            progressBar: true,
+          }
+        );
+        this.loadData();
+      },
+      error: () => {},
+    });
+  }
+
+  deleteCorporateGroup(element: any) {
+    this.dialog
+      .open(ConfirmDialogComponent, {
+        data: {
+          title: 'Delete corporate',
+          content:
+            'Are you sure you want to delete corporate group with id <b>' +
+            element.id +
+            '</b>?',
+        },
+      })
+      .afterClosed()
+      .subscribe({
+        next: (result) => {
+          if (result) {
+            this.apiService.deleteCorporateGroup(element.id).subscribe({
+              next: () => {
+                this.toastr.success(
+                  'Corporate Group with id ' + element.id + ' deleted',
+                  'Deleted',
+                  {
+                    timeOut: 5000,
+                    progressBar: true,
+                  }
+                );
+                this.loadData();
+              },
+              error: () => {},
             });
           }
         },

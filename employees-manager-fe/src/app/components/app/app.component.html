@@ -2,9 +2,9 @@
   <router-outlet></router-outlet>
 </ng-template>
 
-<splash-layout *ngIf="layoutType === LayoutType.Splash">
+<!-- <splash-layout *ngIf="layoutType === LayoutType.Splash">
   <ng-container *ngTemplateOutlet="pageContent"></ng-container>
-</splash-layout>
+</splash-layout> -->
 <restricted-layout *ngIf="layoutType === LayoutType.Restricted">
   <ng-container *ngTemplateOutlet="pageContent"></ng-container>
 </restricted-layout>

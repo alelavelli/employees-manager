@@ -7,7 +7,10 @@
 use jsonwebtoken::{DecodingKey, EncodingKey};
 use once_cell::sync::Lazy;
 
-use crate::enums::{FrontendMode, ObjectSourceType};
+use crate::{
+    enums::{FrontendMode, ObjectSourceType},
+    EnvironmentServiceTrait,
+};
 
 /// ENVIRONMENT struct containing application variables
 pub static ENVIRONMENT: Lazy<EnvironmentVariables> = Lazy::new(EnvironmentVariables::new);
@@ -26,6 +29,7 @@ pub static ENVIRONMENT: Lazy<EnvironmentVariables> = Lazy::new(EnvironmentVariab
 /// - MONGODB_DB_NAME: name of mongodb database to use as prefix by adding deploy environment
 /// - OBJECT_STORAGE_BACKEND: which type of backend to use as object storage
 /// - OBJECT_STORAGE_PREFIX_PATH: prefix path to store objects. In case of remote object storage it contains also the bucket name
+#[derive(Clone)]
 pub struct EnvironmentVariables {
     logging: LoggingVariables,
     authentication: AuthenticationVariables,
@@ -34,9 +38,51 @@ pub struct EnvironmentVariables {
     frontend: FrontendVariables,
 }
 
+impl EnvironmentServiceTrait for EnvironmentVariables {
+    fn get_database_connection_string(&self) -> &str {
+        &self.database.connection_string
+    }
+
+    fn get_database_db_name(&self) -> &str {
+        &self.database.db_name
+    }
+
+    fn get_authentication_jwt_expiration(&self) -> usize {
+        self.authentication.jwt_expiration
+    }
+
+    fn get_authentication_jwt_encoding(&self) -> &EncodingKey {
+        &self.authentication.jwt_encoding
+    }
+
+    fn get_authentication_jwt_decoding(&self) -> &DecodingKey {
+        &self.authentication.jwt_decoding
+    }
+
+    fn get_logging_include_headers(&self) -> bool {
+        self.logging.include_headers
+    }
+
+    fn get_logging_level(&self) -> tracing::Level {
+        self.logging.level
+    }
+
+    fn get_object_storage_source_type(&self) -> &ObjectSourceType {
+        &self.storage.storage_backend
+    }
+
+    fn get_object_storage_prefix_path(&self) -> &str {
+        &self.storage.prefix_path
+    }
+
+    fn get_frontend_mode(&self) -> &FrontendMode {
+        &self.frontend.frontend_mode
+    }
+}
+
 impl EnvironmentVariables {
     /// Create new instance of this struct by invoking the different builds functions
-    fn new() -> Self {
+    pub fn new() -> Self {
         // during testing use hardcoded custom env variables
 
         let local = if cfg!(test) {
@@ -86,6 +132,7 @@ impl EnvironmentVariables {
             std::env::var("JWT_SECRET").expect("JWT_SECRET must be set")
         };
         AuthenticationVariables {
+            jwt_expiration: 60 * 60 * 24,
             jwt_encoding: EncodingKey::from_secret(secret.as_bytes()),
             jwt_decoding: DecodingKey::from_secret(secret.as_bytes()),
         }
@@ -156,45 +203,10 @@ impl EnvironmentVariables {
             }
         }
     }
-
-    pub fn get_database_connection_string(&self) -> &str {
-        &self.database.connection_string
-    }
-
-    pub fn get_database_db_name(&self) -> &str {
-        &self.database.db_name
-    }
-
-    pub fn get_authentication_jwt_encoding(&self) -> &EncodingKey {
-        &self.authentication.jwt_encoding
-    }
-
-    pub fn authentication_jwt_decoding(&self) -> &DecodingKey {
-        &self.authentication.jwt_decoding
-    }
-
-    pub fn get_logging_include_headers(&self) -> bool {
-        self.logging.include_headers
-    }
-
-    pub fn get_logging_level(&self) -> tracing::Level {
-        self.logging.level
-    }
-
-    pub fn get_object_storage_source_type(&self) -> &ObjectSourceType {
-        &self.storage.storage_backend
-    }
-
-    pub fn get_object_storage_prefix_path(&self) -> &str {
-        &self.storage.prefix_path
-    }
-
-    pub fn get_frontend_mode(&self) -> &FrontendMode {
-        &self.frontend.frontend_mode
-    }
 }
 
 /// Struct containing logging variables like logging level
+#[derive(Debug, Clone)]
 struct LoggingVariables {
     /// application logging level
     level: tracing::Level,
@@ -205,18 +217,22 @@ struct LoggingVariables {
 /// Struct containing variables for authentication
 ///
 /// It contains two keys used to encode and decode jwt tokens for web application
+#[derive(Clone)]
 struct AuthenticationVariables {
+    jwt_expiration: usize,
     jwt_encoding: EncodingKey,
     jwt_decoding: DecodingKey,
 }
 
 /// Struct containing variables for data base like connection string
+#[derive(Debug, Clone)]
 struct DatabaseVariables {
     connection_string: String,
     db_name: String,
 }
 
 /// Variables with information to store objects of the application
+#[derive(Debug, Clone)]
 struct ObjectStorageVariables {
     storage_backend: ObjectSourceType,
     prefix_path: String,
@@ -230,6 +246,7 @@ struct ObjectStorageVariables {
 ///
 /// FrontendMode::Internal contains a string variable that represents
 /// the path of the root folder containing static files
+#[derive(Debug, Clone)]
 struct FrontendVariables {
     frontend_mode: FrontendMode,
 }

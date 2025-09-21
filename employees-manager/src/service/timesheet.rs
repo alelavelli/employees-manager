@@ -11,7 +11,7 @@ use crate::{
 };
 use mongodb::bson::doc;
 
-use super::db::DatabaseDocument;
+use super::db::document::DatabaseDocument;
 
 /// Create or update a timesheet day.
 ///
@@ -268,11 +268,11 @@ mod tests {
 
     use crate::{
         model::{
-            db_entities::{self, Company, CompanyProject, ProjectActivity},
+            db_entities::{self, Company, CompanyProject, ProjectActivity, WorkPackage},
             internal::TimesheetActivityHours,
         },
         service::{
-            db::{get_database_service, DatabaseDocument},
+            db::{document::DatabaseDocument, get_database_service},
             timesheet::{create_day, export_as_excel, get_days},
         },
         DocumentId,
@@ -302,6 +302,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
+                    work_package_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
                     notes: "this is my description".into(),
                     hours: 2,
@@ -309,6 +310,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
+                    work_package_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
                     notes: "this is my second description".into(),
                     hours: 4,
@@ -333,6 +335,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
+                    work_package_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
                     notes: "this is my description".into(),
                     hours: 2,
@@ -340,6 +343,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
+                    work_package_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
                     notes: "this is my second description".into(),
                     hours: 4,
@@ -358,6 +362,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
+                    work_package_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
                     notes: "this is my description".into(),
                     hours: 2,
@@ -365,6 +370,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: DocumentId::new(),
                     project_id: DocumentId::new(),
+                    work_package_id: DocumentId::new(),
                     activity_id: DocumentId::new(),
                     notes: "this is my second description".into(),
                     hours: 4,
@@ -414,6 +420,22 @@ mod tests {
         let second_project_id =
             ObjectId::from_str(&second_project.save(None).await.unwrap()).unwrap();
 
+        let mut first_work_package = WorkPackage::new(
+            first_project_id.clone(),
+            "First work package".into(),
+            String::new(),
+        );
+        let first_work_package_id =
+            ObjectId::from_str(&first_work_package.save(None).await.unwrap()).unwrap();
+
+        let mut second_work_package = WorkPackage::new(
+            second_project_id.clone(),
+            "Second work package".into(),
+            String::new(),
+        );
+        let second_work_package_id =
+            ObjectId::from_str(&second_work_package.save(None).await.unwrap()).unwrap();
+
         let mut activity =
             ProjectActivity::new("Activity".into(), "description".into(), first_company_id);
         let activity_id = ObjectId::from_str(&activity.save(None).await.unwrap()).unwrap();
@@ -440,6 +462,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: first_company_id,
                     project_id: first_project_id,
+                    work_package_id: first_work_package_id,
                     activity_id: activity_id,
                     notes: "this is my description".into(),
                     hours: 2,
@@ -447,6 +470,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: first_company_id,
                     project_id: second_project_id,
+                    work_package_id: second_work_package_id,
                     activity_id: activity_id,
                     notes: "this is my second description".into(),
                     hours: 4,
@@ -471,6 +495,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: second_company_id,
                     project_id: second_project_id,
+                    work_package_id: first_work_package_id,
                     activity_id: activity_id,
                     notes: "this is my description".into(),
                     hours: 2,
@@ -478,6 +503,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: first_company_id,
                     project_id: first_project_id,
+                    work_package_id: first_work_package_id,
                     activity_id: activity_id,
                     notes: "this is my second description".into(),
                     hours: 4,
@@ -496,6 +522,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: first_company_id,
                     project_id: first_project_id,
+                    work_package_id: first_work_package_id,
                     activity_id: activity_id,
                     notes: "this is my description".into(),
                     hours: 2,
@@ -503,6 +530,7 @@ mod tests {
                 TimesheetActivityHours {
                     company_id: second_company_id,
                     project_id: second_project_id,
+                    work_package_id: first_work_package_id,
                     activity_id: activity_id,
                     notes: "this is my second description".into(),
                     hours: 4,

@@ -4,7 +4,7 @@ use crate::{
     auth::AuthInfo,
     dtos::{sdk_request, sdk_response},
     error::{AppError, ServiceAppError},
-    service::{access_control::AccessControl, db::DatabaseDocument, user},
+    service::{access_control::AccessControl, db::document::DatabaseDocument, user},
     DocumentId,
 };
 
